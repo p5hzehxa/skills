@@ -63,6 +63,17 @@ async function scoreSkill(
   skill: GeneratedSkill,
   options: QualityGateOptions,
 ): Promise<QualityResult> {
+  if (skill.type === "summary") {
+    return scoreSummary(skill, options);
+  }
+  return scoreGuide(skill, options);
+}
+
+/** Score a summary file (100 points) */
+async function scoreSummary(
+  skill: GeneratedSkill,
+  options: QualityGateOptions,
+): Promise<QualityResult> {
   const issues: string[] = [];
   let score = 0;
   const content = skill.content;
@@ -92,7 +103,118 @@ async function scoreSkill(
     issues.push("Missing generated/refined marker");
   }
 
-  // 3. WebFetch doc references (20 pts)
+  // 3. When to Use section (15 pts)
+  if (/^## When to Use/m.test(content)) {
+    score += 15;
+  } else {
+    issues.push("Missing 'When to Use' section");
+  }
+
+  // 4. Key Concepts section with content (15 pts)
+  if (/^## Key Concepts/m.test(content)) {
+    const conceptsMatch = content.match(
+      /## Key Concepts\n([\s\S]*?)(?=\n## |$)/,
+    );
+    const conceptsBody = conceptsMatch?.[1]?.trim() ?? "";
+    if (conceptsBody.length > 50) {
+      score += 15;
+    } else {
+      score += 5;
+      issues.push("Key Concepts section has minimal content");
+    }
+  } else {
+    issues.push("Missing 'Key Concepts' section");
+  }
+
+  // 5. Guide pointer (15 pts)
+  if (/Read\s+`?skills\/workos\/.*\.guide\.md`?/.test(content)) {
+    score += 15;
+  } else {
+    issues.push("Missing guide pointer (Read skills/workos/*.guide.md)");
+  }
+
+  // 6. Doc URL references (15 pts)
+  const docUrlCount = (content.match(/https:\/\/workos\.com\/docs\//g) || [])
+    .length;
+  if (docUrlCount >= 1) {
+    score += 15;
+  } else {
+    issues.push("No doc URL references found");
+  }
+
+  // 7. Related Skills section (5 pts)
+  if (/^## Related Skills/m.test(content)) {
+    score += 5;
+  }
+
+  // 8. Size under 3KB (10 pts)
+  if (skill.sizeBytes <= 3072) {
+    score += 10;
+  } else {
+    issues.push(
+      `Summary is ${(skill.sizeBytes / 1024).toFixed(1)}KB — should be under 3KB`,
+    );
+  }
+
+  // --- Semantic check (only in refine mode) ---
+  let semanticCheck: SemanticCheckResult | undefined;
+  let semanticBlocking = false;
+  if (options.refineMode && options.apiKey) {
+    const feedback = loadFeedback(skill.name);
+    if (feedback.corrections.length > 0 || feedback.emphasis.length > 0) {
+      try {
+        semanticCheck = await semanticQualityCheck(content, feedback, {
+          apiKey: options.apiKey,
+          model: options.model,
+        });
+        if (!semanticCheck.pass) {
+          semanticBlocking = true;
+          for (const v of semanticCheck.violations) {
+            issues.push(`SEMANTIC: ${v}`);
+          }
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`  ⚠ Semantic check failed for ${skill.name}: ${msg}`);
+      }
+    }
+  }
+
+  return {
+    skillName: `${skill.name} (summary)`,
+    pass: score >= 70 && !semanticBlocking,
+    score,
+    issues,
+    semanticCheck,
+  };
+}
+
+/** Score a guide file (100 points) */
+async function scoreGuide(
+  skill: GeneratedSkill,
+  options: QualityGateOptions,
+): Promise<QualityResult> {
+  const issues: string[] = [];
+  let score = 0;
+  const content = skill.content;
+
+  // 1. Has marker (10 pts) — guides don't have frontmatter
+  if (
+    /<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->/.test(content)
+  ) {
+    score += 10;
+  } else {
+    issues.push("Missing generated/refined marker");
+  }
+
+  // Bonus: no frontmatter (5 pts) — guides shouldn't have it
+  if (!content.match(/^---\n([\s\S]*?)\n---/)) {
+    score += 5;
+  } else {
+    issues.push("Guide should not have frontmatter");
+  }
+
+  // 2. WebFetch doc references (20 pts)
   const docUrlCount = (content.match(/https:\/\/workos\.com\/docs\//g) || [])
     .length;
   if (docUrlCount >= 3) {
@@ -217,8 +339,9 @@ async function scoreSkill(
     }
   }
 
+  const label = skill.type ? `${skill.name} (${skill.type})` : skill.name;
   return {
-    skillName: skill.name,
+    skillName: label,
     pass: score >= 70 && !semanticBlocking,
     score,
     issues,

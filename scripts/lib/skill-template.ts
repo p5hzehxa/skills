@@ -7,8 +7,8 @@ export function renderFrontmatter(spec: SkillSpec): string {
   return `---\nname: ${spec.name}\ndescription: ${desc}\n---`;
 }
 
-/** Generate the full SKILL.md content from a SkillSpec */
-export function renderSkill(spec: SkillSpec, sourceHash?: string): string {
+/** Generate the summary file content — lightweight overview with guide pointer */
+export function renderSummary(spec: SkillSpec, sourceHash?: string): string {
   const parts: string[] = [];
 
   parts.push(renderFrontmatter(spec));
@@ -22,15 +22,67 @@ export function renderSkill(spec: SkillSpec, sourceHash?: string): string {
   parts.push("");
   parts.push(`# ${spec.title}`);
   parts.push("");
-  parts.push(renderDocFetchSection(spec.docUrls));
   parts.push(renderWhenToUse(spec));
+  parts.push(renderDocumentation(spec.docUrls));
+  parts.push(renderKeyConceptsPlaceholder(spec));
+  parts.push(renderGuidePointer(spec.name));
+  parts.push(renderRelatedSkills(spec));
+
+  return parts.join("\n");
+}
+
+/** Generate the guide file content — full implementation details */
+export function renderGuide(spec: SkillSpec, sourceHash?: string): string {
+  const parts: string[] = [];
+
+  parts.push(
+    sourceHash
+      ? `<!-- generated:sha256:${sourceHash} -->`
+      : "<!-- generated -->",
+  );
+
+  parts.push("");
+  parts.push(`# ${spec.title} — Implementation Guide`);
+  parts.push("");
+  parts.push(renderDocFetchSection(spec.docUrls));
   parts.push(renderPrerequisites(spec));
   parts.push(renderImplementationGuide(spec));
   parts.push(renderVerificationChecklist(spec));
   parts.push(renderErrorRecovery(spec));
-  parts.push(renderRelatedSkills(spec));
 
   return parts.join("\n");
+}
+
+/** Documentation URLs section for summaries */
+export function renderDocumentation(docUrls: string[]): string {
+  if (docUrls.length === 0) return "";
+  const lines = ["## Documentation", ""];
+  const urls = docUrls.slice(0, 5);
+  for (const url of urls) {
+    lines.push(`- ${url}`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+/** Key Concepts placeholder — populated by the refiner */
+export function renderKeyConceptsPlaceholder(spec: SkillSpec): string {
+  return `## Key Concepts
+
+_This section is populated during refinement with structural vocabulary and key concepts from the ${spec.title.replace("WorkOS ", "")} domain._
+
+`;
+}
+
+/** Pointer to the full implementation guide */
+export function renderGuidePointer(skillName: string): string {
+  return `## Implementation Guide
+
+For step-by-step implementation, verification commands, and error recovery:
+
+→ Read \`skills/workos/${skillName}.guide.md\`
+
+`;
 }
 
 /** Step 1: Fetch Documentation section with doc URLs */

@@ -113,28 +113,72 @@ export async function refineSkill(
   const existingMarker = parseMarker(skill.content);
   const sourceHash = skill.sourceHash ?? existingMarker.hash;
 
+  const isSummary = skill.type === "summary";
   const isRouter = skillName === "workos";
   const isApiRef = skillName.startsWith("workos-api-");
-  const prompt = isRouter
-    ? buildRouterRefinePrompt(skillName, frontmatter, body)
-    : isApiRef
-      ? buildApiRefRefinePrompt(skillName, frontmatter, body, docUrls)
-      : buildRefinePrompt(
-          skillName,
-          frontmatter,
-          body,
-          docUrls,
-          options.goldStandard,
-        );
+  const prompt = isSummary
+    ? buildSummaryRefinePrompt(skillName, frontmatter, body)
+    : isRouter
+      ? buildRouterRefinePrompt(skillName, frontmatter, body)
+      : isApiRef
+        ? buildApiRefRefinePrompt(skillName, frontmatter, body, docUrls)
+        : buildRefinePrompt(
+            skillName,
+            frontmatter,
+            body,
+            docUrls,
+            options.goldStandard,
+          );
 
   const refined = await callAnthropic(prompt, options);
-  const content = ensureMarkers(frontmatter, refined, sourceHash);
+  // Guides have no frontmatter — use ensureGuideMarkers for them
+  const content =
+    skill.type === "guide"
+      ? ensureGuideMarkers(refined, sourceHash)
+      : ensureMarkers(frontmatter, refined, sourceHash);
 
   return {
     ...skill,
     content,
     sizeBytes: Buffer.byteLength(content, "utf8"),
   };
+}
+
+/** Build the system + user prompt for summary skill refinement */
+function buildSummaryRefinePrompt(
+  skillName: string,
+  frontmatter: string,
+  body: string,
+): { system: string; user: string } {
+  const feedback = loadFeedback(skillName);
+  const feedbackContext = formatFeedbackForPrompt(feedback);
+
+  const system = `You are a skill refinement agent specializing in SUMMARY skills. A summary skill is a lightweight overview (1-2KB) that helps an agent understand what a feature is and when to use it — without loading the full implementation guide.
+
+## What makes a great summary
+
+1. **"When to Use" section** — 2-3 sentences explaining what problem this feature solves and when to reach for it
+2. **"Key Concepts" section** — structural vocabulary the agent needs to understand the domain:
+   - Concept names (e.g., "organization", "connection", "directory")
+   - ID prefixes and env var names (e.g., \`sk_\`, \`WORKOS_API_KEY\`)
+   - Event type naming conventions
+   - Key architectural patterns and decision points
+3. **Guide pointer preserved exactly** — the "Implementation Guide" section with the Read instruction must be kept verbatim
+4. **Under 2KB** — this is a summary, not an implementation guide
+5. **No implementation steps, verification commands, or error recovery** — those belong in the guide
+6. **Imperative voice** — "Use this when..." not "This can be used when..."
+${getContentTaxonomyBlock()}
+${getAttributionBlock()}${feedbackContext}`;
+
+  const user = `Refine this summary skill "${skillName}". Improve the "When to Use" section and fill in the "Key Concepts" section with structural vocabulary from the domain. Keep the guide pointer and related skills sections exactly as they are.
+
+<scaffold>
+${body}
+</scaffold>
+
+Output ONLY the refined skill body markdown. No frontmatter, no \`<!-- generated -->\` marker, no wrapping code fences.`;
+
+  return { system, user };
 }
 
 /** Build the system + user prompt for router skill refinement */
@@ -387,6 +431,32 @@ function ensureMarkers(
     : "<!-- generated -->";
 
   return `${frontmatter}\n\n${marker}\n\n${cleanBody}\n`;
+}
+
+/** Reassemble marker + refined body for guide files (no frontmatter) */
+function ensureGuideMarkers(body: string, sourceHash: string | null): string {
+  // Strip any frontmatter the LLM may have included
+  let cleanBody = body;
+  if (cleanBody.startsWith("---")) {
+    const endIdx = cleanBody.indexOf("---", 3);
+    if (endIdx !== -1) {
+      cleanBody = cleanBody.slice(endIdx + 3).trim();
+    }
+  }
+
+  // Strip any marker the LLM included
+  cleanBody = cleanBody
+    .replace(
+      /<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->\s*\n?/,
+      "",
+    )
+    .trim();
+
+  const marker = sourceHash
+    ? `<!-- refined:sha256:${sourceHash} -->`
+    : "<!-- generated -->";
+
+  return `${marker}\n\n${cleanBody}\n`;
 }
 
 /** Sleep for rate limiting between API calls */

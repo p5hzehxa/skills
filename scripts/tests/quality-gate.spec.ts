@@ -2,16 +2,11 @@ import { describe, expect, it } from "bun:test";
 import { runQualityGate, semanticQualityCheck } from "../lib/quality-gate.ts";
 import type { GeneratedSkill } from "../lib/types.ts";
 
-/** Minimal valid skill for testing */
+/** Minimal valid guide for testing */
 function makeSkill(overrides: Partial<GeneratedSkill> = {}): GeneratedSkill {
   const content =
     overrides.content ??
-    `---
-name: workos-test-skill
-description: Test skill for quality gate
----
-
-<!-- generated:sha256:abc123def456 -->
+    `<!-- generated:sha256:abc123def456 -->
 
 ## Step 1: Fetch Documentation
 
@@ -39,10 +34,57 @@ Check fetched docs for current API requirements.
 `;
   return {
     name: overrides.name ?? "workos-test-skill",
+    path: overrides.path ?? "skills/workos/workos-test-skill.guide.md",
+    content,
+    sizeBytes: overrides.sizeBytes ?? Buffer.byteLength(content, "utf8"),
+    generated: overrides.generated ?? true,
+    type: "guide" as const,
+    ...overrides,
+  };
+}
+
+/** Minimal valid summary for testing */
+function makeSummary(overrides: Partial<GeneratedSkill> = {}): GeneratedSkill {
+  const content =
+    overrides.content ??
+    `---
+name: workos-test-skill
+description: Test skill for quality gate
+---
+
+<!-- generated:sha256:abc123def456 -->
+
+# WorkOS Test Skill
+
+## When to Use
+
+Use this skill when you need to test the quality gate scoring.
+
+## Documentation
+
+- https://workos.com/docs/test
+
+## Key Concepts
+
+Key structural vocabulary for the test domain including identifiers and patterns.
+
+## Implementation Guide
+
+For step-by-step implementation, verification commands, and error recovery:
+
+→ Read \`skills/workos/workos-test-skill.guide.md\`
+
+## Related Skills
+
+- **workos-sso**: Single Sign-On configuration
+`;
+  return {
+    name: overrides.name ?? "workos-test-skill",
     path: overrides.path ?? "skills/workos/workos-test-skill.md",
     content,
     sizeBytes: overrides.sizeBytes ?? Buffer.byteLength(content, "utf8"),
     generated: overrides.generated ?? true,
+    type: "summary" as const,
     ...overrides,
   };
 }
@@ -56,14 +98,13 @@ describe("runQualityGate", () => {
     expect(report.results[0].score).toBeGreaterThanOrEqual(70);
   });
 
-  it("fails skill with no frontmatter", async () => {
+  it("fails guide with minimal content", async () => {
     const skill = makeSkill({
-      content: "<!-- generated -->\n\nNo frontmatter here.",
+      content: "<!-- generated -->\n\nNo content here.",
       sizeBytes: 40,
     });
     const report = await runQualityGate([skill]);
     expect(report.results[0].score).toBeLessThan(70);
-    expect(report.results[0].issues).toContain("No valid frontmatter found");
   });
 
   it("detects missing generated marker", async () => {
@@ -247,6 +288,120 @@ echo "ok"
         i.includes('Excessive "check docs"'),
       ),
     ).toBe(false);
+  });
+});
+
+describe("summary scoring", () => {
+  it("passes a well-formed summary", async () => {
+    const summary = makeSummary();
+    const report = await runQualityGate([summary]);
+    expect(report.passed).toBe(1);
+    expect(report.results[0].score).toBeGreaterThanOrEqual(70);
+  });
+
+  it("fails summary missing guide pointer", async () => {
+    const content = `---
+name: workos-test
+description: test
+---
+
+<!-- generated:sha256:abc123def456 -->
+
+## When to Use
+
+Some content here.
+
+## Key Concepts
+
+Some concepts.
+`;
+    const summary = makeSummary({
+      content,
+      sizeBytes: Buffer.byteLength(content),
+    });
+    const report = await runQualityGate([summary]);
+    expect(
+      report.results[0].issues.some((i) => i.includes("guide pointer")),
+    ).toBe(true);
+  });
+
+  it("flags summary over 3KB", async () => {
+    const content =
+      `---
+name: workos-test
+description: test
+---
+
+<!-- generated:sha256:abc123def456 -->
+
+## When to Use
+
+Use this.
+
+## Key Concepts
+
+Concepts here.
+
+## Implementation Guide
+
+→ Read \`skills/workos/workos-test.guide.md\`
+
+` + "x".repeat(3100);
+    const summary = makeSummary({
+      content,
+      sizeBytes: Buffer.byteLength(content),
+    });
+    const report = await runQualityGate([summary]);
+    expect(report.results[0].issues.some((i) => i.includes("under 3KB"))).toBe(
+      true,
+    );
+  });
+});
+
+describe("guide scoring", () => {
+  it("passes guide without frontmatter", async () => {
+    const guide = makeSkill();
+    const report = await runQualityGate([guide]);
+    expect(report.passed).toBe(1);
+  });
+
+  it("flags guide with frontmatter", async () => {
+    const content = `---
+name: workos-test
+description: test
+---
+
+<!-- generated:sha256:abc123def456 -->
+
+## Step 1: Fetch Documentation
+
+- https://workos.com/docs/test
+- https://workos.com/docs/test/setup
+- https://workos.com/docs/test/api
+
+## Implementation Guide
+
+Steps here.
+
+## Verification Checklist
+
+- [ ] Check
+
+\`\`\`bash
+echo ok
+\`\`\`
+
+## Error Recovery
+
+### Issues
+`;
+    const guide = makeSkill({ content, sizeBytes: Buffer.byteLength(content) });
+    const report = await runQualityGate([guide]);
+    expect(
+      report.results[0].issues.some((i) =>
+        i.includes("should not have frontmatter"),
+      ),
+    ).toBe(true);
   });
 });
 

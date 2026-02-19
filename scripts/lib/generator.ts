@@ -1,22 +1,41 @@
 import type { Section, SkillSpec, GeneratedSkill } from "./types.ts";
 import { HAND_CRAFTED_SKILLS } from "./config.ts";
-import { renderSkill } from "./skill-template.ts";
+import { renderSummary, renderGuide } from "./skill-template.ts";
 import { computeSourceHash } from "./hasher.ts";
 
 /**
- * Generate a SKILL.md for a single feature SkillSpec.
+ * Generate a summary + guide pair for a single feature SkillSpec.
+ * Returns [summary, guide] — both share the same sourceHash.
  */
-export function generateSkill(spec: SkillSpec): GeneratedSkill {
+export function generateSkill(
+  spec: SkillSpec,
+): [GeneratedSkill, GeneratedSkill] {
   const sourceHash = computeSourceHash(spec.content);
-  const content = renderSkill(spec, sourceHash);
-  return {
+
+  const summaryContent = renderSummary(spec, sourceHash);
+  const guideContent = renderGuide(spec, sourceHash);
+
+  const summary: GeneratedSkill = {
     name: spec.name,
     path: `skills/workos/${spec.name}.md`,
-    content,
-    sizeBytes: Buffer.byteLength(content, "utf8"),
+    content: summaryContent,
+    sizeBytes: Buffer.byteLength(summaryContent, "utf8"),
     generated: true,
     sourceHash,
+    type: "summary",
   };
+
+  const guide: GeneratedSkill = {
+    name: spec.name,
+    path: `skills/workos/${spec.name}.guide.md`,
+    content: guideContent,
+    sizeBytes: Buffer.byteLength(guideContent, "utf8"),
+    generated: true,
+    sourceHash,
+    type: "guide",
+  };
+
+  return [summary, guide];
 }
 
 /**

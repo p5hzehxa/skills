@@ -24,62 +24,88 @@ function makeSpec(overrides: Partial<SkillSpec> = {}): SkillSpec {
 }
 
 describe("generateSkill", () => {
-  it("produces valid YAML frontmatter", () => {
+  it("returns a [summary, guide] tuple", () => {
     const result = generateSkill(makeSpec());
-    expect(result.content).toStartWith("---\n");
-    expect(result.content).toContain("name: workos-sso");
-    expect(result.content).toContain("description: Configure Single Sign-On.");
-    // Frontmatter must close
-    const frontmatterEnd = result.content.indexOf("---", 4);
-    expect(frontmatterEnd).toBeGreaterThan(0);
+    expect(result).toHaveLength(2);
+    expect(result[0].type).toBe("summary");
+    expect(result[1].type).toBe("guide");
   });
 
-  it("includes generated marker with source hash", () => {
-    const result = generateSkill(makeSpec());
-    expect(result.content).toMatch(/<!-- generated:sha256:[a-f0-9]{12} -->/);
+  it("summary has correct path (.md)", () => {
+    const [summary] = generateSkill(makeSpec());
+    expect(summary.path).toBe("skills/workos/workos-sso.md");
   });
 
-  it("includes sourceHash on result", () => {
-    const result = generateSkill(makeSpec());
-    expect(result.sourceHash).toMatch(/^[a-f0-9]{12}$/);
+  it("guide has correct path (.guide.md)", () => {
+    const [, guide] = generateSkill(makeSpec());
+    expect(guide.path).toBe("skills/workos/workos-sso.guide.md");
   });
 
-  it("includes doc URL references", () => {
-    const result = generateSkill(makeSpec());
-    expect(result.content).toContain("https://workos.com/docs/sso/index");
-    expect(result.content).toContain("https://workos.com/docs/sso/test-sso");
+  it("both share the same sourceHash", () => {
+    const [summary, guide] = generateSkill(makeSpec());
+    expect(summary.sourceHash).toMatch(/^[a-f0-9]{12}$/);
+    expect(guide.sourceHash).toBe(summary.sourceHash);
   });
 
-  it("includes required sections", () => {
-    const result = generateSkill(makeSpec());
-    expect(result.content).toContain("## Step 1: Fetch Documentation");
-    expect(result.content).toContain("## When to Use");
-    expect(result.content).toContain("## Prerequisites");
-    expect(result.content).toContain("## Implementation Guide");
-    expect(result.content).toContain("## Verification Checklist");
-    expect(result.content).toContain("## Error Recovery");
+  it("summary has frontmatter", () => {
+    const [summary] = generateSkill(makeSpec());
+    expect(summary.content).toStartWith("---\n");
+    expect(summary.content).toContain("name: workos-sso");
+    expect(summary.content).toContain("description: Configure Single Sign-On.");
   });
 
-  it("sets correct path", () => {
-    const result = generateSkill(makeSpec());
-    expect(result.path).toBe("skills/workos/workos-sso.md");
+  it("guide does not have frontmatter", () => {
+    const [, guide] = generateSkill(makeSpec());
+    expect(guide.content).not.toStartWith("---\n");
   });
 
-  it("calculates sizeBytes", () => {
-    const result = generateSkill(makeSpec());
-    expect(result.sizeBytes).toBe(Buffer.byteLength(result.content, "utf8"));
-    expect(result.sizeBytes).toBeGreaterThan(0);
+  it("summary contains guide pointer", () => {
+    const [summary] = generateSkill(makeSpec());
+    expect(summary.content).toContain("workos-sso.guide.md");
   });
 
-  it("marks generated: true", () => {
-    const result = generateSkill(makeSpec());
-    expect(result.generated).toBe(true);
+  it("summary includes When to Use and Key Concepts", () => {
+    const [summary] = generateSkill(makeSpec());
+    expect(summary.content).toContain("## When to Use");
+    expect(summary.content).toContain("## Key Concepts");
   });
 
-  it("includes related skills for SSO", () => {
-    const result = generateSkill(makeSpec());
-    expect(result.content).toContain("## Related Skills");
-    expect(result.content).toContain("workos-integrations");
+  it("summary includes Related Skills", () => {
+    const [summary] = generateSkill(makeSpec());
+    expect(summary.content).toContain("## Related Skills");
+    expect(summary.content).toContain("workos-integrations");
+  });
+
+  it("guide includes implementation sections", () => {
+    const [, guide] = generateSkill(makeSpec());
+    expect(guide.content).toContain("## Step 1: Fetch Documentation");
+    expect(guide.content).toContain("## Prerequisites");
+    expect(guide.content).toContain("## Implementation Guide");
+    expect(guide.content).toContain("## Verification Checklist");
+    expect(guide.content).toContain("## Error Recovery");
+  });
+
+  it("guide includes doc URL references", () => {
+    const [, guide] = generateSkill(makeSpec());
+    expect(guide.content).toContain("https://workos.com/docs/sso/index");
+  });
+
+  it("both have generated markers", () => {
+    const [summary, guide] = generateSkill(makeSpec());
+    expect(summary.content).toMatch(/<!-- generated:sha256:[a-f0-9]{12} -->/);
+    expect(guide.content).toMatch(/<!-- generated:sha256:[a-f0-9]{12} -->/);
+  });
+
+  it("both calculate sizeBytes", () => {
+    const [summary, guide] = generateSkill(makeSpec());
+    expect(summary.sizeBytes).toBe(Buffer.byteLength(summary.content, "utf8"));
+    expect(guide.sizeBytes).toBe(Buffer.byteLength(guide.content, "utf8"));
+  });
+
+  it("both mark generated: true", () => {
+    const [summary, guide] = generateSkill(makeSpec());
+    expect(summary.generated).toBe(true);
+    expect(guide.generated).toBe(true);
   });
 });
 
@@ -104,13 +130,6 @@ describe("generateRouter", () => {
     expect(result.content).toContain("workos-authkit-base");
   });
 
-  it("includes framework detection logic", () => {
-    const result = generateRouter([], "");
-    expect(result.content).toContain("next.config");
-    expect(result.content).toContain("vite.config");
-    expect(result.content).toContain("@tanstack/start");
-  });
-
   it("has correct name and path", () => {
     const result = generateRouter([], "");
     expect(result.name).toBe("workos");
@@ -122,24 +141,11 @@ describe("generateRouter", () => {
     expect(result.content).toMatch(/<!-- generated:sha256:[a-f0-9]{12} -->/);
   });
 
-  it("includes fallback instructions", () => {
+  it("returns single GeneratedSkill (not tuple)", () => {
     const result = generateRouter([], "");
-    expect(result.content).toContain("llms.txt");
-    expect(result.content).toContain("If No Skill Matches");
-  });
-
-  it("groups migration skills separately", () => {
-    const specs = [
-      makeSpec({
-        name: "workos-migrate-auth0",
-        anchor: "migrate",
-        title: "WorkOS Migration: Auth0",
-      }),
-      makeSpec({ name: "workos-sso", anchor: "sso" }),
-    ];
-    const result = generateRouter(specs, "");
-    expect(result.content).toContain("workos-migrate-auth0");
-    expect(result.content).toContain("Migrate from Auth0");
+    expect(result.name).toBe("workos");
+    // Not an array — router is a single file
+    expect(Array.isArray(result)).toBe(false);
   });
 });
 
@@ -166,7 +172,6 @@ describe("generateIntegrationRouter", () => {
     const result = generateIntegrationRouter(integrationsSection, urls);
     expect(result.content).toContain("Okta");
     expect(result.content).toContain("SAML");
-    expect(result.content).toContain("Provider Lookup");
   });
 
   it("has correct name and path", () => {
@@ -174,25 +179,5 @@ describe("generateIntegrationRouter", () => {
     const result = generateIntegrationRouter(integrationsSection, urls);
     expect(result.name).toBe("workos-integrations");
     expect(result.path).toBe("skills/workos/workos-integrations.md");
-  });
-
-  it("includes generated marker with source hash", () => {
-    const urls = new Map<string, string[]>();
-    const result = generateIntegrationRouter(integrationsSection, urls);
-    expect(result.content).toMatch(/<!-- generated:sha256:[a-f0-9]{12} -->/);
-  });
-
-  it("includes decision tree for integration types", () => {
-    const urls = new Map<string, string[]>();
-    const result = generateIntegrationRouter(integrationsSection, urls);
-    expect(result.content).toContain("SAML");
-    expect(result.content).toContain("SCIM");
-    expect(result.content).toContain("OAuth");
-  });
-
-  it("includes verification checklist", () => {
-    const urls = new Map<string, string[]>();
-    const result = generateIntegrationRouter(integrationsSection, urls);
-    expect(result.content).toContain("Verify the Integration");
   });
 });

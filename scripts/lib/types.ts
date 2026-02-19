@@ -48,6 +48,8 @@ export interface GeneratedSkill {
   generated: boolean;
   /** SHA-256 hash of source doc content (for content-addressed locking) */
   sourceHash?: string;
+  /** 'summary' for the lightweight overview, 'guide' for full implementation */
+  type?: "summary" | "guide";
 }
 
 // --- Split strategies ---

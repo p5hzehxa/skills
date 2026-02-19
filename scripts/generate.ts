@@ -16,7 +16,11 @@ import {
 import { refineSkill } from "./lib/refiner.ts";
 import { runQualityGate } from "./lib/quality-gate.ts";
 import { shouldRegenerate } from "./lib/hasher.ts";
-import { HAND_CRAFTED_SKILLS, VALIDATION } from "./lib/config.ts";
+import {
+  HAND_CRAFTED_SKILLS,
+  VALIDATION,
+  SUMMARY_VALIDATION,
+} from "./lib/config.ts";
 import type { GeneratedSkill } from "./lib/types.ts";
 
 /** Skills that should NOT be refined (already well-structured or endpoint tables) */
@@ -110,15 +114,15 @@ async function main() {
   console.log("\nGenerating skills...");
   const generatedSkills: GeneratedSkill[] = [];
 
-  // Generate feature skills
+  // Generate feature skills (summary + guide pairs)
   for (const spec of specs) {
     // Integration router is generated separately
     if (spec.name === "workos-integrations") continue;
 
-    const skill = generateSkill(spec);
-    generatedSkills.push(skill);
+    const [summary, guide] = generateSkill(spec);
+    generatedSkills.push(summary, guide);
     console.log(
-      `  ${skill.name.padEnd(35)} ${(skill.sizeBytes / 1024).toFixed(1).padStart(5)}KB`,
+      `  ${summary.name.padEnd(35)} ${(summary.sizeBytes / 1024).toFixed(1).padStart(5)}KB summary  ${(guide.sizeBytes / 1024).toFixed(1).padStart(5)}KB guide`,
     );
   }
 
@@ -144,11 +148,11 @@ async function main() {
     console.log(`  ${apiRefSpecs.length} API reference specs produced`);
 
     for (const spec of apiRefSpecs) {
-      const skill = generateSkill(spec);
-      generatedSkills.push(skill);
+      const [summary, guide] = generateSkill(spec);
+      generatedSkills.push(summary, guide);
       specs.push(spec); // Add to specs so router includes them
       console.log(
-        `  ${skill.name.padEnd(35)} ${(skill.sizeBytes / 1024).toFixed(1).padStart(5)}KB  (api-ref)`,
+        `  ${summary.name.padEnd(35)} ${(summary.sizeBytes / 1024).toFixed(1).padStart(5)}KB summary  ${(guide.sizeBytes / 1024).toFixed(1).padStart(5)}KB guide  (api-ref)`,
       );
     }
   }
@@ -201,14 +205,16 @@ async function main() {
         const refined = await refineSkill(skill, refineOptions);
         generatedSkills[idx] = refined;
         completed++;
+        const tag = skill.type ? ` (${skill.type})` : "";
         console.log(
-          `  [${completed}/${toRefine.length}] ✓ ${skill.name} ${(skill.sizeBytes / 1024).toFixed(1)}KB → ${(refined.sizeBytes / 1024).toFixed(1)}KB`,
+          `  [${completed}/${toRefine.length}] ✓ ${skill.name}${tag} ${(skill.sizeBytes / 1024).toFixed(1)}KB → ${(refined.sizeBytes / 1024).toFixed(1)}KB`,
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         completed++;
+        const tag = skill.type ? ` (${skill.type})` : "";
         console.error(
-          `  [${completed}/${toRefine.length}] ✗ ${skill.name}: ${msg}`,
+          `  [${completed}/${toRefine.length}] ✗ ${skill.name}${tag}: ${msg}`,
         );
       }
     };
@@ -234,14 +240,18 @@ async function main() {
       hasErrors = true;
       continue;
     }
-    if (skill.sizeBytes > VALIDATION.maxSkillSize) {
+    const limits =
+      skill.type === "summary"
+        ? { min: SUMMARY_VALIDATION.minSize, max: SUMMARY_VALIDATION.maxSize }
+        : { min: VALIDATION.minSkillSize, max: VALIDATION.maxSkillSize };
+    if (skill.sizeBytes > limits.max) {
       console.warn(
-        `  ⚠ ${skill.name} is ${(skill.sizeBytes / 1024).toFixed(0)}KB — exceeds ${(VALIDATION.maxSkillSize / 1024).toFixed(0)}KB limit`,
+        `  ⚠ ${skill.path} is ${(skill.sizeBytes / 1024).toFixed(0)}KB — exceeds ${(limits.max / 1024).toFixed(0)}KB limit`,
       );
     }
-    if (skill.sizeBytes < VALIDATION.minSkillSize) {
+    if (skill.sizeBytes < limits.min) {
       console.warn(
-        `  ⚠ ${skill.name} is only ${skill.sizeBytes}B — below ${VALIDATION.minSkillSize}B minimum`,
+        `  ⚠ ${skill.path} is only ${skill.sizeBytes}B — below ${limits.min}B minimum`,
       );
     }
   }
