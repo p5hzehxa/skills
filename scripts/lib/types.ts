@@ -82,26 +82,6 @@ export interface FetchOptions {
   retries?: number;
 }
 
-// --- Domain Rules ---
-
-export interface SkillRule {
-  id: string;
-  description: string;
-  severity: "warn" | "error";
-  promoted: boolean;
-  must_contain?: Array<{ pattern: string; context: string }>;
-  must_not_contain?: Array<{ pattern: string; context: string }>;
-}
-
-export interface RuleViolation {
-  ruleId: string;
-  description: string;
-  severity: "warn" | "error";
-  type: "missing" | "forbidden";
-  pattern: string;
-  context: string;
-}
-
 // --- Feedback ---
 
 export interface SkillFeedback {

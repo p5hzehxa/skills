@@ -1,10 +1,8 @@
 import type {
   GeneratedSkill,
-  RuleViolation,
   SkillFeedback,
   SemanticCheckResult,
 } from "./types.ts";
-import { loadRules, evaluateRules } from "./rules.ts";
 import { loadFeedback } from "./feedback.ts";
 
 export interface QualityResult {
@@ -12,7 +10,6 @@ export interface QualityResult {
   pass: boolean;
   score: number;
   issues: string[];
-  ruleViolations: RuleViolation[];
   semanticCheck?: SemanticCheckResult;
 }
 
@@ -43,6 +40,7 @@ export interface QualityGateOptions {
  * Penalty: behavioral claim patterns without doc deferral nearby (-10 pts)
  *
  * Pass threshold: 70/100
+ * Semantic check failures are hard blocks when in refine mode.
  */
 export async function runQualityGate(
   skills: GeneratedSkill[],
@@ -143,16 +141,14 @@ async function scoreSkill(
   }
 
   // 7. No doc dump (15 pts)
-  // Check for code blocks >40 lines or single examples >1KB
   const codeBlockRegex = /```[\s\S]*?```/g;
   const codeBlocks = content.match(codeBlockRegex) || [];
   const longCodeBlocks = codeBlocks.filter((block) => {
-    const lines = block.split("\n").length - 2; // subtract opening/closing fences
+    const lines = block.split("\n").length - 2;
     return lines > 40;
   });
   const largeExamples = codeBlocks.filter((block) => block.length > 1024);
 
-  // Also check for long unformatted paragraphs (original check)
   const paragraphs = content.split(/\n\n+/);
   const longUnformattedBlocks = paragraphs.filter(
     (p) =>
@@ -197,23 +193,9 @@ async function scoreSkill(
     );
   }
 
-  // --- Domain Rules ---
-  const rules = loadRules(skill.name);
-  const ruleViolations = evaluateRules(content, rules);
-
-  for (const v of ruleViolations) {
-    const typeLabel = v.type === "missing" ? "Missing" : "Forbidden";
-    issues.push(
-      `RULE ${v.ruleId}: ${typeLabel} pattern "${v.pattern}" (${v.severity})`,
-    );
-  }
-
-  const hasBlockingViolation = ruleViolations.some(
-    (v) => v.severity === "error",
-  );
-
-  // --- Semantic check (only in refine mode) ---
+  // --- Semantic check (only in refine mode — failures are hard blocks) ---
   let semanticCheck: SemanticCheckResult | undefined;
+  let semanticBlocking = false;
   if (options.refineMode && options.apiKey) {
     const feedback = loadFeedback(skill.name);
     if (feedback.corrections.length > 0 || feedback.emphasis.length > 0) {
@@ -223,6 +205,7 @@ async function scoreSkill(
           model: options.model,
         });
         if (!semanticCheck.pass) {
+          semanticBlocking = true;
           for (const v of semanticCheck.violations) {
             issues.push(`SEMANTIC: ${v}`);
           }
@@ -236,17 +219,15 @@ async function scoreSkill(
 
   return {
     skillName: skill.name,
-    pass: score >= 70 && !hasBlockingViolation,
+    pass: score >= 70 && !semanticBlocking,
     score,
     issues,
-    ruleViolations,
     semanticCheck,
   };
 }
 
 /**
  * Check for behavioral assertions without nearby doc deferrals.
- * Returns count and example matches.
  */
 function checkBehavioralClaims(content: string): {
   count: number;
@@ -268,7 +249,6 @@ function checkBehavioralClaims(content: string): {
     for (const pattern of behavioralPatterns) {
       pattern.lastIndex = 0;
       if (pattern.test(line)) {
-        // Check if "check fetched docs" or "check docs" appears nearby (within 3 lines)
         const nearby = lines
           .slice(Math.max(0, i - 3), Math.min(lines.length, i + 4))
           .join(" ");
@@ -290,7 +270,7 @@ const SEMANTIC_CHECK_MAX_TOKENS = 1024;
 /**
  * Run LLM-based semantic validation on a refined skill.
  * Checks: (a) feedback corrections respected, (b) behavioral claims deferred to docs.
- * Only called when --refine flag is active.
+ * Only called when --refine flag is active. Failures are hard blocks.
  */
 export async function semanticQualityCheck(
   skillContent: string,
@@ -355,7 +335,6 @@ Analyze and return JSON only.`;
       .map((c) => c.text)
       .join("");
 
-    // Extract JSON from response (may be wrapped in markdown code fences)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return { pass: true, violations: [], score: 50 };

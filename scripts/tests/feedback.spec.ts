@@ -11,6 +11,37 @@ describe("loadFeedback", () => {
     const feedback = loadFeedback("nonexistent-skill-xyz");
     expect(feedback).toEqual({ corrections: [], emphasis: [] });
   });
+
+  it("loads feedback from workos-directory-sync", () => {
+    const feedback = loadFeedback("workos-directory-sync");
+    expect(feedback.corrections.length).toBeGreaterThan(0);
+    expect(feedback.corrections[0]).toContain("webhooks");
+    expect(feedback.emphasis.length).toBeGreaterThan(0);
+  });
+
+  it("loads feedback from workos-migrate-aws-cognito", () => {
+    const feedback = loadFeedback("workos-migrate-aws-cognito");
+    expect(feedback.corrections.length).toBeGreaterThan(0);
+    expect(feedback.corrections[0]).toContain("password hash");
+  });
+
+  it("loads feedback from workos-migrate-descope", () => {
+    const feedback = loadFeedback("workos-migrate-descope");
+    expect(feedback.emphasis.length).toBeGreaterThan(0);
+    expect(feedback.emphasis[0]).toContain("userManagement.createUser");
+  });
+
+  it("loads feedback from workos-migrate-other-services", () => {
+    const feedback = loadFeedback("workos-migrate-other-services");
+    expect(feedback.emphasis.length).toBeGreaterThan(0);
+    expect(feedback.emphasis[0]).toContain("decision tree");
+  });
+
+  it("loads feedback from workos-migrate-the-standalone-sso-api", () => {
+    const feedback = loadFeedback("workos-migrate-the-standalone-sso-api");
+    expect(feedback.corrections.length).toBeGreaterThan(0);
+    expect(feedback.emphasis.length).toBeGreaterThan(0);
+  });
 });
 
 describe("parseFeedbackMarkdown", () => {
