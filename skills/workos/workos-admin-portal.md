@@ -9,7 +9,7 @@ description: Enable self-service admin portal for your enterprise customers.
 
 ## When to Use
 
-Use this skill when you need to provide self-service SSO and Directory Sync configuration to your customers. Admin Portal is a hosted UI that lets end users configure their own organization settings without requiring your engineering team to build custom configuration screens.
+Use this skill when you need to generate portal links that allow your customers' IT admins to self-serve configure SSO connections, Directory Sync connections, or other WorkOS features without contacting your support team. The Admin Portal is a hosted UI that handles connection setup, testing, and management.
 
 ## Documentation
 
@@ -19,12 +19,10 @@ Use this skill when you need to provide self-service SSO and Directory Sync conf
 
 ## Key Vocabulary
 
-- **Organization** `org_` — the entity representing a customer company
-- **Portal Link** — time-limited URL for accessing the Admin Portal
-- **Intent** — the specific configuration flow (e.g., `sso`, `dsync`, `audit_logs`)
-- **Return URL** — where users land after completing portal actions
-- **Custom Branding** — logo, colors, and favicon customization for the portal
-- `WORKOS_API_KEY` — server-side authentication credential
+- **Organization** `org_` — the customer entity that owns connections configured via portal
+- **Portal Link** `portal_link_` — time-limited URL to access the Admin Portal
+- **Intent** — the portal type: `sso`, `dsync`, `log_streams`, `audit_logs`
+- **Return URL** — where users land after completing portal setup
 
 ## Implementation Guide
 

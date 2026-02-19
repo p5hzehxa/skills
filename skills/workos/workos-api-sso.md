@@ -9,7 +9,7 @@ description: WorkOS SSO API endpoints — connections, profiles, authorization U
 
 ## When to Use
 
-Use this API to programmatically manage SSO connections, generate OAuth authorization URLs, exchange codes for user profiles, and initiate logout flows. Reach for this when building custom SSO UI or automating connection provisioning outside of the Admin Portal.
+Use this skill when you need direct API-level control over SSO connections, user profiles, or authorization flows — bypassing AuthKit's managed UI. Reach for this when building custom authentication experiences, integrating SSO into non-web contexts, or managing connections programmatically. If you're building a standard web app with hosted login, use `workos-authkit-*` skills instead.
 
 ## Documentation
 
@@ -21,13 +21,13 @@ Use this API to programmatically manage SSO connections, generate OAuth authoriz
 
 ## Key Vocabulary
 
-- **Connection** `conn_` — SSO provider configuration linked to an Organization
-- **Organization** `org_` — entity grouping SSO connections
-- **Profile** — user identity data returned after successful SSO authentication
-- **Authorization URL** — OAuth redirect entry point for SSO login flow
-- **Redirect URI** — callback URL where WorkOS sends authorization codes
-- **State parameter** — CSRF token passed through OAuth flow
-- **Connection type** — SSO provider identifier (e.g., `SAML`, `GoogleOAuth`, `MicrosoftOAuth`)
+- **Connection** `conn_` — an SSO provider configuration (e.g., Okta, Google Workspace)
+- **Organization** `org_` — tenant entity that owns connections
+- **Profile** — user identity data returned after SSO authentication
+- **Authorization URL** — the redirect target for initiating SSO login
+- **`redirect_uri`** — callback URL where WorkOS sends auth codes after login
+- **`state`** — CSRF token passed through the OAuth flow
+- **Logout URL** — endpoint for triggering provider-initiated logout
 
 ## Implementation Guide
 
@@ -37,4 +37,5 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-authkit-base — pre-built SSO UI alternative to direct API usage
+- `workos-authkit-base` — managed SSO with hosted UI
+- `workos-sso-guide` — setup wizard for SSO connections

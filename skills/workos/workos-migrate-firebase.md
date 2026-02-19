@@ -9,7 +9,7 @@ description: Migrate to WorkOS from Firebase.
 
 ## When to Use
 
-Use this skill when migrating existing Firebase Authentication users to WorkOS. This covers bulk user import with password hash preservation, incremental migration patterns, and handling Firebase-specific authentication tokens during the transition period.
+Migrate existing Firebase Authentication users to WorkOS User Management while preserving their credentials. Use this skill when transitioning from Firebase's auth system to WorkOS without forcing users to reset passwords.
 
 ## Documentation
 
@@ -17,17 +17,21 @@ Use this skill when migrating existing Firebase Authentication users to WorkOS. 
 
 ## Key Vocabulary
 
-- **User Management API** — the WorkOS API for bulk user imports and password hash operations
-- **Authentication token** — Firebase ID tokens used for identity verification during migration
-- **Password hash** — scrypt-hashed passwords exported from Firebase Authentication
-- **`WORKOS_API_KEY`** — server-side credential for User Management API access
-- **`WORKOS_CLIENT_ID`** — application identifier for WorkOS configuration
-- **Bulk import** — batch user creation endpoint supporting password hash preservation
-- **Incremental migration** — pattern for migrating users gradually during first login
-- **Firebase Admin SDK** — required for exporting user data and verifying tokens server-side
+- **User `user_`** — WorkOS user entity created from migrated Firebase users
+- **Organization `org_`** — WorkOS organization entity for grouping migrated users
+- **Password hash algorithms** — `scrypt`, `standard_scrypt`, `bcrypt`, `md5`, `sha1`, `sha256`, `sha512`, `hmac_sha1`, `hmac_sha256`, `hmac_sha512`, `pbkdf_sha1`, `pbkdf2_sha256`
+- **Firebase Admin SDK** — required for exporting user data from Firebase
+- **`passwordHash`** — base64-encoded password hash field from Firebase export
+- **`passwordSalt`** — base64-encoded salt field from Firebase export
+- **`hash_config`** — Firebase project-level hash configuration object
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-migrate-firebase.guide.md`
+
+## Related Skills
+
+- workos-user-management-core — for post-migration user operations
+- workos-authkit-base — for implementing authentication after migration

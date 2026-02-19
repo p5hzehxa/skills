@@ -9,7 +9,7 @@ description: Migrate to WorkOS from other services.
 
 ## When to Use
 
-Use this skill when migrating users from a custom authentication system or database that doesn't have a dedicated WorkOS migration guide. This covers any user data store (custom auth, internal systems, or unsupported third-party services) where you control the export format.
+Use this skill when migrating users from a custom authentication system or data store (not a standard provider like Auth0, Cognito, or Firebase). This guide applies when you need to export user data from your own database or a service not covered by other WorkOS migration guides.
 
 ## Documentation
 
@@ -17,12 +17,12 @@ Use this skill when migrating users from a custom authentication system or datab
 
 ## Key Vocabulary
 
-- **User Management API** — WorkOS service for creating and managing user accounts
-- **User `user_`** — WorkOS user entity with email, identity, and optional password
-- **Organization `org_`** — tenant container for users
-- **Email Verification** — `email_verified` boolean flag on user records
-- **Password Import** — WorkOS supports bcrypt, Firebase scrypt, and plaintext formats
-- **Migration Strategy** — phased cutover, parallel run, or bulk import approach
+- **User Management Profile** `user_` — the target identity record in WorkOS
+- **Password Hash Import** — bulk import of existing password hashes (bcrypt, scrypt, PBKDF2)
+- **Email Verification Status** — whether `email_verified: true` should be set on import
+- **User Metadata** — custom JSON fields attached to profiles (e.g., `user_metadata`, `app_metadata`)
+- **Migration State** — phased cutover approach (dual-write, read-through, full cutover)
+- **CSV Import Format** — structured user data format for bulk import API
 
 ## Implementation Guide
 
@@ -32,5 +32,5 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- **workos-user-management** — for creating and managing users after migration
-- **workos-authkit-base** — for implementing authentication after migration completes
+- **workos-user-management** — manage users after migration
+- **workos-authkit-base** — implement authentication flows post-migration

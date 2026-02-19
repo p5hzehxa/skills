@@ -9,7 +9,7 @@ description: Embed WorkOS UI widgets in your application.
 
 ## When to Use
 
-Use Widgets when you need to embed pre-built UI components for user profile management, session management, or security settings. Widgets provide drop-in React/JavaScript components that handle user-facing workflows without building custom UIs. They integrate with User Management and require a Widgets API token for initialization.
+Use this skill when you need to embed pre-built UI components for user account management, security settings, or profile editing into your application. Widgets provide browser-based interfaces that users interact with directly, powered by server-side tokens you generate. Choose this over custom UI when you want WorkOS-managed experiences for common user self-service flows.
 
 ## Documentation
 
@@ -21,19 +21,19 @@ Use Widgets when you need to embed pre-built UI components for user profile mana
 
 ## Key Vocabulary
 
-- **Widget Token** — short-lived JWT for initializing Widgets components
-- **User Management ID** (`user_`) — identifier for the authenticated user
-- **Organization ID** (`org_`) — identifier for the user's organization context
-- **Session** — user authentication state managed by Widgets
-- **Profile Widget** — component for displaying/editing user profile data
-- **Security Widget** — component for managing MFA and password settings
-- **Session Widget** — component for viewing active sessions and devices
+- **Widget Token** — short-lived JWT (`wgt_`) that authorizes a widget session
+- **User Sessions Widget** — displays active sessions with revocation controls
+- **User Security Widget** — MFA enrollment and authentication method management
+- **User Profile Widget** — editable user profile fields (name, email)
+- **User Management Widget** — organization membership and role management
+
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-widgets.guide.md`
+
 
 ## Related Skills
 

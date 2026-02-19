@@ -9,7 +9,7 @@ description: Set up role-based access control for your application.
 
 ## When to Use
 
-Use this skill when you need to assign fixed roles to users within organizations and enforce permissions based on those roles. RBAC is appropriate when your access control model is hierarchical (e.g., "admin", "member", "viewer") and permissions are tied to role membership rather than resource-specific relationships.
+Use this skill when you need to assign users to predefined roles (admin, member, viewer) within an organization and enforce permissions based on those roles. RBAC is the right choice when your authorization model maps to job functions or organizational hierarchy, not when you need resource-level permissions (use FGA instead).
 
 ## Documentation
 
@@ -21,12 +21,11 @@ Use this skill when you need to assign fixed roles to users within organizations
 
 ## Key Vocabulary
 
-- **Organization** `org_` — tenant entity that contains users and roles
-- **Role** — named permission set (e.g., "admin", "member") assigned to users
-- **User** `user_` — authenticated entity with role assignments
-- **OrganizationMembership** `org_membership_` — links a user to an organization with a role
-- **Permission** — granular capability checked in authorization logic
-- **IdP Role Mapping** — automatic role assignment from SAML/OIDC claims
+- **Organization** `org_` — the tenant container for roles and memberships
+- **OrganizationMembership** `om_` — links a user to an organization with an assigned role
+- **Role** `role_` — a named set of permissions (e.g., "admin", "member")
+- **User** `user_` — the authenticated identity receiving role assignments
+- **IdP role mapping** — automatic role assignment based on SAML/OIDC claims
 
 ## Implementation Guide
 

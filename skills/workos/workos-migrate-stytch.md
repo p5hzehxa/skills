@@ -9,7 +9,7 @@ description: Migrate to WorkOS from Stytch.
 
 ## When to Use
 
-Use this skill when migrating user accounts and organization structures from Stytch to WorkOS. This guide covers exporting user data from Stytch's API, mapping Stytch's organization/member model to WorkOS's equivalent structures, and handling authentication state transitions.
+Use this skill when migrating existing users and organizations from Stytch to WorkOS. This guide covers exporting data from Stytch's API, mapping Stytch constructs (members, organizations, MFA) to WorkOS equivalents, and preserving authentication state during the transition.
 
 ## Documentation
 
@@ -17,14 +17,14 @@ Use this skill when migrating user accounts and organization structures from Sty
 
 ## Key Vocabulary
 
-- **User** — Stytch user account (maps to WorkOS User)
-- **Organization** — Stytch organization entity (maps to WorkOS Organization `org_`)
-- **Member** — Stytch org membership (maps to WorkOS OrganizationMembership `om_`)
-- **Magic Links** — Stytch passwordless auth method
-- **Sessions** — Stytch session tokens (require re-authentication after migration)
-- **MFA** — Stytch multi-factor enrollment (not directly portable)
-- **`STYTCH_PROJECT_ID`** — Stytch project identifier for API calls
-- **`STYTCH_SECRET`** — Stytch API credential for data export
+- **Organization** `org_` — WorkOS organization entity (maps from Stytch organization)
+- **User** `user_` — WorkOS user entity (maps from Stytch member)
+- **Organization Membership** `org_membership_` — links users to organizations
+- **Authentication Factor** `authentication_factor_` — WorkOS MFA factor (maps from Stytch authentication_factor)
+- **Password Hash** `password_hash_` — WorkOS password hash entity
+- **Email Verification** `email_verification_` — WorkOS email verification entity
+- **Stytch Member** — source user entity in Stytch API
+- **Stytch Organization** — source organization entity in Stytch API
 
 ## Implementation Guide
 

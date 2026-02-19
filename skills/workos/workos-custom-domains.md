@@ -9,7 +9,7 @@ description: Configure custom domains for WorkOS-hosted pages.
 
 ## When to Use
 
-Use this skill when you need to white-label WorkOS authentication and email services under your own domain instead of `workos.com`. This allows your users to interact with login pages, magic links, and admin portals that appear to be hosted on your infrastructure.
+Use this skill when you need to white-label WorkOS authentication flows (AuthKit, Auth API) or transactional emails under your own domain. This allows end users to interact with authentication URLs and receive emails from your domain instead of `workos.com`, maintaining brand consistency.
 
 ## Documentation
 
@@ -17,27 +17,21 @@ Use this skill when you need to white-label WorkOS authentication and email serv
 - https://workos.com/docs/custom-domains/email
 - https://workos.com/docs/custom-domains/authkit
 - https://workos.com/docs/custom-domains/auth-api
-- https://workos.com/docs/admin-portal
+- https://workos.com/docs/custom-domains/admin-portal
 
 ## Key Vocabulary
 
-- **Custom Domain** — your branded domain (e.g., `auth.yourapp.com`) that proxies WorkOS services
-- **Email Custom Domain** — domain for sending magic link emails (verified via DNS records)
-- **AuthKit Custom Domain** — domain for hosting OAuth/SAML login flows
-- **Auth API Custom Domain** — domain for API endpoints (`/user_management/*`, `/sso/*`)
-- **Admin Portal Custom Domain** — domain for the organization setup UI
-- **DNS Verification** — TXT record validation required before activation
-- **SSL Certificate** — automatically provisioned by WorkOS after DNS validation
-- **CNAME Record** — DNS record type used to point your subdomain to WorkOS infrastructure
+- **Custom Domain** — your branded domain (e.g., `auth.yourapp.com`) configured for WorkOS services
+- **Email Custom Domain** — domain used for transactional emails (e.g., `noreply@yourapp.com`)
+- **AuthKit Custom Domain** — domain hosting AuthKit UI flows
+- **Auth API Custom Domain** — domain for headless Auth API endpoints
+- **Admin Portal Custom Domain** — domain for embedded Admin Portal
+- **CNAME record target** — `custom-domains.workos.com` (for AuthKit/Auth API/Admin Portal)
+- **MX record target** — `custom-domains-email.workos.com` (for email domain)
+- **Domain verification status** — `pending`, `verified`, or `failed` states
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-custom-domains.guide.md`
-
-## Related Skills
-
-- workos-authkit-base — for configuring AuthKit to use custom domains
-- workos-magic-link — for email domain configuration
-- workos-admin-portal — for custom domain setup in the admin UI

@@ -9,7 +9,7 @@ description: WorkOS RBAC API endpoints — roles, permissions, and role assignme
 
 ## When to Use
 
-Use this skill when you need to manage fine-grained authorization for organization members. The Roles & Permissions API lets you define what actions users can perform within an organization by creating roles, assigning permissions to those roles, and associating roles with organization members. This is distinct from top-level User Management — it controls what authenticated users can DO, not who can authenticate.
+Use this API to define and manage permission systems for multi-tenant applications. Create granular permissions, bundle them into roles, and assign those roles at the organization level. This is the foundation for implementing RBAC (Role-Based Access Control) across your WorkOS-powered application.
 
 ## Documentation
 
@@ -21,11 +21,10 @@ Use this skill when you need to manage fine-grained authorization for organizati
 
 ## Key Vocabulary
 
-- **Role** `role_` — a named set of permissions that can be assigned to users across multiple organizations
-- **OrganizationRole** `orgrole_` — a role scoped to a specific organization, inherits from a parent Role
-- **Permission** `perm_` — an action identifier (e.g., `documents:edit`, `billing:view`) that can be granted or denied
-- **Organization** `org_` — the tenant context for scoped roles and member assignments
-- **User** `user_` — the entity that receives role assignments within an organization
+- **Role** `role_` — reusable permission bundles defined at the environment level
+- **Permission** `perm_` — atomic access grants (e.g., `documents:read`, `billing:write`)
+- **Organization Role** `orgrole_` — role assignments scoped to a specific organization
+- **Organization** `org_` — tenant entity that receives role assignments
 
 ## Implementation Guide
 
@@ -35,4 +34,5 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-api-user-management (for managing organization members who receive role assignments)
+- workos-user-management (for assigning roles to users)
+- workos-organizations (for managing tenant entities)

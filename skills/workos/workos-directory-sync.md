@@ -9,7 +9,7 @@ description: Sync user directories from identity providers like Okta, Azure AD, 
 
 ## When to Use
 
-Use this skill when you need to automatically provision, update, and deprovision users and groups from an external identity provider (Google Workspace, Okta, Azure AD, etc.) into your application's database. Directory Sync keeps your user data in sync with the customer's authoritative source, eliminating manual user management and ensuring your application always reflects the current state of their organization.
+Use Directory Sync when your application needs to automatically provision, update, or deprovision users and groups from an organization's identity provider (Azure AD, Okta, Google Workspace, etc.). This enables workforce identity management at scale — employees added in the IdP appear in your app without manual CSV imports or API calls.
 
 ## Documentation
 
@@ -21,12 +21,12 @@ Use this skill when you need to automatically provision, update, and deprovision
 
 ## Key Vocabulary
 
-- **Directory** `directory_` — A connection to an identity provider's user/group data
-- **User** `directory_user_` — An employee record synced from the directory
-- **Group** `directory_group_` — An organizational unit or team synced from the directory
-- **Event types**: `dsync.user.created`, `dsync.user.updated`, `dsync.user.deleted`, `dsync.group.created`, `dsync.group.updated`, `dsync.group.deleted`, `dsync.activated`, `dsync.deleted`
-- **State attribute**: `active`, `inactive`, `suspended` — User lifecycle states
-- **Events API** — Polling-based alternative to webhooks for batch processing or event recovery
+- **Directory** `directory_` — represents a synced identity provider connection
+- **User** `directory_user_` — synced employee record from the IdP
+- **Group** `directory_group_` — synced team/role container from the IdP
+- **Event types**: `dsync.user.created`, `dsync.user.updated`, `dsync.user.deleted`, `dsync.group.created`, `dsync.group.updated`, `dsync.group.deleted`, `dsync.group.user_added`, `dsync.group.user_removed`, `dsync.activated`, `dsync.deleted`
+- **Directory state**: `linked`, `unlinked`, `invalid_credentials`
+- **User state**: `active`, `inactive`
 
 ## Implementation Guide
 

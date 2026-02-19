@@ -15,175 +15,284 @@
 - https://workos.com/docs/reference/roles/organization-role/list
 - https://workos.com/docs/reference/roles/organization-role/remove-permission
 
-These docs contain current request/response schemas, authentication requirements, and behavioral constraints.
-
 ## Authentication Setup
 
-All Roles API calls require:
-- **API Key header**: `Authorization: Bearer <WORKOS_API_KEY>`
-- Key format: starts with `sk_` prefix
-- Set key as environment variable `WORKOS_API_KEY`
+Authenticate API calls using your WorkOS API key in the `Authorization` header:
 
-Verify authentication works:
 ```bash
-curl https://api.workos.com/roles \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
+Authorization: Bearer sk_your_api_key
 ```
 
-Expected: 200 response with role list or empty array. 401 = invalid key.
+Set your API key as an environment variable:
 
-## Endpoint Catalog
+```bash
+export WORKOS_API_KEY='sk_your_api_key'
+```
+
+API keys starting with `sk_test_` are test mode keys. Production keys start with `sk_live_`.
+
+## Available Endpoints
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/roles` | List all organization roles |
-| POST | `/roles` | Create a new role |
-| GET | `/roles/{role_id}` | Get role details by ID |
-| DELETE | `/roles/{role_id}` | Delete a role |
-| POST | `/roles/{role_id}/permissions` | Add permission to role |
-| DELETE | `/roles/{role_id}/permissions/{permission_id}` | Remove permission from role |
+| POST | `/organizations/{org_id}/roles` | Create a new role |
+| GET | `/organizations/{org_id}/roles/{role_id}` | Retrieve a specific role |
+| GET | `/organizations/{org_id}/roles` | List all roles in an organization |
+| DELETE | `/organizations/{org_id}/roles/{role_id}` | Delete a role |
+| POST | `/organizations/{org_id}/roles/{role_id}/permissions` | Add a permission to a role |
+| DELETE | `/organizations/{org_id}/roles/{role_id}/permissions/{permission_id}` | Remove a permission from a role |
 
-All endpoints return JSON. Check fetched docs for exact request/response schemas.
+Check fetched docs for complete request/response schemas and parameter requirements.
 
 ## Operation Decision Tree
 
-**Creating roles:**
-- Use `POST /roles` for new roles
-- Include `name` and `slug` (slug = unique identifier for programmatic access)
-- Organization context determined by API key scope
+### Creating vs Managing Roles
 
-**Updating role permissions:**
-- Use `POST /roles/{role_id}/permissions` to add permissions
-- Use `DELETE /roles/{role_id}/permissions/{permission_id}` to remove permissions
-- No bulk update endpoint — apply changes iteratively
+**When to create a new role:**
+- You need a custom permission set that doesn't exist
+- You're setting up organization-specific access patterns
+- You're implementing a multi-tenant hierarchy
 
-**When to fetch vs list:**
-- Use `GET /roles/{role_id}` when you have the role ID
-- Use `GET /roles` to discover available roles or filter by organization
-- List endpoint supports pagination (see Pagination section)
+**When to modify existing roles:**
+- Adding/removing permissions from established roles
+- Adjusting access levels for existing user groups
+- Responding to policy changes
 
-**Deletion constraints:**
-- Check fetched docs for whether roles with active assignments can be deleted
-- Consider orphaned permission references when deleting roles
+**When to delete roles:**
+- Role is no longer used by any organization members
+- Consolidating duplicate or redundant roles
+- Removing test/development roles from production
+
+### Permission Management Pattern
+
+Use `add-permission` when:
+- Granting additional access to an existing role
+- Implementing incremental permission grants
+- Adding new capabilities to established roles
+
+Use `remove-permission` when:
+- Revoking specific access without deleting the role
+- Implementing least-privilege adjustments
+- Handling security incidents or policy violations
+
+## Common Integration Patterns
+
+### Pattern 1: Role Provisioning Flow
+
+```pseudocode
+1. Create organization (if new tenant)
+2. Define role with base permissions:
+   POST /organizations/{org_id}/roles
+   body: { name: "...", slug: "...", description: "..." }
+3. Add permissions incrementally:
+   POST /organizations/{org_id}/roles/{role_id}/permissions
+   body: { permission: "resource.action" }
+4. Assign role to users via User Management API
+```
+
+### Pattern 2: Dynamic Permission Updates
+
+```pseudocode
+1. List current roles to find target:
+   GET /organizations/{org_id}/roles
+2. Check current permissions in response
+3. Add new permission:
+   POST /organizations/{org_id}/roles/{role_id}/permissions
+4. Verify update:
+   GET /organizations/{org_id}/roles/{role_id}
+```
+
+### Pattern 3: Role Cleanup
+
+```pseudocode
+1. Verify role has no active assignments (check User Management API)
+2. Remove all permissions:
+   DELETE /organizations/{org_id}/roles/{role_id}/permissions/{permission_id}
+   (repeat for each permission)
+3. Delete role:
+   DELETE /organizations/{org_id}/roles/{role_id}
+```
 
 ## Pagination Handling
 
-The `GET /roles` endpoint supports pagination. Check fetched docs for:
-- Pagination parameter names (`limit`, `after`, `before`)
-- Default and maximum page sizes
-- Cursor format for next/previous pages
+When listing roles, the API returns paginated results. Check fetched docs for:
+- Default page size limits
+- Cursor or offset parameters
+- Response structure with pagination metadata
 
-Pattern for iterating all roles:
-```
-1. Call GET /roles with limit parameter
-2. Store returned roles
-3. If response includes next_cursor, call GET /roles?after={cursor}
-4. Repeat until no next_cursor returned
+Standard pattern:
+```pseudocode
+roles = []
+cursor = null
+do {
+  response = GET /organizations/{org_id}/roles?after={cursor}
+  roles.append(response.data)
+  cursor = response.list_metadata.after
+} while (cursor != null)
 ```
 
 ## Error Code Mapping
 
 | Status Code | Cause | Fix |
 |-------------|-------|-----|
-| 401 | Invalid or missing API key | Verify `WORKOS_API_KEY` starts with `sk_` and is active in Dashboard |
-| 404 | Role ID not found | Confirm role exists with `GET /roles` — may have been deleted |
-| 409 | Slug conflict (role creation) | Choose a unique slug — slugs are organization-scoped identifiers |
-| 422 | Invalid request payload | Check fetched docs for required fields and format constraints |
-| 429 | Rate limit exceeded | Implement exponential backoff — see Rate Limits section |
+| 401 | Invalid or missing API key | Verify `Authorization: Bearer sk_...` header is set correctly |
+| 403 | API key lacks required scope | Check key permissions in WorkOS Dashboard under API Keys |
+| 404 | Organization ID or Role ID not found | Verify ID format (`org_...` or `role_...`) and existence |
+| 409 | Role slug already exists in organization | Choose a different slug or update existing role |
+| 422 | Invalid request parameters | Check fetched docs for required fields and valid formats |
+| 429 | Rate limit exceeded | Implement exponential backoff (start with 1s, double on each retry) |
+| 500/502/503 | WorkOS service error | Retry with exponential backoff (max 3 attempts) |
 
-Check fetched docs for complete error response schema and additional error codes.
+### Common Parameter Errors (422)
 
-## Rate Limit Guidance
+- **Missing required field**: Check fetched docs for required fields in request body
+- **Invalid slug format**: Role slugs must be lowercase alphanumeric with hyphens/underscores
+- **Invalid permission format**: Permissions follow `resource.action` pattern (e.g., `documents.read`)
+- **Invalid organization ID**: Must start with `org_` prefix
 
-WorkOS APIs enforce rate limits per API key. Check fetched docs for:
-- Requests per second/minute thresholds
-- Rate limit headers (`X-RateLimit-Remaining`, `Retry-After`)
+## Rate Limits
 
-Retry strategy:
-```
-1. On 429 response, read Retry-After header
-2. Wait specified seconds (or 60s if header absent)
-3. Retry request with exponential backoff (2x, 4x, 8x)
-4. After 3 retries, fail with clear error message
-```
+WorkOS APIs have rate limits. Check fetched docs for current limits. General guidance:
+
+- Implement exponential backoff for 429 responses
+- Start with 1 second delay, double on each retry
+- Max 5 retry attempts before failing
+- Cache role data when possible to reduce API calls
 
 ## Runnable Verification
 
-**Test role creation:**
+### Verify Authentication
+
 ```bash
-curl -X POST https://api.workos.com/roles \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
+curl -X GET "https://api.workos.com/organizations/{org_id}/roles" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Content-Type: application/json"
+```
+
+Expected: 200 OK with JSON array of roles (may be empty)
+
+### Create a Test Role
+
+```bash
+curl -X POST "https://api.workos.com/organizations/{org_id}/roles" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Test Role","slug":"test-role"}'
+  -d '{
+    "name": "Test Role",
+    "slug": "test-role",
+    "description": "Integration test role"
+  }'
 ```
 
-Expected: 201 response with created role object containing `id`, `name`, `slug`.
+Expected: 201 Created with role object containing `id` starting with `role_`
 
-**Test role listing:**
+### Add Permission to Role
+
 ```bash
-curl https://api.workos.com/roles \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-```
-
-Expected: 200 response with `data` array containing roles.
-
-**Test permission assignment:**
-```bash
-# Replace {role_id} and {permission_id} with actual IDs
-curl -X POST https://api.workos.com/roles/{role_id}/permissions \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
+curl -X POST "https://api.workos.com/organizations/{org_id}/roles/{role_id}/permissions" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{"permission_id":"{permission_id}"}'
+  -d '{
+    "permission": "documents.read"
+  }'
 ```
 
-Expected: 200 response confirming permission added.
+Expected: 201 Created (check fetched docs for exact response structure)
 
-## Common Integration Patterns
+### Retrieve Role with Permissions
 
-**Creating roles at organization provisioning:**
-```
-1. Create organization via Organizations API
-2. Define default roles (e.g., admin, member, viewer)
-3. Call POST /roles for each default role with organization context
-4. Store role IDs for later permission assignments
+```bash
+curl -X GET "https://api.workos.com/organizations/{org_id}/roles/{role_id}" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Content-Type: application/json"
 ```
 
-**Role-based access control (RBAC) enforcement:**
+Expected: 200 OK with role object including permissions array
+
+## SDK Usage Pattern
+
+If using the WorkOS SDK (recommended over direct REST calls):
+
+```pseudocode
+# Initialize client
+workos = WorkOS(api_key=WORKOS_API_KEY)
+
+# Create role
+role = workos.organizations.create_role(
+  organization_id="org_...",
+  name="Role Name",
+  slug="role-slug",
+  description="Description"
+)
+
+# Add permission
+workos.organizations.add_role_permission(
+  organization_id="org_...",
+  role_id=role.id,
+  permission="resource.action"
+)
+
+# List roles
+roles = workos.organizations.list_roles(
+  organization_id="org_..."
+)
+
+# Get specific role
+role = workos.organizations.get_role(
+  organization_id="org_...",
+  role_id="role_..."
+)
+
+# Remove permission
+workos.organizations.remove_role_permission(
+  organization_id="org_...",
+  role_id="role_...",
+  permission_id="permission_..."
+)
+
+# Delete role
+workos.organizations.delete_role(
+  organization_id="org_...",
+  role_id="role_..."
+)
 ```
-1. User authenticates via AuthKit
-2. Retrieve user's organization memberships
-3. Call GET /roles to fetch organization's roles
-4. Match user's assigned role(s) to permission sets
-5. Gate application features based on permissions
-```
 
-**Syncing roles from external system:**
-```
-1. Fetch roles from source system
-2. Call GET /roles to get current WorkOS roles
-3. Create missing roles with POST /roles
-4. Update permissions via add/remove endpoints
-5. Delete roles no longer in source (handle constraints)
-```
+Check fetched docs for exact SDK method signatures in your language.
 
-## Troubleshooting
+## Common Traps
 
-**"Role slug already exists" on creation:**
-- Slugs must be unique within organization scope
-- Call `GET /roles` to list existing slugs
-- Choose a different slug or update the existing role
+### Trap 1: Deleting Roles with Active Assignments
+**Problem**: Attempting to delete a role that's still assigned to users
+**Fix**: Check User Management API for role assignments before deletion, reassign users first
 
-**Permissions not appearing after assignment:**
-- Verify permission was added with `GET /roles/{role_id}`
-- Check that permission ID exists in your organization's permission set
-- Confirm permission assignment returned 200 (not 422)
+### Trap 2: Duplicate Role Slugs
+**Problem**: Creating roles with slugs that already exist in the organization
+**Fix**: List existing roles first, or handle 409 conflict by updating existing role
 
-**Role deletion fails:**
-- Check if role is assigned to users (fetched docs specify constraints)
-- Remove user assignments before deleting role
-- Verify you have permission to delete roles in Dashboard
+### Trap 3: Invalid Permission Format
+**Problem**: Using incorrect permission string format
+**Fix**: Follow `resource.action` pattern (e.g., `documents.read`, not `read_documents`)
+
+### Trap 4: Missing Organization Context
+**Problem**: Forgetting that roles are organization-scoped
+**Fix**: Always include organization ID in role operations; same slug can exist in different orgs
+
+### Trap 5: Permission ID Confusion
+**Problem**: Using permission string instead of permission ID when removing
+**Fix**: When removing permissions, use the permission ID from the role object, not the permission string
+
+## Verification Checklist
+
+- [ ] API key is set in environment as `WORKOS_API_KEY`
+- [ ] API key starts with `sk_test_` (test) or `sk_live_` (production)
+- [ ] Can successfully list roles for a test organization
+- [ ] Can create a role with valid slug format
+- [ ] Can add and remove permissions from roles
+- [ ] Error responses (401, 404, 422) are handled with specific messages
+- [ ] Rate limit handling (429) includes exponential backoff
+- [ ] Organization IDs start with `org_` prefix
+- [ ] Role IDs start with `role_` prefix
 
 ## Related Skills
 
-- **workos-user-management** — Assigning roles to users and organization members
-- **workos-organizations** — Managing organization context for role scoping
+This skill covers the Roles & Permissions API. For implementing role-based access control in your application UI and enforcing permissions, see the User Management and Authorization features in the WorkOS documentation.

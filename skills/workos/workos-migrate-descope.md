@@ -9,7 +9,7 @@ description: Migrate to WorkOS from Descope.
 
 ## When to Use
 
-Use this skill when migrating existing user identities and organization structures from Descope to WorkOS. This migration preserves user authentication states, organization hierarchies, and role assignments while transitioning to WorkOS's User Management API.
+Use this skill when migrating authentication from Descope to WorkOS AuthKit. Descope is a CIAM platform, so this migration primarily handles user identity transfer and SSO connection mapping. You'll export user data from Descope's API, transform it to WorkOS format, and import via User Management API.
 
 ## Documentation
 
@@ -17,22 +17,16 @@ Use this skill when migrating existing user identities and organization structur
 
 ## Key Vocabulary
 
-- **User** (`user_`) — user identity record in WorkOS User Management
-- **Organization** (`org_`) — tenant/workspace entity in WorkOS
-- **Organization Membership** (`om_`) — links users to organizations with role assignments
-- **Email Verification** — user email verification state (verified/unverified)
-- **Password Hash** — encrypted password credentials migrated from source system
-- **Role** — user permission level within an organization (e.g., `member`, `admin`)
-- **WORKOS_API_KEY** — server-side authentication token for WorkOS API calls
-- **Migration Flow** — phased process: organizations → users → memberships → verification
+- **Organization** `org_` — WorkOS container for users and SSO connections
+- **User** `user_` — imported from Descope user records
+- **Connection** `conn_` — SSO configuration migrated from Descope projects
+- **loginId** — Descope's unique user identifier (maps to WorkOS email)
+- **userTenants** — Descope's org membership structure
+- **SAML/OIDC connections** — authentication methods to recreate in WorkOS
+- **MFA enrollment** — multi-factor settings to preserve during migration
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-migrate-descope.guide.md`
-
-## Related Skills
-
-- **workos-user-management** — target system APIs for creating users and managing organizations
-- **workos-authkit-nextjs** — post-migration authentication setup for Next.js applications

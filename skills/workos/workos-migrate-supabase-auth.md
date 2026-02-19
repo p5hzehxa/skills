@@ -9,7 +9,7 @@ description: Migrate to WorkOS from Supabase Auth.
 
 ## When to Use
 
-Migrate existing user authentication from Supabase Auth to WorkOS when you need enterprise SSO, Directory Sync, or advanced auth features while preserving user credentials. Use this skill when you have users with email/password or social login in Supabase and need to transition them to WorkOS without forcing password resets.
+Migrate existing users from Supabase Auth to WorkOS User Management while preserving authentication credentials. Use this skill when you need to transfer user accounts, email/password hashes, and metadata from Supabase to WorkOS without forcing password resets.
 
 ## Documentation
 
@@ -17,17 +17,21 @@ Migrate existing user authentication from Supabase Auth to WorkOS when you need 
 
 ## Key Vocabulary
 
-- **User** — Supabase Auth user record exported via SQL or Management API
-- **Password Hash** — bcrypt hash extracted from Supabase `auth.users.encrypted_password`
-- **Identity** — Supabase social login connection (e.g., Google, GitHub)
-- **User Management API** — WorkOS endpoint for importing users with `POST /user_management/users`
-- **Organization** `org_` — WorkOS container for migrated users
-- **Password** `password_` — WorkOS entity storing imported bcrypt hashes
-- **Email Verification** — Supabase `confirmed_at` field maps to WorkOS `email_verified` boolean
-- **User Metadata** — Supabase `raw_user_meta_data` maps to WorkOS custom user attributes
+- **User `user_`** — WorkOS user entity created from Supabase user data
+- **Authentication Factor `auth_factor_`** — WorkOS entity storing migrated password hash
+- **Organization `org_`** — WorkOS organization entity for multi-tenant migrations
+- **`bcrypt` hash format** — Supabase's password hashing algorithm, supported by WorkOS
+- **`email_verified` flag** — Supabase user verification status to preserve during migration
+- **`user_metadata`** — Supabase custom user data to map to WorkOS user attributes
+- **`app_metadata`** — Supabase application-level metadata for role/permission mapping
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-migrate-supabase-auth.guide.md`
+
+## Related Skills
+
+- workos-authkit-nextjs
+- workos-authkit-react

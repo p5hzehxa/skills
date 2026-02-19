@@ -9,7 +9,7 @@ description: WorkOS Directory Sync API endpoints — directories, users, groups,
 
 ## When to Use
 
-Use this skill when you need to read directory data (users, groups) from a WorkOS-managed directory. This is a **read-only API** for querying synced identity data after a directory connection is established. If you need to set up the directory connection itself, use the Admin Portal or Directory Sync integration guides instead.
+Use this skill when you need to sync user and group data from external identity providers (Okta, Azure AD, Google Workspace) into your application. Directory Sync provides read-only access to organizational directory data through a unified API, eliminating the need to integrate with each provider separately.
 
 ## Documentation
 
@@ -21,11 +21,10 @@ Use this skill when you need to read directory data (users, groups) from a WorkO
 
 ## Key Vocabulary
 
-- **Directory** `directory_` — a synced identity provider connection (e.g., Okta, Google Workspace)
-- **Directory User** `directory_user_` — a user record synced from the directory
-- **Directory Group** `directory_group_` — a group record synced from the directory
-- **Organization** `org_` — the WorkOS organization that owns the directory
-- `WORKOS_API_KEY` — server-side authentication credential
+- **Directory** `dir_` — a connected identity provider instance
+- **Directory User** `directory_user_` — a user record synced from a directory
+- **Directory Group** `directory_grp_` — a group record synced from a directory
+- **Organization** `org_` — the WorkOS entity that owns a directory connection
 
 ## Implementation Guide
 
@@ -35,4 +34,4 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-None — this is a foundational API skill with no cross-dependencies.
+- `workos-directory-sync` — full Directory Sync implementation guide

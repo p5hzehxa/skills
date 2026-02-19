@@ -9,7 +9,7 @@ description: Configure Single Sign-On with SAML and OIDC identity providers.
 
 ## When to Use
 
-Use this skill when implementing enterprise Single Sign-On authentication via SAML or OIDC identity providers. This is the right skill when you need to allow users to authenticate through their organization's identity provider (like Okta, Azure AD, or Google Workspace) instead of managing passwords directly.
+Use this skill when you need to authenticate users via their company's identity provider (Okta, Azure AD, Google Workspace, etc.) instead of managing passwords directly. SSO is typically required for B2B SaaS applications where enterprise customers demand centralized authentication and IT control over user access.
 
 ## Documentation
 
@@ -21,13 +21,12 @@ Use this skill when implementing enterprise Single Sign-On authentication via SA
 
 ## Key Vocabulary
 
-- **Organization** `org_` — tenant entity that owns SSO connections
-- **Connection** `conn_` — configured link to an identity provider
-- **Profile** — normalized user identity returned after authentication
-- **WORKOS_API_KEY** — server-side authentication credential
-- **WORKOS_CLIENT_ID** — identifies your application to WorkOS
-- **redirect_uri** — callback URL where WorkOS sends authentication responses
-- **state** parameter — CSRF protection token for OAuth flows
+- **Organization** `org_` — the tenant entity representing a company configuring SSO
+- **Connection** `conn_` — a configured link between an Organization and an identity provider
+- **Profile** — the authenticated user object returned after successful SSO login
+- **IdP** — Identity Provider (the external service like Okta or Azure AD)
+- **SP** — Service Provider (your application in the SAML flow)
+- **ACS URL** — Assertion Consumer Service URL (callback endpoint for SAML assertions)
 
 ## Implementation Guide
 

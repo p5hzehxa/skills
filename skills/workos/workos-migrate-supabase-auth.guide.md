@@ -8,310 +8,259 @@
 
 WebFetch: `https://workos.com/docs/migrate/supabase`
 
-The fetched docs are the source of truth. If this skill conflicts with docs, follow docs.
+The migration docs are the source of truth. If this skill conflicts with the docs, follow the docs.
 
-## Step 2: Pre-Migration Planning
+## Step 2: Pre-Migration Assessment
 
-### Architecture Decision: Organizations
+### Database Access Verification
 
-**CRITICAL:** Supabase has no native organization concept. Map your existing multi-tenancy pattern:
-
-```
-Current Supabase pattern?
-  |
-  +-- RLS policies with tenant_id column
-  |     → Extract tenant_id values
-  |     → Create WorkOS Organizations with those IDs
-  |     → Map users to orgs via Organization Membership API
-  |
-  +-- app_metadata tenant field
-  |     → Parse app_metadata.tenant_id from user export
-  |     → Create WorkOS Organizations
-  |     → Use Create Organization Membership API
-  |
-  +-- No multi-tenancy
-        → Skip organization creation
-        → Import users directly
-```
-
-**Decision impact:** If you skip organization mapping, you'll need to refactor your access control logic later. Plan this NOW.
-
-### MFA Migration Limitations (BLOCKING)
-
-**TRAP:** Supabase does not expose TOTP secrets for export. Users with MFA WILL need to re-enroll.
-
-```
-Supabase MFA type?
-  |
-  +-- TOTP (authenticator apps)
-  |     → Users must re-enroll after migration
-  |     → Plan communication: "Please set up MFA again"
-  |
-  +-- SMS-based Phone MFA
-        → WorkOS does NOT support SMS MFA (security policy)
-        → Redirect users to TOTP or Magic Auth
-        → Plan communication: "MFA method changed"
-```
-
-**Action:** Draft user communication NOW before export. Do not surprise users post-migration.
-
-## Step 3: Export Supabase Data
-
-### Direct Database Access
-
-Supabase gives you direct SQL access (unlike Auth0/Cognito). Use [Supabase SQL Editor](https://supabase.com/docs/guides/database/overview#the-sql-editor) or your preferred database client.
-
-**Export query structure:**
-
-```sql
-SELECT
-  id,                    -- User identifier
-  email,                 -- Email address
-  encrypted_password,    -- bcrypt hash (WorkOS compatible)
-  email_confirmed_at,    -- Email verification timestamp
-  phone,                 -- Phone number if present
-  raw_user_meta_data,    -- Custom user attributes
-  raw_app_metadata       -- Tenant mapping if you use app_metadata pattern
-FROM auth.users;
-```
-
-**CRITICAL:** `encrypted_password` column contains bcrypt hashes. WorkOS supports bcrypt natively — do NOT attempt to decrypt or re-hash.
-
-### Extract Tenant Mapping (if applicable)
-
-If using `app_metadata` for multi-tenancy:
-
-```sql
-SELECT
-  id,
-  email,
-  raw_app_metadata->>'tenant_id' as tenant_id
-FROM auth.users
-WHERE raw_app_metadata->>'tenant_id' IS NOT NULL;
-```
-
-**Verify export completeness:**
+**Run this command to verify Supabase access:**
 
 ```bash
-# Count exported rows vs Supabase dashboard user count
-wc -l exported_users.csv
-# Should match Supabase Dashboard > Authentication > Users total
+# Test database connection
+psql "$SUPABASE_DATABASE_URL" -c "SELECT COUNT(*) FROM auth.users;"
 ```
 
-## Step 4: Create WorkOS Organizations (if needed)
+If count returns successfully, you have the access needed.
 
-**Skip this step if:** No multi-tenancy or users all belong to single org.
+### WorkOS Environment Setup
 
-Use tenant IDs from Step 3 export. Check fetched docs for Create Organization API parameters.
+Check `.env` for:
 
-**Pattern (pseudocode):**
+- `WORKOS_API_KEY` - starts with `sk_`
+- `WORKOS_CLIENT_ID` - starts with `client_`
+
+Verify WorkOS SDK is installed before writing migration scripts.
+
+## Step 3: Export User Data
+
+### SQL Export Strategy
+
+Access Supabase SQL Editor or use a database client. The `auth.users` table contains all user data.
+
+**Critical fields to export:**
+
+- `id` - Supabase user UUID
+- `email` - primary identifier for matching
+- `encrypted_password` - bcrypt hash (can be imported directly)
+- `email_confirmed_at` - determines if email is verified
+- `phone` - optional field
+- `raw_user_meta_data` - contains first name, last name, profile data
+- `raw_app_meta_data` - may contain tenant IDs or role mappings
+
+Check fetched docs for the complete SQL query with all required fields.
+
+### Password Hash Compatibility
+
+**Key fact:** Supabase uses bcrypt, which WorkOS supports natively. Unlike Auth0 or Cognito, you CAN export and import password hashes without user disruption.
+
+The `encrypted_password` column value can be passed directly to WorkOS with `password_hash_type: 'bcrypt'`.
+
+## Step 4: Multi-Tenancy Mapping (Decision Tree)
+
+Supabase has no native organization concept. How did YOUR app implement multi-tenancy?
 
 ```
-FOR EACH unique tenant_id IN export:
-  CREATE WorkOS Organization with:
-    - name: tenant_id (or lookup friendly name from your DB)
-    - unique identifier for mapping
+Multi-tenancy pattern?
+  |
+  +-- Row Level Security with tenant_id column
+  |     --> Map tenant_id values to WorkOS organization IDs
+  |     --> Use Organization Membership API to assign users
+  |
+  +-- Tenant data in app_metadata
+  |     --> Parse raw_app_meta_data for tenant references
+  |     --> Create WorkOS organizations from unique tenant values
+  |
+  +-- Single-tenant app
+        --> Create one WorkOS organization for all users
 ```
 
-**Verify:**
+**Export tenant mapping data now** — you'll need it in Step 6.
+
+## Step 5: Import Users (Rate-Limited Operation)
+
+### Batch Import Pattern
+
+The Create User API is rate-limited. For large migrations, use batching:
+
+```
+For each batch of users (50-100):
+  1. Call Create User API with user data
+  2. Sleep 1 second between batches
+  3. Log failed imports for retry
+```
+
+Check fetched docs for current rate limits.
+
+### Field Mapping
+
+Map Supabase export fields to WorkOS Create User API parameters:
+
+- `email` → `email`
+- `email_confirmed_at` (if not null) → `email_verified: true`
+- `encrypted_password` → `password_hash` with `password_hash_type: 'bcrypt'`
+- `raw_user_meta_data.first_name` → `first_name`
+- `raw_user_meta_data.last_name` → `last_name`
+
+**Trap:** Do NOT pass `id` from Supabase as a WorkOS parameter. WorkOS will generate its own user IDs. Store a mapping between Supabase UUIDs and WorkOS user IDs for data migration.
+
+### Password Import Timing
+
+You can import password hashes:
+- During user creation (preferred — one API call)
+- After creation using Update User API (if initial import failed)
+
+**Both approaches work** — choose based on error recovery needs.
+
+## Step 6: Organization Assignment
+
+If using WorkOS Organizations (multi-tenant apps):
+
+1. **Create organizations first** using Create Organization API
+2. **Assign users to organizations** using Organization Membership API
+3. **Map roles** using `roleSlug` parameter if using RBAC
+
+**Command to verify organization creation:**
 
 ```bash
-# List organizations via API
-curl -X GET https://api.workos.com/organizations \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-# Count should match unique tenant_id values from export
+curl -X GET "https://api.workos.com/organizations" \
+  -H "Authorization: Bearer $WORKOS_API_KEY" | jq '.data | length'
 ```
 
-## Step 5: Import Users
+Should return count > 0 if organizations exist.
 
-Use Create User API for each exported user. Check fetched docs for exact endpoint and parameters.
+## Step 7: Social Auth Configuration
 
-**Field mapping:**
+### Email-Based Matching
 
-```
-Supabase                  →  WorkOS API parameter
-────────────────────────────────────────────────
-email                     →  email
-encrypted_password        →  password_hash
-(bcrypt algorithm)        →  password_hash_type: 'bcrypt'
-email_confirmed_at        →  email_verified (boolean: IS NOT NULL)
-first_name/last_name      →  Parse from raw_user_meta_data if present
-```
+WorkOS uses **email address** to match social auth sign-ins to existing users. When a user signs in with Google/Microsoft/etc.:
 
-**CRITICAL:** Set `password_hash_type` to `'bcrypt'` — this is Supabase's algorithm. WorkOS will validate passwords against these hashes natively.
+1. WorkOS checks if an account exists with that email
+2. If yes, links the social provider to the existing account
+3. If no, creates a new user
 
-**Rate limiting:**
+**No additional code required** — this happens automatically if:
+- The provider is configured in WorkOS Dashboard
+- The email from the provider matches an imported user's email
 
-Check fetched docs for current rate limits. Batch imports with delays between requests.
+### Email Verification Dependency
 
-**Pattern:**
+Some users may need to verify email after social sign-in. This depends on:
+- Your environment's email verification settings
+- Whether the provider is known to verify emails (e.g., `gmail.com` is trusted)
 
-```
-BATCH_SIZE = 100
-DELAY_MS = 1000  # Adjust based on fetched rate limit docs
+Check fetched docs for the list of trusted email domains.
 
-FOR EACH batch OF BATCH_SIZE users:
-  PARALLEL import users in batch
-  WAIT DELAY_MS
-```
+## Step 8: Handle MFA Migration (BREAKING CHANGE)
 
-**Verification command:**
+### TOTP MFA
 
-```bash
-# Check import progress (replace with your script output)
-tail -f import_log.txt | grep "imported" | wc -l
-```
+**Supabase TOTP secrets CANNOT be exported.** All TOTP users must re-enroll in MFA after migration.
 
-## Step 6: Create Organization Memberships (if applicable)
+Migration path:
+1. Notify users before migration that MFA re-enrollment is required
+2. After migration, prompt users to enroll in MFA again
+3. Use WorkOS MFA enrollment UI or API
 
-**Skip if:** No organizations created in Step 4.
+### SMS MFA (NOT SUPPORTED)
 
-For each user with tenant mapping:
+**WorkOS does not support SMS-based MFA** due to SIM swap vulnerabilities.
 
-```
-FOR EACH (user_id, tenant_id) IN tenant_mapping:
-  CREATE Organization Membership:
-    - user_id: WorkOS user ID from Step 5 import
-    - organization_id: WorkOS org ID from Step 4
-    - role_slug: map from Supabase role if using RBAC
-```
+For users with SMS MFA in Supabase:
+- Migrate to TOTP MFA, or
+- Use Magic Auth (email-based passwordless) as alternative
 
-Check fetched docs for Organization Membership API endpoint and role slug format.
+**This is a user-facing change** — plan communication before migration.
 
-**Verification:**
+## Step 9: Enterprise SSO (Optional)
 
-```bash
-# Spot check: Get memberships for test organization
-curl -X GET "https://api.workos.com/user_management/organization_memberships?organization_id=$TEST_ORG_ID" \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-```
+If migrating SSO users, configure SSO connections in WorkOS Dashboard before user sign-in attempts.
 
-## Step 7: Social Auth Provider Configuration
-
-**If you DON'T use social auth:** Skip this step.
-
-Supabase social auth users match by email address in WorkOS. Steps:
-
-1. Configure OAuth provider in WorkOS Dashboard (check fetched docs for exact navigation path)
-2. Add provider client credentials (see relevant integration guide: workos-authkit-google, workos-authkit-microsoft)
-3. Users sign in with social provider → WorkOS auto-links by email
-
-**TRAP:** Email verification behavior varies by provider. Gmail users auto-verify. Custom domain emails may require verification step.
-
-**Action:** Test with a non-Gmail social auth user BEFORE full migration to confirm verification flow.
-
-## Step 8: Update Application Auth Logic
-
-Replace Supabase SDK calls with WorkOS AuthKit. Architectural changes:
-
-```
-Supabase pattern                 →  WorkOS pattern
-─────────────────────────────────────────────────────
-supabase.auth.getSession()       →  Use AuthKit middleware/withAuth
-supabase.auth.signInWithPassword →  Redirect to WorkOS hosted auth
-supabase.auth.signOut()          →  AuthKit signOut function
-RLS policies with auth.uid()     →  Organization-based access control
-```
-
-**Do NOT attempt to replicate Supabase's client-side session management.** WorkOS uses server-side sessions.
-
-See related skills for framework-specific integration:
-- workos-authkit-nextjs (Next.js App Router)
-- workos-authkit-react (React SPAs)
-- workos-authkit-vanilla-js (vanilla JS)
+Check fetched docs for SSO connection setup — this skill covers user data migration only.
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these commands to confirm migration success:
+**Stop after migration and run these commands:**
 
 ```bash
-# 1. Export completeness
-# (Adjust query for your export format)
-echo "Exported rows: $(wc -l < exported_users.csv)"
-echo "Supabase count: [CHECK DASHBOARD]"
-
-# 2. Import success rate
+# 1. Verify WorkOS users were created
 curl -X GET "https://api.workos.com/user_management/users" \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  | jq '.data | length'
-# Should match exported row count
+  -H "Authorization: Bearer $WORKOS_API_KEY" | jq '.data | length'
+# Should return count matching your Supabase export
 
-# 3. Organization memberships (if applicable)
+# 2. Test password authentication works
+# Sign in with an imported user's email and password
+# If it succeeds, password hashes imported correctly
+
+# 3. Verify organization assignments (if using orgs)
 curl -X GET "https://api.workos.com/user_management/organization_memberships" \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  | jq '.data | length'
-# Should match users with tenant mappings
+  -H "Authorization: Bearer $WORKOS_API_KEY" | jq '.data | length'
+# Should return count > 0 if users were assigned
 
-# 4. Password auth test
-# Attempt login with migrated user credentials via AuthKit UI
-# Should succeed without password reset
-
-# 5. Social auth test (if applicable)
-# Sign in with Google/Microsoft account that exists in Supabase
-# Should auto-link to imported WorkOS user by email
+# 4. Test social auth provider linking
+# Sign in with Google/Microsoft using an imported user's email
+# Should link to existing account, not create new user
 ```
+
+**If any check fails, see Error Recovery below.**
 
 ## Error Recovery
 
-### "User already exists" during import
+### "User with this email already exists"
 
-**Cause:** Duplicate email or ID collision.
-
-**Fix:**
-1. Check if user was partially imported in previous run
-2. Use Update User API instead of Create User API for existing users
-3. Verify export has no duplicate emails: `sort exported_users.csv | uniq -d`
-
-### "Invalid password_hash format"
-
-**Cause:** Exported hash is not bcrypt or contains invalid characters.
+**Cause:** Attempted to create duplicate user during import.
 
 **Fix:**
-1. Confirm `encrypted_password` column value starts with `$2a$` or `$2b$` (bcrypt signature)
-2. Do NOT modify hash during export — copy exactly as stored
-3. If hash is NULL, import user without password_hash and trigger password reset flow
+1. Check if previous import partially succeeded
+2. Query existing WorkOS users: `GET /user_management/users`
+3. Resume import from failed batch, skipping existing emails
 
-### "Organization not found" during membership creation
+### "Invalid password hash"
 
-**Cause:** Organization ID mismatch or org not created yet.
-
-**Fix:**
-1. Verify organization was created in Step 4: `curl https://api.workos.com/organizations -H "Authorization: Bearer $WORKOS_API_KEY"`
-2. Check tenant_id mapping logic — ensure org IDs match exactly
-3. Create missing organizations before retrying memberships
-
-### Social auth user not auto-linking
-
-**Cause:** Email mismatch or verification required.
+**Cause:** Password hash format doesn't match bcrypt pattern.
 
 **Fix:**
-1. Verify email in social provider matches imported user email EXACTLY (case-sensitive)
-2. Check WorkOS Dashboard > Authentication > Email Verification settings
-3. If email verification enabled, user may need to verify email first
-4. For Gmail: auto-verified. For custom domains: may require verification step.
+1. Verify Supabase export included `encrypted_password` column
+2. Check hash starts with `$2a$`, `$2b$`, or `$2y$` (bcrypt prefix)
+3. If hash is malformed, skip password import for that user — they'll need password reset
 
-### MFA users locked out
+### Social auth creates duplicate user instead of linking
 
-**Cause:** TOTP secrets not migrated (Supabase limitation).
-
-**Fix:**
-1. **This is expected behavior.** Supabase does not expose TOTP secrets.
-2. Communicate to users: "Please re-enroll MFA after migration"
-3. Provide MFA enrollment flow in your app (see WorkOS MFA guide)
-4. For SMS MFA users: redirect to TOTP or Magic Auth (WorkOS does not support SMS MFA)
-
-### Rate limit exceeded during import
-
-**Cause:** Importing too many users too quickly.
+**Cause:** Email mismatch between imported user and provider email.
 
 **Fix:**
-1. Check fetched docs for current Create User API rate limit
-2. Increase delay between batches: `DELAY_MS = 2000` or higher
-3. Reduce batch size: `BATCH_SIZE = 50`
-4. Implement exponential backoff on 429 responses
+1. Check email casing matches exactly (WorkOS is case-sensitive for matching)
+2. Verify user's email was marked as verified (`email_verified: true` on import)
+3. Check WorkOS Dashboard → Users for duplicate entries
+
+### Rate limit errors during import
+
+**Cause:** Exceeded WorkOS API rate limits.
+
+**Fix:**
+1. Implement exponential backoff: double sleep time after each 429 response
+2. Reduce batch size (try 25 users per batch instead of 100)
+3. Check fetched docs for current rate limit values
+
+### "Organization not found" during membership assignment
+
+**Cause:** Attempted to assign user to organization before creating it.
+
+**Fix:**
+1. Create all organizations FIRST using Create Organization API
+2. Store mapping of organization IDs
+3. Then assign users using Organization Membership API
+
+### MFA users can't sign in after migration
+
+**Cause:** TOTP secrets were not migrated (cannot be exported from Supabase).
+
+**Fix:**
+1. This is EXPECTED behavior — TOTP secrets cannot be migrated
+2. User must re-enroll in MFA using WorkOS enrollment flow
+3. Communicate this to users BEFORE migration
 
 ## Related Skills
 
-- workos-authkit-nextjs — Integrate WorkOS AuthKit in Next.js applications
-- workos-authkit-react — Integrate WorkOS AuthKit in React SPAs
-- workos-authkit-vanilla-js — Integrate WorkOS AuthKit in vanilla JavaScript
+- workos-authkit-nextjs - Integrate AuthKit after migration
+- workos-authkit-react - Client-side auth UI for migrated users

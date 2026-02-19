@@ -9,7 +9,7 @@ description: WorkOS Events/Webhooks API endpoints — list events, manage webhoo
 
 ## When to Use
 
-Use this skill when you need to retrieve historical event logs from WorkOS. This is a read-only API for fetching events that have already occurred in your WorkOS organization, typically for audit trails, debugging webhooks, or backfilling event data. For real-time event delivery, use webhooks instead.
+Use this skill when you need to retrieve historical event data from WorkOS, such as audit logs, user activity, or system events. This is a read-only API for querying event records—use webhooks (separate skill) for real-time event notifications.
 
 ## Documentation
 
@@ -18,14 +18,13 @@ Use this skill when you need to retrieve historical event logs from WorkOS. This
 
 ## Key Vocabulary
 
-- **Event** `event_` — immutable log record of a WorkOS state change
-- `WORKOS_API_KEY` — authentication credential for API requests
-- `created_at` — ISO 8601 timestamp filter parameter
-- `limit` — pagination size parameter (max 100)
-- `after`, `before` — cursor-based pagination tokens
-- Event type patterns: `connection.activated`, `dsync.user.created`, `user.created`
+- **Event** `event_` — a recorded action or state change in WorkOS
+- `after` — cursor parameter for pagination
+- `before` — cursor parameter for pagination
+- `limit` — maximum number of events to return per request
+- `events` — filter parameter to specify event types
+- `occurred_at` — timestamp when the event occurred
 - `organization_id` — filter events by organization
-- `events` — array field in list response
 
 ## Implementation Guide
 
@@ -35,4 +34,4 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-api-webhooks — for real-time event delivery setup
+None

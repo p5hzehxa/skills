@@ -9,7 +9,7 @@ description: WorkOS Organizations API endpoints — create, update, list, and ma
 
 ## When to Use
 
-Use this skill when you need to manage organization entities in WorkOS—creating tenants for B2B customers, mapping external CRM IDs to WorkOS organizations, or querying organization metadata. Organizations are the top-level container for SSO connections, Directory Sync configurations, and user memberships. Reach for this skill when building multi-tenant onboarding flows or syncing customer data from external systems.
+Use this skill when you need to create, retrieve, update, or delete organization records in WorkOS. Organizations are tenant containers that group users and resources — essential for B2B multi-tenant applications. Reach for this skill when building admin dashboards, onboarding flows, or tenant provisioning systems.
 
 ## Documentation
 
@@ -18,13 +18,15 @@ Use this skill when you need to manage organization entities in WorkOS—creatin
 - https://workos.com/docs/reference/organization/delete
 - https://workos.com/docs/reference/organization/get
 - https://workos.com/docs/reference/organization/get-by-external-id
+- https://workos.com/docs/reference/organization/list
+- https://workos.com/docs/reference/organization/update
 
 ## Key Vocabulary
 
-- **Organization** `org_` — top-level tenant entity containing SSO connections and Directory Sync configurations
-- **`externalId`** — customer-defined identifier for mapping to external systems (CRM, billing)
-- **`domains`** — list of verified email domains associated with the organization
-- **`allowProfilesOutsideOrganization`** — boolean controlling whether users can authenticate without organization membership
+- **Organization** `org_` — tenant container grouping users and resources
+- **Domain** `domain_` — verified domain associated with an organization
+- **`external_id`** — your system's unique identifier for the organization
+- **`allow_profiles_outside_organization`** — boolean controlling cross-organization user access
 
 ## Implementation Guide
 
@@ -34,6 +36,6 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-user-management — for managing users within organizations
-- workos-sso — for configuring SSO connections scoped to organizations
-- workos-directory-sync — for syncing SCIM directories to organizations
+- workos-user-management (for managing users within organizations)
+- workos-sso (for configuring SSO connections per organization)
+- workos-directory-sync (for syncing directory data to organizations)

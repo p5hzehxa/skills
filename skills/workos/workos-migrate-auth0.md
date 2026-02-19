@@ -9,7 +9,7 @@ description: Migrate to WorkOS from Auth0.
 
 ## When to Use
 
-Migrate existing Auth0 user accounts and organizations to WorkOS while preserving authentication continuity. Use this skill when you need to transfer user identities from Auth0 to WorkOS without forcing password resets or disrupting active sessions.
+Migrate existing user accounts and organization data from Auth0 to WorkOS AuthKit, preserving user credentials so they can continue signing in with their existing passwords. This skill covers both password hash import and passwordless migration strategies depending on Auth0 plan capabilities.
 
 ## Documentation
 
@@ -17,13 +17,12 @@ Migrate existing Auth0 user accounts and organizations to WorkOS while preservin
 
 ## Key Vocabulary
 
-- **User Migration** — transfer user accounts with preserved authentication
-- **Organization** — WorkOS entity (`org_`) mapped from Auth0 organizations or tenants
-- **Connection** — authentication method (`conn_`) for each migrated organization
-- **Password Hash Import** — transfer of Auth0 bcrypt/argon2 hashes to WorkOS
-- **Auth0 Management API** — source API for exporting user and org data
-- **WORKOS_API_KEY** — server-side authentication credential
-- **WORKOS_CLIENT_ID** — application identifier for AuthKit configuration
+- **User `user_`** — WorkOS user entity created from Auth0 user records
+- **Organization `org_`** — WorkOS organization entity mapped from Auth0 organizations or tenant structures
+- **Password hash** — bcrypt hash exported from Auth0 (Enterprise plan only)
+- **Magic Auth** — passwordless authentication fallback when hash export unavailable
+- **Auth0 Management API** — source API for exporting user and organization data
+- **`email_verified`** — user verification status field to preserve during migration
 
 ## Implementation Guide
 
@@ -33,5 +32,6 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-authkit-base — post-migration authentication setup
-- workos-sso — SSO configuration for migrated organizations
+- workos-authkit-base
+- workos-authkit-nextjs
+- workos-authkit-react

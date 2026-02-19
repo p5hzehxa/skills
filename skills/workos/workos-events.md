@@ -9,7 +9,7 @@ description: Subscribe to and handle WorkOS webhook events.
 
 ## When to Use
 
-Use this skill when you need to consume real-time notifications about WorkOS resource changes (SSO authentications, Directory Sync updates, user provisioning events, etc.) via webhooks or polling. Events provide a push-based alternative to periodic API polling for keeping your application state synchronized with WorkOS.
+Use this skill when you need to consume WorkOS events via webhooks or the Events API. Events notify your application of changes across WorkOS resources (users, organizations, connections, etc.) in real-time or via polling. Choose webhooks for push-based notification and the Events API for pull-based polling or event replay.
 
 ## Documentation
 
@@ -21,13 +21,12 @@ Use this skill when you need to consume real-time notifications about WorkOS res
 
 ## Key Vocabulary
 
-- **Event** `event_` — A WorkOS resource change notification with type, timestamp, and payload
-- **Event type patterns** — Dot-notation format like `dsync.user.created`, `connection.activated`, `session.created`
-- **Webhook endpoint** — HTTPS URL in your application that receives POST requests from WorkOS
-- **Webhook signature** — `WorkOS-Signature` header value for verifying event authenticity
-- **`WORKOS_WEBHOOK_SECRET`** — Environment variable containing the signing secret for webhook verification
-- **Events API** — REST endpoint for polling events (alternative to webhooks)
-- **Event delivery** — At-least-once guarantee; application must handle duplicates
+- **Event** `event_` — a notification of a state change in a WorkOS resource
+- Event types follow pattern `{resource}.{action}` (e.g., `dsync.user.created`, `connection.activated`)
+- **Webhook Endpoint** — the URL WorkOS POSTs events to
+- **Events API** — pull-based endpoint for fetching events by filters or pagination
+- **Webhook Secret** — used to verify webhook signature in `WorkOS-Signature` header
+- **After cursor** — pagination token for fetching events chronologically
 
 ## Implementation Guide
 

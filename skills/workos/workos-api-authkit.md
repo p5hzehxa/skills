@@ -9,7 +9,7 @@ description: WorkOS AuthKit API endpoints — users, sessions, authentication, M
 
 ## When to Use
 
-Use this API reference when you need to directly call WorkOS AuthKit endpoints for authentication flows, user management, session handling, MFA enrollment, or API key operations. This is the low-level HTTP API — prefer SDK wrappers (covered in related skills) unless you need raw endpoint access or are building custom integrations.
+Use this API reference when you need direct REST endpoint access for AuthKit features beyond what SDK wrappers provide. This includes low-level session management, custom authentication flows, API key operations, and programmatic user/organization membership control. Reach for this when framework-specific AuthKit skills (React, Next.js, etc.) don't expose the exact endpoint you need.
 
 ## Documentation
 
@@ -21,16 +21,15 @@ Use this API reference when you need to directly call WorkOS AuthKit endpoints f
 
 ## Key Vocabulary
 
-- **User** `user_` — end-user identity with email, name, and profile metadata
-- **Session** `session_` — authenticated session with access/refresh tokens
-- **Organization Membership** `om_` — links users to organizations with role data
-- **Invitation** `invitation_` — pending org membership invite sent via email
-- **Magic Auth** `magic_auth_` — passwordless email link authentication flow
-- **Authentication Factor** `auth_factor_` — enrolled MFA method (TOTP, SMS)
-- **Authentication Challenge** `auth_challenge_` — MFA verification prompt
-- **Email Verification** `email_verification_` — confirmation flow for new emails
-- **Password Reset** `password_reset_` — time-limited password change token
-- **API Key** `sk_` (secret) or `pk_` (publishable) — authentication credentials
+- **User** `user_` — end-user identity entity
+- **Session** `session_` — authenticated user session
+- **Organization Membership** `om_` — user-to-organization relationship
+- **Invitation** `invitation_` — pending organization invite
+- **Magic Auth** `magic_auth_` — passwordless authentication code
+- **Email Verification** `email_verification_` — email confirmation token
+- **Authentication Factor** `auth_factor_` — MFA enrollment record
+- **Authentication Challenge** `auth_challenge_` — MFA verification attempt
+- **Password Reset** `password_reset_` — password recovery token
 
 ## Implementation Guide
 
@@ -40,7 +39,7 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-authkit-base
 - workos-authkit-react
 - workos-authkit-nextjs
 - workos-authkit-vanilla-js
+- workos-authkit-base

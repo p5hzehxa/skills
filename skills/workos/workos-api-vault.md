@@ -9,7 +9,7 @@ description: WorkOS Vault API endpoints — create, read, update, delete encrypt
 
 ## When to Use
 
-Use Vault API when you need to encrypt/decrypt sensitive data server-side or store encrypted objects with WorkOS-managed keys. This is a low-level encryption primitive — if you need to store user credentials or secrets tied to organizations, consider Directory Sync or User Management APIs instead.
+Use this skill when you need to encrypt, decrypt, or manage sensitive data using WorkOS Vault. This API provides cryptographic operations (data keys, encryption/decryption) and secure object storage with versioning. Reach for this when handling PII, credentials, or other secrets that require encryption at rest.
 
 ## Documentation
 
@@ -21,11 +21,11 @@ Use Vault API when you need to encrypt/decrypt sensitive data server-side or sto
 
 ## Key Vocabulary
 
-- **Vault Object** — encrypted storage unit with metadata (no ID prefix documented)
-- **Data Key** — ephemeral encryption key for client-side operations
-- **Object Name** — unique string identifier for retrieving objects by name
-- **Object Version** — immutable snapshot created on each update
-- `WORKOS_API_KEY` — server-side authentication for Vault operations
+- **Vault Object** — encrypted data record with metadata
+- **Data Key** — cryptographic key for encryption/decryption operations
+- **Object Version** — immutable snapshot of object state
+- **Object Name** — user-defined identifier for retrieval
+- **Metadata** — key-value pairs attached to vault objects
 
 ## Implementation Guide
 
@@ -35,4 +35,4 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-_None — Vault is a standalone encryption primitive._
+_(None defined for Vault API)_

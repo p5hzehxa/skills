@@ -9,7 +9,7 @@ description: Add multi-factor authentication to your application.
 
 ## When to Use
 
-Use this skill when you need to add a second authentication factor (TOTP, SMS) to an existing authentication system. This is NOT a standalone auth solution — it adds MFA on top of your primary authentication (email/password, SSO, etc.). Choose this when compliance or security policy requires step-up verification beyond username/password.
+Use this skill when you need to add a second authentication factor (TOTP, SMS) to your application's login flow, either as a standalone security layer or alongside SSO. MFA provides challenge-based verification after initial authentication, reducing account takeover risk.
 
 ## Documentation
 
@@ -20,13 +20,10 @@ Use this skill when you need to add a second authentication factor (TOTP, SMS) t
 
 ## Key Vocabulary
 
-- **Authentication Factor** `authentication_factor_` — represents an enrolled MFA method (TOTP or SMS)
-- **Authentication Challenge** `auth_challenge_` — a pending verification attempt tied to a factor
-- **Factor types**: `totp` (authenticator app) or `sms` (phone number)
-- **Enrollment flow** — user registers a new factor (QR code for TOTP, phone for SMS)
-- **Challenge/verify pattern** — generate challenge → user submits code → verify challenge
-- **`WORKOS_API_KEY`** — server-side credential for WorkOS API calls
-- **`WORKOS_CLIENT_ID`** — identifies your WorkOS application environment
+- **Authentication Factor** `auth_factor_` — an enrolled TOTP or SMS device
+- **Authentication Challenge** `auth_challenge_` — a time-limited verification request
+- **Factor Types** — `totp` (authenticator app) or `sms` (phone number)
+- **Challenge Event** `mfa_challenge_created` — webhook for new challenges
 
 ## Implementation Guide
 

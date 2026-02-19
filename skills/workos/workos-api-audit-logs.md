@@ -9,7 +9,7 @@ description: WorkOS Audit Logs API endpoints — create events, manage schemas, 
 
 ## When to Use
 
-Use this skill when you need to emit, query, or export audit trail events for compliance or security monitoring. It covers event creation, schema management, export generation, and retention policies. If you need to display audit logs in a user-facing UI, see the Audit Log Streams skill instead.
+Use this skill when you need to create tamper-proof audit trails for compliance, security investigations, or user activity tracking. It covers programmatic event creation, schema management, CSV exports for external analysis, and retention policy configuration. Choose this over raw event logging when you need queryable, structured audit data with actor/target/context metadata.
 
 ## Documentation
 
@@ -21,14 +21,14 @@ Use this skill when you need to emit, query, or export audit trail events for co
 
 ## Key Vocabulary
 
-- **Organization** `org_` — tenant container for audit events
-- **Actor** — entity performing the audited action (user, system, API key)
-- **Target** — entity being acted upon (resource, user, configuration)
-- **Action** — standardized verb describing the event (e.g., `user.created`, `document.deleted`)
-- **Schema** — defines allowed actions and metadata structure for an organization
-- **Export** `audit_log_export_` — bulk CSV download of filtered events
-- **Retention Policy** — configures how long events are stored (default 1 year)
-- **Context** — additional metadata fields (IP, user agent, location)
+- **Organization** `org_` — container for audit events and schema
+- **Event** — immutable audit log entry with `action`, `actor`, `target`, `context`, `occurred_at`
+- **Schema** — defines valid action types for an organization
+- **Action** — categorized operation (e.g., `user.login_failed`, `document.deleted`)
+- **Actor** — entity performing the action (user, service account, system)
+- **Target** — entity being acted upon (resource, document, setting)
+- **Export** `audit_log_export_` — CSV snapshot of events for a time range
+- **Retention Policy** — automatic deletion rule for old events (90/180/365/730 days)
 
 ## Implementation Guide
 
@@ -38,4 +38,5 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-None
+- workos-authkit-base — for capturing authentication events as audit log actors
+- workos-directory-sync — for syncing directory user changes into audit trails

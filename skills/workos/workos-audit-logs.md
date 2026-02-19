@@ -9,7 +9,7 @@ description: Implement audit logging for compliance and security.
 
 ## When to Use
 
-Use this skill when you need to emit compliance-grade audit events from your application, export them for customer review, or stream them to external security tools. Audit Logs records "who did what, when" for security and compliance requirements.
+Use this skill when you need to emit compliance-grade audit events from your application, export user activity logs to external systems, or provide customers with self-service access to their organization's audit trail. Choose Audit Logs when you need structured, tamper-evident activity records — not generic application logging.
 
 ## Documentation
 
@@ -21,15 +21,13 @@ Use this skill when you need to emit compliance-grade audit events from your app
 
 ## Key Vocabulary
 
-- **Event** — a single audit record with actor, action, target, and metadata
+- **Event** — a single audit record with actor, action, target, and context metadata
+- **Log Stream** — export destination for audit events (e.g., S3, Datadog)
+- **Organization `org_`** — tenant context for multi-tenant audit trails
 - **Actor** — the entity performing the action (user, API key, system)
-- **Action** — the verb describing what happened (e.g., `user.created`, `file.downloaded`)
-- **Target** — the resource being acted upon
-- **Metadata** — structured context for the event (JSON object)
-- **Log Stream** — continuous export to external systems (Datadog, Splunk, S3)
-- **Export** — on-demand CSV download of audit events
-- `WORKOS_API_KEY` — server-side authentication for emitting events
-- Organization `org_` — scopes audit events to a customer tenant
+- **Target** — the resource being acted upon (file, user, project)
+- **Action** — the verb describing what happened (e.g., `user.created`, `file.deleted`)
+- **Context** — additional metadata (IP address, user agent, location)
 
 ## Implementation Guide
 

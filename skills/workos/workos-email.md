@@ -9,7 +9,7 @@ description: Configure email delivery for WorkOS authentication flows.
 
 ## When to Use
 
-Use this skill when you need to send transactional emails (password resets, verification codes, notifications) through WorkOS's managed email infrastructure. This skill covers API-based email sending, template management, and delivery tracking. Choose this over direct SMTP when you want WorkOS-managed deliverability, bounce handling, and compliance.
+Use this skill when you need to send transactional emails (e.g., password resets, account notifications) through WorkOS's managed infrastructure. This is appropriate when you want reliable delivery, webhook-based status tracking, and centralized email management without configuring your own SMTP provider.
 
 ## Documentation
 
@@ -17,13 +17,9 @@ Use this skill when you need to send transactional emails (password resets, veri
 
 ## Key Vocabulary
 
-- **Email** `email_` — the email message object
-- **Template** `template_` — reusable email template with variables
-- **Environment** `env_` — isolated sending context (dev/staging/prod)
-- **`WORKOS_API_KEY`** — authentication credential for API requests
-- **Recipient** — destination email address with optional metadata
-- **Delivery Status** — tracking state (sent, delivered, bounced, failed)
-- **Send Event** — webhook notification for email lifecycle changes
+- **Email** `email_` — represents a sent email message
+- **Email Template** `email_template_` — reusable email content with variable substitution
+- **Webhook Event** `email.sent`, `email.delivered`, `email.bounced`, `email.opened` — delivery status notifications
 
 ## Implementation Guide
 
