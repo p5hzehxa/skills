@@ -291,7 +291,10 @@ async function main() {
   // --- Phase 4: Quality Gate ---
 
   console.log("\n--- Quality Gate ---");
-  const qualityReport = await runQualityGate(generatedSkills, {
+  const skillsToGate = flags.refineOnly
+    ? generatedSkills.filter((s) => s.name === flags.refineOnly)
+    : generatedSkills;
+  const qualityReport = await runQualityGate(skillsToGate, {
     refineMode: shouldRefine,
     apiKey: process.env.ANTHROPIC_API_KEY,
     model: flags.model ?? undefined,
