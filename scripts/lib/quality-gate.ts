@@ -114,20 +114,20 @@ async function scoreSummary(
     issues.push("Missing 'When to Use' section");
   }
 
-  // 4. Key Concepts section with content (15 pts)
-  if (/^## Key Concepts/m.test(content)) {
+  // 4. Key Vocabulary section with content (15 pts)
+  if (/^## Key Vocabulary/m.test(content)) {
     const conceptsMatch = content.match(
-      /## Key Concepts\n([\s\S]*?)(?=\n## |$)/,
+      /## Key Vocabulary\n([\s\S]*?)(?=\n## |$)/,
     );
     const conceptsBody = conceptsMatch?.[1]?.trim() ?? "";
     if (conceptsBody.length > 50) {
       score += 15;
     } else {
       score += 5;
-      issues.push("Key Concepts section has minimal content");
+      issues.push("Key Vocabulary section has minimal content");
     }
   } else {
-    issues.push("Missing 'Key Concepts' section");
+    issues.push("Missing 'Key Vocabulary' section");
   }
 
   // 5. Guide pointer (15 pts)

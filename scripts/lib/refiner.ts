@@ -153,24 +153,38 @@ function buildSummaryRefinePrompt(
   const feedback = loadFeedback(skillName);
   const feedbackContext = formatFeedbackForPrompt(feedback);
 
-  const system = `You are a skill refinement agent specializing in SUMMARY skills. A summary skill is a lightweight overview (1-2KB) that helps an agent understand what a feature is and when to use it — without loading the full implementation guide.
+  const system = `You are a skill refinement agent specializing in SUMMARY skills. A summary is a ROUTING DOCUMENT — it helps an agent decide whether to load the full implementation guide. It is NOT a mini-guide.
 
-## What makes a great summary
+## Summary structure (4 sections, strict)
 
-1. **"When to Use" section** — 2-3 sentences explaining what problem this feature solves and when to reach for it
-2. **"Key Concepts" section** — structural vocabulary the agent needs to understand the domain:
-   - Concept names (e.g., "organization", "connection", "directory")
-   - ID prefixes and env var names (e.g., \`sk_\`, \`WORKOS_API_KEY\`)
-   - Event type naming conventions
-   - Key architectural patterns and decision points
-3. **Guide pointer preserved exactly** — the "Implementation Guide" section with the Read instruction must be kept verbatim
-4. **Under 2KB** — this is a summary, not an implementation guide
-5. **No implementation steps, verification commands, or error recovery** — those belong in the guide
-6. **Imperative voice** — "Use this when..." not "This can be used when..."
-${getContentTaxonomyBlock()}
+1. **"When to Use"** — 2-3 sentences. What problem does this feature solve? When should an agent reach for this skill vs another?
+
+2. **"Key Vocabulary"** — a SHORT bullet list of structural terms the agent needs to parse the docs. ONLY these are allowed:
+   - Entity names with ID prefixes (e.g., "Organization \`org_\`", "Connection \`conn_\`")
+   - Env var names (\`WORKOS_API_KEY\`, \`WORKOS_CLIENT_ID\`)
+   - Event type naming patterns (e.g., \`dsync.user.created\`)
+   - Dashboard navigation paths
+   - Maximum 10 bullet points. No sub-lists.
+
+3. **"Implementation Guide"** — the guide pointer. PRESERVE EXACTLY as-is. Do not add content around it.
+
+4. **"Related Skills"** — PRESERVE EXACTLY as-is.
+
+## HARD RULES
+
+- **NO verification commands, bash blocks, or curl examples** — those belong in the guide
+- **NO SDK method names** — those change by language/version
+- **NO behavioral claims** ("X is required", "Y is mandatory", "Z is not supported")
+- **NO procedural steps, numbered flows, or "how to" instructions**
+- **NO decision trees** — the guide has those
+- **NO security instructions** ("Do NOT store...", "Always verify...")
+- **NO "Common Traps" or "Trap Warnings" sections** — those belong in the guide
+- **Target size: 500-1000 bytes** after frontmatter. If your output exceeds 1.5KB, you wrote too much.
+
+The summary's job is DONE when an agent can answer: "Is this the right skill for my task?" and "What doc URLs should I fetch?"
 ${getAttributionBlock()}${feedbackContext}`;
 
-  const user = `Refine this summary skill "${skillName}". Improve the "When to Use" section and fill in the "Key Concepts" section with structural vocabulary from the domain. Keep the guide pointer and related skills sections exactly as they are.
+  const user = `Refine this summary for "${skillName}". Write a tight "When to Use" (2-3 sentences) and a "Key Vocabulary" list (max 10 bullets of entity names and ID prefixes only). Preserve the Documentation, Implementation Guide, and Related Skills sections exactly.
 
 <scaffold>
 ${body}
@@ -288,43 +302,42 @@ function buildRefinePrompt(
   const feedback = loadFeedback(skillName);
   const feedbackContext = formatFeedbackForPrompt(feedback);
 
-  const system = `You are a skill refinement agent. Your job is to transform auto-generated skill scaffolds into high-quality procedural agent instructions.
+  const system = `You are a skill refinement agent. Your job is to transform auto-generated skill scaffolds into guides that add value BEYOND what the docs provide.
 
-A "skill" is a markdown file that tells an AI coding agent HOW to implement a feature — not WHAT the feature is. Skills encode procedural knowledge: numbered steps, decision trees, verification commands, and error recovery.
+The agent will WebFetch the docs at runtime. Your guide should NOT restate what the docs say — instead, provide what docs DON'T:
+- **Decision trees** that synthesize across multiple doc pages
+- **Trap warnings** from domain expert feedback (things agents get wrong)
+- **Verification commands** to confirm setup worked
+- **Error recovery** for issues not covered in docs (real-world integration problems)
 
-## What makes a great skill
+## What makes a great guide
 
-Study this gold standard example carefully — it is the quality bar:
+Study this gold standard:
 
 <gold-standard>
 ${goldStandard}
 </gold-standard>
 
-Key patterns from the gold standard:
-1. **Numbered steps** (Step 1, Step 2...) telling the agent what to DO
-2. **Blocking gates**: "STOP. Do not proceed until complete."
-3. **Decision trees** with ASCII art for conditional flows
-4. **Concrete verification commands** — actual bash one-liners with pass/fail
-5. **Specific error messages** mapped to specific fixes with root causes
-6. **WebFetch as source of truth** — doc URLs for runtime fetching, not baked-in content
-7. **Imperative voice** — "Detect package manager" not "The package manager can be detected"
-8. **No marketing prose, no screenshots, no feature descriptions**
-9. **Pseudocode patterns for tricky flows** — not complete code examples or API reference dumps
+Key patterns:
+1. **Step 1 is always "Fetch Documentation"** — the docs are the source of truth
+2. **Decision trees** for ambiguous choices the docs don't resolve
+3. **Verification commands** — runnable bash one-liners with pass/fail
+4. **Error recovery** — specific errors mapped to specific fixes with root causes
+5. **Imperative voice** — "Detect package manager" not "The package manager can be detected"
+6. **No restating docs** — if the docs explain it clearly, don't repeat it. Add a "Check fetched docs for..." pointer instead.
 
-## Rules for refinement
+## Rules
 
-1. Output ONLY the skill body (everything after frontmatter). Do NOT include frontmatter or the \`<!-- generated -->\` marker — those are added automatically.
-2. KEEP the "Step 1: Fetch Documentation" section with these exact doc URLs: ${docUrls.map((u) => `\n   - ${u}`).join("")}
-3. REPLACE all descriptive/marketing prose with procedural steps
-4. ADD decision trees where there are meaningful branches
-5. ADD a verification checklist with RUNNABLE bash commands (grep, curl, ls, etc.)
-6. ADD specific error messages with root causes and fixes (not generic "check API key")
-7. REMOVE all image markdown links (agents cannot render images)
-8. REMOVE all baked-in documentation content — the agent will WebFetch at runtime
-9. REMOVE truncated or broken code blocks
-10. Keep the skill focused — aim for 150-300 lines of procedural guidance with structural vocabulary, not baked-in docs
-11. Replace complete code examples with pseudocode patterns. Show WHAT to do, not exact HOW
-12. Include a "Related Skills" section if relevant cross-references exist
+1. Output ONLY the skill body. No frontmatter, no \`<!-- generated -->\` marker.
+2. KEEP Step 1 with these doc URLs: ${docUrls.map((u) => `\n   - ${u}`).join("")}
+3. For topics the docs cover well: write "Check fetched docs for [specific topic]" — do NOT restate.
+4. For topics that span multiple doc pages or are confusing: ADD a decision tree.
+5. ADD a verification checklist with RUNNABLE bash commands.
+6. ADD error recovery with specific errors → specific fixes.
+7. REMOVE marketing prose, feature descriptions, and baked-in doc content.
+8. NO SDK method names — they vary by language. Use "SDK method for [operation]" instead.
+9. NO behavioral claims ("X is required", "Y is mandatory") — defer to fetched docs.
+10. Aim for 80-150 lines. If you're over 200 lines, you're restating docs.
 ${getContentTaxonomyBlock()}
 ${getAttributionBlock()}${feedbackContext}`;
 

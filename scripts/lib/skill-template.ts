@@ -24,7 +24,7 @@ export function renderSummary(spec: SkillSpec, sourceHash?: string): string {
   parts.push("");
   parts.push(renderWhenToUse(spec));
   parts.push(renderDocumentation(spec.docUrls));
-  parts.push(renderKeyConceptsPlaceholder(spec));
+  parts.push(renderKeyVocabularyPlaceholder(spec));
   parts.push(renderGuidePointer(spec.name));
   parts.push(renderRelatedSkills(spec));
 
@@ -65,11 +65,11 @@ export function renderDocumentation(docUrls: string[]): string {
   return lines.join("\n");
 }
 
-/** Key Concepts placeholder — populated by the refiner */
-export function renderKeyConceptsPlaceholder(spec: SkillSpec): string {
-  return `## Key Concepts
+/** Key Vocabulary placeholder — populated by the refiner */
+export function renderKeyVocabularyPlaceholder(spec: SkillSpec): string {
+  return `## Key Vocabulary
 
-_This section is populated during refinement with structural vocabulary and key concepts from the ${spec.title.replace("WorkOS ", "")} domain._
+_Entity names, ID prefixes, and structural terms for ${spec.title.replace("WorkOS ", "")}. Populated during refinement._
 
 `;
 }

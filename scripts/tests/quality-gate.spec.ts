@@ -64,7 +64,7 @@ Use this skill when you need to test the quality gate scoring.
 
 - https://workos.com/docs/test
 
-## Key Concepts
+## Key Vocabulary
 
 Key structural vocabulary for the test domain including identifiers and patterns.
 
@@ -311,7 +311,7 @@ description: test
 
 Some content here.
 
-## Key Concepts
+## Key Vocabulary
 
 Some concepts.
 `;
@@ -338,7 +338,7 @@ description: test
 
 Use this.
 
-## Key Concepts
+## Key Vocabulary
 
 Concepts here.
 

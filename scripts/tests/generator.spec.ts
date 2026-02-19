@@ -64,10 +64,10 @@ describe("generateSkill", () => {
     expect(summary.content).toContain("workos-sso.guide.md");
   });
 
-  it("summary includes When to Use and Key Concepts", () => {
+  it("summary includes When to Use and Key Vocabulary", () => {
     const [summary] = generateSkill(makeSpec());
     expect(summary.content).toContain("## When to Use");
-    expect(summary.content).toContain("## Key Concepts");
+    expect(summary.content).toContain("## Key Vocabulary");
   });
 
   it("summary includes Related Skills", () => {
