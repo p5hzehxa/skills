@@ -10,62 +10,52 @@ WebFetch: `https://workos.com/docs/migrate/better-auth`
 
 The docs are the source of truth. If this skill conflicts with docs, follow docs.
 
-## Step 2: Database Export Validation
+## Step 2: Database Access Pattern (Decision Tree)
 
-### Schema Detection
-
-Better Auth stores data across multiple tables. Verify these exist in your database:
-
-```bash
-# Check for required tables (adjust for your DB type)
-psql -d your_db -c "\dt" | grep -E "(user|account|organization|member)"
-```
-
-**CRITICAL:** The `account` table stores password hashes. Missing this table means passwords cannot be migrated.
-
-### Organization Plugin Detection
-
-```bash
-# Check if organization/member tables exist
-psql -d your_db -c "\dt" | grep -E "(organization|member)"
-```
+Better Auth stores data across multiple tables. Determine export method:
 
 ```
-Tables found?
+Database access?
   |
-  +-- Both exist --> Follow Organization Migration path (Step 5)
+  +-- Direct SQL access --> Use SQL queries (Steps 3-4)
   |
-  +-- Neither exists --> Skip Step 5, users only
+  +-- ORM (Prisma, etc.) --> Use ORM query methods (adapt SQL to ORM syntax)
   |
-  +-- Only one exists --> ERROR: Schema corrupted, investigate before migrating
+  +-- Database export tool --> Export to CSV/JSON, parse in migration script
 ```
+
+**Tables to export:**
+
+- `user` - Core user data (id, name, email, emailVerified, image, timestamps)
+- `account` - Provider credentials, including password hashes (providerId='credential' for passwords)
+- `organization` - If using organization plugin
+- `member` - User-to-org mappings with roles
 
 ## Step 3: Export User Data
 
-### Core User Export
-
-Query the `user` table. Export to JSON/CSV for processing:
+Query the `user` table:
 
 ```sql
-SELECT id, name, email, emailVerified, image, createdAt, updatedAt
-FROM user;
+SELECT * FROM user;
 ```
 
-**Trap:** Better Auth `name` is a single field. WorkOS requires `first_name` and `last_name`. Decision tree:
+Export format: JSON, CSV, or any parseable format for your migration script.
+
+**Field mapping for WorkOS Create User API:**
 
 ```
-name field contains space?
-  |
-  +-- Yes --> Split on first space: "John Doe" -> first_name="John", last_name="Doe"
-  |
-  +-- No  --> Use full value for first_name, leave last_name empty or use placeholder
-  |
-  +-- NULL --> Set both to empty string or omit (check docs for required fields)
+Better Auth field --> WorkOS parameter
+email             --> email
+emailVerified     --> email_verified
+name              --> first_name (split name string)
+name              --> last_name (split name string)
 ```
 
-### Password Hash Export
+**TRAP:** Better Auth stores full name in single `name` field. You must split it into first/last for WorkOS. Naive split on first space is acceptable for migration.
 
-Export passwords from `account` table:
+## Step 4: Export Password Hashes
+
+Query the `account` table for credential-based accounts:
 
 ```sql
 SELECT userId, password
@@ -73,254 +63,149 @@ FROM account
 WHERE providerId = 'credential';
 ```
 
-**CRITICAL:** Better Auth default is `scrypt`. If you configured a custom hash algorithm, note it for Step 4.
+**Critical:** Better Auth defaults to `scrypt` hashing. If using custom hashing in Better Auth config, note the algorithm — WorkOS supports scrypt, bcrypt, argon2, pbkdf2.
 
-**Verification command:**
+### PHC Format Requirement
 
-```bash
-# Check password format - should be PHC string or raw scrypt
-echo "Sample password hash: $(psql -d your_db -tAc "SELECT password FROM account WHERE providerId = 'credential' LIMIT 1")"
-```
-
-### Social Auth Account Export
-
-Export linked social accounts:
-
-```sql
-SELECT userId, providerId, accountId, email
-FROM account
-WHERE providerId != 'credential';
-```
-
-**Note:** `providerId` values map to WorkOS connection types (e.g., `'google'` → Google OAuth, `'github'` → GitHub OAuth). Verify WorkOS supports each provider in your export before migrating.
-
-## Step 4: Import Users with Passwords
-
-### Rate Limit Strategy
-
-WorkOS Create User API is rate-limited. Check fetched docs for current limits.
-
-**Decision tree for batching:**
+WorkOS requires password hashes in PHC string format. Better Auth stores scrypt hashes — verify format:
 
 ```
-Total users?
-  |
-  +-- < 100   --> No batching needed, import sequentially
-  |
-  +-- 100-1k  --> Batch size 10, sleep 1s between batches
-  |
-  +-- 1k-10k  --> Batch size 5, sleep 2s between batches
-  |
-  +-- 10k+    --> Contact WorkOS for bulk import options
+Expected: $scrypt$...$...$...
+If raw hash: Convert to PHC format before import
 ```
 
-### Field Mapping
+Check fetched docs for PHC format parameters (N, r, p values) for each supported algorithm.
 
-Better Auth → WorkOS User Create API:
+## Step 5: Import Users with Rate Limiting
 
-- `email` → `email`
-- `emailVerified` → `email_verified`
-- `name` → split into `first_name` + `last_name` (see Step 3 trap)
+Use WorkOS Create User API for each exported user. API is rate-limited — implement batching.
 
-**Omit these Better Auth fields:** `image`, `id` (WorkOS generates new IDs), timestamps (WorkOS sets these)
-
-### Password Hash Format
-
-Better Auth default is `scrypt`. Password hash must be PHC string format:
+**Pseudocode pattern:**
 
 ```
-$scrypt$n=16384,r=8,p=1$<salt>$<hash>
+for batch in users.chunks(BATCH_SIZE):
+  for user in batch:
+    create_user(user_data)
+  sleep(RATE_LIMIT_DELAY)
 ```
 
-**Trap:** If Better Auth is storing raw scrypt hashes (not PHC format), you must convert them. The conversion requires:
-- Extract salt and hash bytes
-- Encode in PHC format with parameters: `n=16384,r=8,p=1` (Better Auth defaults)
+Check fetched docs for current rate limits and recommended batch sizes.
 
-Check fetched docs for PHC format requirements and examples.
+**Password hash import:**
 
-**For custom hash algorithms:** Better Auth supports bcrypt, argon2, pbkdf2. WorkOS supports these too — check fetched docs for each algorithm's PHC format.
+Set `password_hash_type` to match Better Auth algorithm (default: `'scrypt'`). Include `password_hash` parameter with PHC-formatted hash from `account` table.
 
-### Import API Call
+**Alternate timing:** You can import password hashes AFTER user creation using Update User API if preferred (same parameters).
 
-Use WorkOS SDK method for creating user:
+## Step 6: Social Auth Provider Setup
 
-```
-password_hash_type: 'scrypt'
-password_hash: <PHC format hash from account table>
-email: <from user table>
-email_verified: <from user table>
-first_name: <split from name>
-last_name: <split from name>
-```
+Better Auth stores social auth accounts in `account` table with `providerId` values like `'google'`, `'github'`, `'microsoft'`.
 
-**Verification command after import:**
+**Pattern for provider migration:**
 
-```bash
-# Verify user count matches export
-workos_user_count=$(curl -s -H "Authorization: Bearer $WORKOS_API_KEY" \
-  "https://api.workos.com/user_management/users" | jq '.data | length')
-better_auth_count=$(psql -d your_db -tAc "SELECT COUNT(*) FROM user")
-echo "Better Auth: $better_auth_count, WorkOS: $workos_user_count"
-```
+1. Query accounts: `SELECT userId, providerId FROM account WHERE providerId != 'credential'`
+2. For each unique providerId, configure that provider in WorkOS Dashboard
+3. Check workos.com/integrations for provider-specific setup guides
+4. Users sign in with provider → WorkOS auto-links to user by email match
 
-## Step 5: Social Auth Migration
+**Email verification behavior:**
 
-**Prerequisites:** Configure OAuth providers in WorkOS Dashboard. Check fetched docs for provider-specific setup.
+- Known providers (Google with @gmail.com) → skip verification
+- Unknown providers or custom domains → may require email verification depending on environment settings
+- Check WorkOS Dashboard auth settings for email verification config
 
-### Provider Mapping
+## Step 7: Organizations Migration (If Using Plugin)
 
-Better Auth `providerId` → WorkOS connection type:
-- `'google'` → Google OAuth
-- `'github'` → GitHub OAuth
-- `'microsoft'` → Microsoft OAuth
+If Better Auth organization plugin is active, export `organization` and `member` tables.
 
-**CRITICAL:** After provider setup, users sign in with social auth and WorkOS auto-links by email. No additional API calls needed for social auth accounts.
+**Organization creation:**
 
-### Email Verification Trap
+Check fetched docs for WorkOS Organizations API — create each org, then add members with role mappings.
 
-**Decision tree for email verification:**
-
-```
-Provider + email domain?
-  |
-  +-- Google + gmail.com    --> Auto-verified, no extra step
-  +-- Microsoft + outlook.* --> Auto-verified, no extra step
-  +-- Other combinations    --> User may need to verify email (check docs)
-```
-
-**Trap:** If Better Auth marked `emailVerified=true` but WorkOS doesn't trust the provider, user will be prompted to verify. This is expected behavior — do NOT try to force-verify via API.
-
-## Step 6: Organization Migration (Optional)
-
-**Only if Step 2 detected organization/member tables.**
-
-### Export Organization Data
-
-```sql
--- Export organizations
-SELECT id, name, slug, createdAt
-FROM organization;
-
--- Export memberships
-SELECT userId, organizationId, role
-FROM member;
-```
-
-### Import Organizations
-
-Use WorkOS Organization Create API. Check fetched docs for exact parameters.
-
-**Field mapping:**
-- `name` → organization name
-- `slug` → NOT directly supported — WorkOS generates slugs. You can store Better Auth slug as metadata.
-
-### Import Members
-
-For each membership record:
-1. Lookup WorkOS user ID by Better Auth `userId` (map from Step 4 import)
-2. Lookup WorkOS organization ID by Better Auth `organizationId` (map from org import)
-3. Use WorkOS API to add user to organization with role
-
-**Role mapping trap:** Better Auth roles are custom strings. WorkOS has predefined roles (`admin`, `member`). Decision tree:
-
-```
-Better Auth role?
-  |
-  +-- "owner" or "admin"  --> WorkOS: admin
-  +-- "member" or "user"  --> WorkOS: member
-  +-- Custom roles        --> Default to "member", store original in user metadata
-```
-
-Check fetched docs for WorkOS Organization Member API for exact role values.
+**Role mapping:** Better Auth role slugs → WorkOS role slugs. Check fetched docs for WorkOS role schema if custom roles are needed.
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these commands after migration:
+Run these commands and checks:
 
 ```bash
-# 1. User count matches
-better_auth_users=$(psql -d your_db -tAc "SELECT COUNT(*) FROM user")
-workos_users=$(curl -s -H "Authorization: Bearer $WORKOS_API_KEY" \
-  "https://api.workos.com/user_management/users" | jq '.data | length')
-[ "$better_auth_users" -eq "$workos_users" ] && echo "PASS: User count matches" || echo "FAIL: User count mismatch"
+# 1. Confirm data export files exist
+ls user_export.json password_export.json 2>/dev/null || echo "FAIL: Missing exports"
 
-# 2. Password hashes imported
-workos_password_users=$(curl -s -H "Authorization: Bearer $WORKOS_API_KEY" \
-  "https://api.workos.com/user_management/users" | jq '[.data[] | select(.password_hash != null)] | length')
-better_auth_passwords=$(psql -d your_db -tAc "SELECT COUNT(*) FROM account WHERE providerId = 'credential'")
-[ "$better_auth_passwords" -eq "$workos_password_users" ] && echo "PASS: Passwords imported" || echo "FAIL: Password count mismatch"
+# 2. Verify PHC format for sample hash
+grep '^\$scrypt\$' password_export.json || echo "WARN: Check PHC format"
 
-# 3. OAuth providers configured (if social auth users exist)
-curl -s -H "Authorization: Bearer $WORKOS_API_KEY" \
-  "https://api.workos.com/connections" | jq '.data[].name'
+# 3. Test Create User API with one user (dry run)
+# Use SDK method for create user with test data
 
-# 4. Organizations imported (if applicable)
-if psql -d your_db -c "\dt" | grep -q "organization"; then
-  better_auth_orgs=$(psql -d your_db -tAc "SELECT COUNT(*) FROM organization")
-  workos_orgs=$(curl -s -H "Authorization: Bearer $WORKOS_API_KEY" \
-    "https://api.workos.com/organizations" | jq '.data | length')
-  [ "$better_auth_orgs" -eq "$workos_orgs" ] && echo "PASS: Organization count matches" || echo "FAIL: Organization count mismatch"
-fi
+# 4. Check provider configs in WorkOS Dashboard
+# Manual check: Dashboard > Configuration > Authentication > Connections
 ```
+
+**Post-migration verification:**
+
+- Sample user can sign in with migrated password
+- Sample user can sign in with social provider (if applicable)
+- Organization memberships preserved (if using orgs)
 
 ## Error Recovery
 
-### "Invalid password_hash format"
+### "Invalid password hash format"
 
-**Root cause:** Password hash not in PHC string format.
+**Cause:** Hash not in PHC string format.
 
-Fix:
-1. Check hash starts with `$scrypt$` (or `$bcrypt$`, `$argon2$`, etc.)
-2. Verify parameters match Better Auth config (default: `n=16384,r=8,p=1` for scrypt)
-3. If raw hash, convert to PHC format before import (see Step 4 trap)
+**Fix:**
 
-### "User email already exists"
+1. Check Better Auth database — hash should start with `$scrypt$` (or other algorithm prefix)
+2. If raw hash: Convert to PHC format using algorithm params from Better Auth config
+3. Verify N, r, p parameters match Better Auth scrypt settings (defaults: N=16384, r=8, p=1)
 
-**Root cause:** Re-running import script without deduplication.
+### "Email already exists"
 
-Fix:
-1. Check WorkOS for existing user: `GET /user_management/users?email={email}`
-2. If exists, use Update User API instead of Create
-3. Or: Delete test users before re-running migration
+**Cause:** User already created in WorkOS, or duplicate in Better Auth export.
+
+**Fix:**
+
+1. Check if user exists in WorkOS first (use List Users API)
+2. If exists, use Update User API instead of Create User
+3. Deduplicate Better Auth export by email before import
 
 ### "Rate limit exceeded"
 
-**Root cause:** Importing too fast (see Step 4 rate limit strategy).
+**Cause:** Import script not respecting rate limits.
 
-Fix:
-1. Add sleep between batches: `sleep 2` (adjust based on rate limit)
-2. For large migrations (10k+ users), contact WorkOS for bulk import assistance
-3. Check fetched docs for current rate limits
+**Fix:**
 
-### Social auth users can't sign in after migration
+1. Check fetched docs for current rate limits
+2. Add delays between batches: `sleep(1)` between requests minimum
+3. Reduce batch size, increase delay
 
-**Root cause:** OAuth provider not configured in WorkOS Dashboard.
+### Social auth user can't sign in after migration
 
-Fix:
-1. Check WorkOS Dashboard → Connections
-2. Verify provider (Google, GitHub, etc.) has client ID/secret configured
-3. Verify redirect URLs match your application
-4. Check fetched docs for provider-specific setup
+**Cause:** Provider not configured in WorkOS Dashboard, or email mismatch.
 
-### Organization members not linked
+**Fix:**
 
-**Root cause:** User ID mapping from Better Auth to WorkOS failed.
+1. Verify provider credentials configured in Dashboard
+2. Check user's email in Better Auth matches provider's email claim
+3. Check environment email verification settings — may need manual verification for some providers
 
-Fix:
-1. During user import (Step 4), store mapping: `{ betterAuthUserId: workosUserId }`
-2. Use mapping in Step 6 to lookup WorkOS user IDs
-3. If mapping lost, re-query WorkOS users by email to rebuild mapping
+### Organization members missing roles
 
-### "password_hash_type 'scrypt' not supported"
+**Cause:** Role slug mismatch between Better Auth and WorkOS.
 
-**Root cause:** Typo or outdated SDK version.
+**Fix:**
 
-Fix:
-1. Verify `password_hash_type` is exactly `'scrypt'` (lowercase, no extra quotes)
-2. Update WorkOS SDK to latest version
-3. Check fetched docs for supported hash types
+1. Export Better Auth member table: `SELECT userId, organizationId, role FROM member`
+2. Map Better Auth role names to WorkOS role slugs (check fetched docs for WorkOS role schema)
+3. Use WorkOS Organizations API to assign roles after creating memberships
 
-## Related Skills
+### Name field splitting produces bad results
 
-- workos-authkit-nextjs — Integrate WorkOS auth in Next.js after migration
-- workos-authkit-react — Integrate WorkOS auth in React apps after migration
+**Cause:** Better Auth `name` field contains non-standard formats (single name, multiple spaces, prefixes).
+
+**Fix:**
+
+1. Implement smarter split logic: check for common prefixes (Dr., Mr., etc.)
+2. For single-word names: use as first_name, leave last_name empty
+3. For complex names: manual review or leave as-is (WorkOS allows empty last_name)

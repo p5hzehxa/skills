@@ -11,251 +11,228 @@
 - https://workos.com/docs/reference/admin-portal/portal-link/generate
 - https://workos.com/docs/reference/admin-portal/provider-icons
 
-## Prerequisites
+## Authentication Setup
 
-- WorkOS API key starting with `sk_` (env var: `WORKOS_API_KEY`)
-- WorkOS Client ID starting with `client_` (env var: `WORKOS_CLIENT_ID`)
-- Organization ID for the target organization
+Set environment variables:
+
+```bash
+export WORKOS_API_KEY="sk_live_..." # or sk_test_...
+export WORKOS_CLIENT_ID="client_..."
+```
+
+All API requests require the API key in the Authorization header:
+
+```bash
+Authorization: Bearer sk_live_...
+```
 
 ## Endpoint Catalog
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/portal/generate_link` | Generate a one-time Admin Portal link for an organization |
-| GET | `/portal/provider_icons` | Retrieve available SSO provider icons |
+| POST | `/portal/generate_link` | Generate time-limited Admin Portal access URL |
+| GET | (provider icons) | Retrieve identity provider logos for UI display |
 
-## Authentication
-
-Include your API key in the `Authorization` header:
-
-```
-Authorization: Bearer sk_your_api_key
-```
-
-SDK handles this automatically when you initialize:
-
-```
-workos_client = WorkOS(api_key=os.getenv('WORKOS_API_KEY'))
-```
+The Admin Portal API surface is intentionally minimal — it generates secure access links to WorkOS-hosted configuration UIs.
 
 ## Operation Decision Tree
 
-### When to generate a portal link
+**When to use Admin Portal:**
+- **Customer needs to configure SSO** → Generate portal link with `intent=sso`
+- **Customer needs to configure Directory Sync** → Generate portal link with `intent=dsync`
+- **Customer needs to configure Log Streams** → Generate portal link with `intent=log_streams`
+- **Customer needs to configure Audit Logs** → Generate portal link with `intent=audit_logs`
+- **Building a custom UI?** → DON'T use Admin Portal. Use the core SSO/Directory Sync APIs instead.
 
-Generate a new portal link when:
-- User clicks "Configure SSO" in your application
-- Admin needs to update SSO settings
-- New organization setup flow requires SSO configuration
+**Organization targeting:**
+- You MUST specify the organization for which you're generating the portal link
+- Use `organization` parameter with the organization ID (format: `org_...`)
 
-**Do NOT reuse portal links** — they are single-use and expire. Generate a fresh link for each session.
-
-### Link parameters
-
-Set `intent` to control which Admin Portal section the user lands on:
-- `sso` — SSO configuration (most common)
-- `dsync` — Directory Sync configuration
-- `log_streams` — Log Streams configuration
-- `audit_logs` — Audit Logs configuration
-
-Set `return_url` to redirect users back to your application after they complete configuration.
+**Return URL strategy:**
+- Specify where customers land after completing configuration
+- Use `return_url` parameter with your application callback URL
+- WorkOS redirects to this URL when customer exits the portal
 
 ## Generate Portal Link Pattern
-
-```
-POST /portal/generate_link
-{
-  "organization": "org_12345",
-  "intent": "sso",
-  "return_url": "https://yourapp.com/settings/sso/complete"
-}
-
-Response 201:
-{
-  "link": "https://id.workos.com/portal/launch?token=...",
-  "object": "portal_link"
-}
-```
-
-**Implementation pseudocode:**
-
-```python
-# When user clicks "Configure SSO"
-portal_link = workos_client.portal.generate_link(
-    organization="org_12345",
-    intent="sso",
-    return_url="https://yourapp.com/settings/sso/complete"
-)
-
-# Redirect user immediately
-redirect_to(portal_link.link)
-```
-
-**Critical trap:** The link expires quickly. Generate it on-demand when the user clicks, NOT in advance.
-
-## Provider Icons Pattern
-
-Fetch available provider icons to show users SSO options in your UI:
-
-```
-GET /portal/provider_icons
-
-Response 200:
-{
-  "data": [
-    {
-      "type": "provider_icon",
-      "name": "Okta",
-      "slug": "okta",
-      "icon_url": "https://..."
-    },
-    ...
-  ]
-}
-```
-
-**Implementation pseudocode:**
-
-```python
-# Fetch once on page load, cache in your app
-icons = workos_client.portal.list_provider_icons()
-
-# Render in UI
-for icon in icons:
-    display_provider_option(icon.name, icon.icon_url)
-```
-
-## Error Code Mapping
-
-| Status | Cause | Fix |
-|--------|-------|-----|
-| 401 | API key missing or invalid | Verify `WORKOS_API_KEY` starts with `sk_` and is active in Dashboard |
-| 404 | Organization ID not found | Check organization exists: `workos_client.organizations.get_organization("org_id")` |
-| 422 | Invalid intent value | Use only: `sso`, `dsync`, `log_streams`, `audit_logs` |
-| 422 | Invalid return_url format | Must be valid HTTPS URL. Verify: `return_url.startswith("https://")` |
-| 429 | Rate limit exceeded | Implement exponential backoff. Wait 1s, then 2s, then 4s before retry |
-
-**Debug command for 401 errors:**
-
-```bash
-curl -H "Authorization: Bearer $WORKOS_API_KEY" \
-  https://api.workos.com/organizations \
-  -w "\nHTTP Status: %{http_code}\n"
-```
-
-If this returns 401, your API key is invalid. Generate a new key in Dashboard → API Keys.
-
-## Pagination Handling
-
-Provider icons API returns all icons in a single response. No pagination required.
-
-## Runnable Verification
-
-**Test 1: Verify API key works**
-
-```bash
-curl -H "Authorization: Bearer $WORKOS_API_KEY" \
-  https://api.workos.com/organizations \
-  | jq '.data[0].id'
-```
-
-Expected: Should print an organization ID like `org_12345`. If 401, API key is wrong.
-
-**Test 2: Generate a portal link**
 
 ```bash
 curl -X POST https://api.workos.com/portal/generate_link \
   -H "Authorization: Bearer $WORKOS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "organization": "org_YOUR_ORG_ID",
+    "organization": "org_01EHZNVPK3SFK441A1RGBFSHRT",
     "intent": "sso",
-    "return_url": "https://example.com/callback"
-  }' | jq '.link'
+    "return_url": "https://yourapp.com/settings"
+  }'
 ```
 
-Expected: Should print a portal URL starting with `https://id.workos.com/portal/launch`. Open in browser to verify.
+**SDK pseudocode pattern:**
 
-**Test 3: Fetch provider icons**
+```
+portal_link = workos.portal.generate_link(
+  organization="org_...",
+  intent="sso",  # or "dsync", "log_streams", "audit_logs"
+  return_url="https://yourapp.com/settings"
+)
+
+redirect_customer_to(portal_link.link)
+```
+
+Check fetched docs for exact SDK method signature in your language.
+
+## Intent-Specific Patterns
+
+**SSO Configuration (`intent=sso`):**
+- Allows customer to configure SAML or OIDC providers
+- Customer can enable/disable connections
+- Customer can test SSO flow before saving
+
+**Directory Sync Configuration (`intent=dsync`):**
+- Allows customer to configure directory providers (Okta Directory, Azure AD, Google Workspace)
+- Customer can map directory groups to application roles
+- Customer can configure sync schedules
+
+**Log Streams Configuration (`intent=log_streams`):**
+- Allows customer to configure event streaming destinations
+- Customer can filter which event types to stream
+
+**Audit Logs Configuration (`intent=audit_logs`):**
+- Allows customer to configure audit log exports
+- Customer can set retention policies
+
+## Error Handling
+
+| Status | Cause | Fix |
+|--------|-------|-----|
+| 401 | Invalid or missing API key | Verify `WORKOS_API_KEY` starts with `sk_` and is active in dashboard |
+| 404 | Organization not found | Verify organization ID format (`org_...`) and existence via Organizations API |
+| 422 | Invalid intent value | Use one of: `sso`, `dsync`, `log_streams`, `audit_logs` |
+| 422 | Invalid return_url format | Ensure return_url is a valid HTTPS URL |
+| 429 | Rate limit exceeded | Implement exponential backoff (start with 1s delay, double on each retry) |
+
+**Specific error responses:**
+
+```json
+{
+  "error": "invalid_organization",
+  "error_description": "Organization org_123 does not exist"
+}
+```
+
+→ Verify organization was created and ID is correct
+
+```json
+{
+  "error": "invalid_intent", 
+  "error_description": "Intent must be one of: sso, dsync, log_streams, audit_logs"
+}
+```
+
+→ Check intent parameter spelling and casing
+
+## Link Expiration
+
+Portal links expire after a short time window. Check fetched docs for current expiration policy.
+
+**Pattern for handling expiration:**
+
+```
+if customer_clicks_expired_link:
+  regenerate_portal_link()
+  redirect_to_new_link()
+```
+
+Do NOT cache portal links. Generate fresh links on each customer request.
+
+## Provider Icons
+
+WorkOS provides standardized identity provider logos for UI consistency.
+
+**Icon URL pattern:**
+
+Check fetched docs at https://workos.com/docs/reference/admin-portal/provider-icons for current CDN URLs and available providers.
+
+**Usage pattern:**
+
+```html
+<img src="[provider-icon-url]" alt="[Provider Name]" />
+```
+
+Use these icons when displaying SSO/directory provider options in your application UI.
+
+## Verification Commands
+
+**Test link generation:**
 
 ```bash
-curl https://api.workos.com/portal/provider_icons \
+LINK=$(curl -s -X POST https://api.workos.com/portal/generate_link \
   -H "Authorization: Bearer $WORKOS_API_KEY" \
-  | jq '.data | length'
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization": "org_01EHZNVPK3SFK441A1RGBFSHRT",
+    "intent": "sso",
+    "return_url": "https://yourapp.com/settings"
+  }' | jq -r '.link')
+
+echo "Generated portal link: $LINK"
 ```
 
-Expected: Should print a number (e.g., `15`). This is the count of available SSO providers.
+Expected response contains a `link` field with format `https://id.workos.com/portal/...`
 
-## Rate Limit Guidance
+**Verify organization exists:**
 
-Admin Portal API has standard WorkOS rate limits. If you hit 429:
-
-1. Implement exponential backoff with jitter
-2. Do NOT generate portal links in loops — generate on-demand per user click
-3. Cache provider icons — they rarely change
-
-**Retry pseudocode:**
-
-```python
-max_retries = 3
-for attempt in range(max_retries):
-    try:
-        return workos_client.portal.generate_link(...)
-    except RateLimitError:
-        if attempt == max_retries - 1:
-            raise
-        sleep(2 ** attempt + random.uniform(0, 1))
+```bash
+curl -X GET "https://api.workos.com/organizations/org_01EHZNVPK3SFK441A1RGBFSHRT" \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
 ```
+
+Should return 200 with organization object.
+
+## Rate Limits
+
+Check fetched docs for current rate limits. Typical pattern:
+
+- Implement retry logic with exponential backoff
+- Cache organization data to reduce API calls
+- Generate portal links on-demand, not in bulk
 
 ## Common Integration Patterns
 
-### Pattern 1: SSO Configuration Flow
+**Embedded "Configure SSO" button:**
 
 ```
-User clicks "Configure SSO" in your app
-  → Generate portal link with intent="sso"
-  → Redirect to portal link
-  → User configures SSO in Admin Portal
-  → WorkOS redirects to return_url
-  → Your app shows "SSO configured" confirmation
+on_click_configure_sso_button:
+  portal_link = generate_portal_link(
+    organization=current_customer_org_id,
+    intent="sso",
+    return_url=current_page_url
+  )
+  redirect_customer_to(portal_link)
 ```
 
-### Pattern 2: Multi-Product Setup
+**Settings page with multiple intents:**
 
-If your app supports SSO + Directory Sync, generate separate links:
+```
+available_intents = ["sso", "dsync", "log_streams"]
 
-```python
-# Step 1: SSO setup
-sso_link = generate_link(org, intent="sso", return_url="/setup/dsync")
-# After SSO complete, show Directory Sync option
-dsync_link = generate_link(org, intent="dsync", return_url="/setup/complete")
+for each intent in available_intents:
+  if customer_has_access_to(intent):
+    display_configure_button(
+      label=intent_label(intent),
+      on_click=lambda: generate_and_redirect(intent)
+    )
 ```
 
-**Do NOT** generate both links upfront — the second link may expire before user reaches it.
+**Post-configuration callback:**
 
-### Pattern 3: Embedded Admin Panel
+When customer completes configuration and returns via `return_url`, WorkOS appends no query parameters. Detect completion by:
 
-If you want to show SSO provider options before launching portal:
-
-```python
-# On page load
-icons = workos_client.portal.list_provider_icons()
-display_provider_selection_ui(icons)
-
-# When user selects a provider
-portal_link = generate_link(org, intent="sso", return_url="/callback")
-redirect_to(portal_link.link)
-```
-
-## Debugging Checklist
-
-- [ ] API key starts with `sk_` and is set in `WORKOS_API_KEY`
-- [ ] Organization ID exists (verify with `workos_client.organizations.get_organization()`)
-- [ ] `return_url` is a valid HTTPS URL
-- [ ] `intent` is one of: `sso`, `dsync`, `log_streams`, `audit_logs`
-- [ ] Portal link is generated on-demand, not pre-generated
-- [ ] User is redirected immediately after link generation (links expire quickly)
+1. Checking if customer lands on return_url after being away
+2. Fetching latest organization/connection state via API
+3. Displaying confirmation UI if configuration changed
 
 ## Related Skills
 
-- workos-sso-base — Understanding SSO concepts before implementing Admin Portal
-- workos-directory-sync-base — Directory Sync configuration via Admin Portal
+- workos-sso-api — Core SSO API for building custom configuration UIs
+- workos-directory-sync-api — Core Directory Sync API for custom directory management
+- workos-organizations-api — Managing organizations that use Admin Portal

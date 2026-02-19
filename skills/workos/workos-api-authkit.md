@@ -9,34 +9,28 @@ description: WorkOS AuthKit API endpoints — users, sessions, authentication, M
 
 ## When to Use
 
-Use the AuthKit API when building custom authentication flows that require direct API control beyond the hosted UI (e.g., headless authentication, CLI tools, or native mobile apps). This API provides endpoints for user management, session handling, MFA enrollment, and token operations. For standard web applications, prefer the AuthKit SDKs (`workos-authkit-react`, `workos-authkit-nextjs`) which wrap these APIs.
-
-## Key Vocabulary
-
-- User `user_` — identity record with email, authentication methods
-- Session `session_` — authenticated user session with access/refresh tokens
-- Organization Membership `om_` — links users to organizations with roles
-- Invitation `invitation_` — pending organization membership invitation
-- Magic Auth `magic_auth_` — passwordless email link authentication
-- Email Verification `email_verification_` — email ownership confirmation token
-- Password Reset `password_reset_` — password change request token
-- Authentication Factor `auth_factor_` — enrolled MFA method (TOTP, SMS)
-- Authentication Challenge `auth_challenge_` — MFA verification attempt
-- API Key `sk_` (secret), `pk_` (publishable) — client authentication credentials
+Use this API reference when you need to directly call WorkOS AuthKit endpoints for authentication flows, user management, session handling, MFA enrollment, or API key operations. This is the low-level HTTP API — prefer SDK wrappers (covered in related skills) unless you need raw endpoint access or are building custom integrations.
 
 ## Documentation
 
 - https://workos.com/docs/reference/authkit
-- https://workos.com/docs/reference/authkit/authentication
-- https://workos.com/docs/reference/authkit/user
-- https://workos.com/docs/reference/authkit/session
-- https://workos.com/docs/reference/authkit/mfa
-- https://workos.com/docs/reference/authkit/organization-membership
-- https://workos.com/docs/reference/authkit/invitation
-- https://workos.com/docs/reference/authkit/magic-auth
-- https://workos.com/docs/reference/authkit/password-reset
-- https://workos.com/docs/reference/authkit/email-verification
-- https://workos.com/docs/reference/authkit/cli-auth
+- https://workos.com/docs/reference/authkit/api-keys
+- https://workos.com/docs/reference/authkit/api-keys/create-for-organization
+- https://workos.com/docs/reference/authkit/api-keys/delete
+- https://workos.com/docs/reference/authkit/api-keys/list-for-organization
+
+## Key Vocabulary
+
+- **User** `user_` — end-user identity with email, name, and profile metadata
+- **Session** `session_` — authenticated session with access/refresh tokens
+- **Organization Membership** `om_` — links users to organizations with role data
+- **Invitation** `invitation_` — pending org membership invite sent via email
+- **Magic Auth** `magic_auth_` — passwordless email link authentication flow
+- **Authentication Factor** `auth_factor_` — enrolled MFA method (TOTP, SMS)
+- **Authentication Challenge** `auth_challenge_` — MFA verification prompt
+- **Email Verification** `email_verification_` — confirmation flow for new emails
+- **Password Reset** `password_reset_` — time-limited password change token
+- **API Key** `sk_` (secret) or `pk_` (publishable) — authentication credentials
 
 ## Implementation Guide
 
@@ -46,6 +40,7 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- `workos-authkit-react` — React SDK wrapping these APIs
-- `workos-authkit-nextjs` — Next.js SDK with server-side session handling
-- `workos-authkit-vanilla-js` — Vanilla JS SDK for browser-based flows
+- workos-authkit-base
+- workos-authkit-react
+- workos-authkit-nextjs
+- workos-authkit-vanilla-js

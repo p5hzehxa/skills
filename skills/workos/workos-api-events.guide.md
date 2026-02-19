@@ -9,179 +9,165 @@
 - https://workos.com/docs/reference/events
 - https://workos.com/docs/reference/events/list
 
-## Prerequisites
+## Authentication Setup
 
-- A WorkOS account with API keys (`WORKOS_API_KEY` starting with `sk_`)
-- WorkOS SDK installed in your project
-- Webhook endpoint configured if consuming events via webhooks
+Set your API key as a bearer token in the Authorization header:
 
-## Available Endpoints
+```bash
+Authorization: Bearer sk_your_api_key_here
+```
+
+Verify your API key starts with `sk_` prefix. Find it in WorkOS Dashboard → API Keys.
+
+## Endpoint Catalog
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/events` | List all events with filtering and pagination |
-
-## Authentication Setup
-
-All Events API requests require Bearer token authentication:
-
-```bash
-Authorization: Bearer <WORKOS_API_KEY>
-```
-
-The API key must start with `sk_` prefix. Verify in WorkOS Dashboard under API Keys.
+| GET | `/events` | List events with filtering and pagination |
 
 ## Operation Decision Tree
 
-### When to use the Events API
+**When to use Events API:**
+- Audit logging: retrieve historical activity across WorkOS resources
+- Debugging: investigate specific SSO or Directory Sync operations
+- Analytics: build reports on authentication patterns or provisioning activity
+- Compliance: export event data for security reviews
 
-**List historical events** → `GET /events`
-- Use case: audit logs, compliance reporting, debugging
-- Supports filtering by event type, resource, and time range
-- Check fetched docs for available filter parameters
-
-**Real-time event processing** → Webhooks (see Related Skills)
-- Use case: triggering automated workflows
-- Events API is for historical queries, NOT real-time triggers
+**Query patterns:**
+- List recent events: `GET /events?limit=10&order=desc`
+- Filter by event type: `GET /events?events[]=dsync.user.created`
+- Filter by organization: `GET /events?organization_id=org_123`
+- Paginate results: `GET /events?after=event_123`
 
 ## Event Type Naming Convention
 
-WorkOS events follow the pattern: `{domain}.{resource}.{action}`
+All WorkOS events follow the pattern: `{domain}.{resource}.{action}`
 
 Examples:
-- `directory.user.created`
-- `directory.group.updated`
-- `dsync.activated`
+- `dsync.user.created` — Directory Sync user provisioned
+- `sso.connection.activated` — SSO connection enabled
+- `directory.user_created` — Directory user added
+- `connection.activated` — Connection state changed
 
-Check fetched docs for complete event catalog with payload schemas.
+Check fetched docs for complete event type catalog.
 
-## Pagination Handling
+## Pagination Pattern
 
 The Events API uses cursor-based pagination:
 
+1. First request: `GET /events?limit=25`
+2. Response includes `list_metadata.after` cursor if more results exist
+3. Next page: `GET /events?limit=25&after={cursor_value}`
+4. Continue until `list_metadata.after` is null
+
+**Pseudocode:**
 ```
-GET /events?limit=10&after=<cursor>
-```
+cursor = null
+all_events = []
 
-**Pattern:**
-1. Initial request: `GET /events?limit=10`
-2. Response includes `list_metadata.after` cursor if more pages exist
-3. Next request: `GET /events?limit=10&after=<cursor_from_step_2>`
-4. Repeat until `list_metadata.after` is null
+loop:
+  response = fetch_events(limit=25, after=cursor)
+  all_events.append(response.data)
+  
+  if response.list_metadata.after is null:
+    break
+  cursor = response.list_metadata.after
 
-Check fetched docs for exact cursor field names and default limits.
-
-## Filtering Events
-
-**By event type:**
-```bash
-GET /events?events[]=directory.user.created&events[]=directory.user.updated
-```
-
-**By time range:**
-```bash
-GET /events?range_start=2024-01-01T00:00:00Z&range_end=2024-01-31T23:59:59Z
+return all_events
 ```
 
-**By organization:**
-```bash
-GET /events?organization_id=org_01H5K8P...
-```
+## Query Parameters
 
-Check fetched docs for complete filter parameter reference.
+Check fetched docs for complete parameter list and validation rules. Common filters:
+
+- `events[]` — filter by event types (array, repeatable)
+- `organization_id` — filter by organization (string)
+- `limit` — results per page (check docs for min/max)
+- `after` — cursor for pagination (string)
+- `range_start` / `range_end` — time window (ISO 8601 timestamps)
+- `order` — sort direction (`asc` or `desc`)
 
 ## Error Code Mapping
 
 | Status Code | Cause | Fix |
 |-------------|-------|-----|
-| 401 | Missing or invalid API key | Verify `WORKOS_API_KEY` starts with `sk_` and has not been rotated |
-| 403 | API key lacks Events API permission | Check Dashboard → API Keys → Key Permissions |
-| 422 | Invalid query parameters | Validate filter syntax (e.g., date format, event type names) |
-| 429 | Rate limit exceeded | Implement exponential backoff with jitter (see Rate Limits) |
+| 401 | Missing or invalid API key | Verify `Authorization: Bearer sk_...` header is set |
+| 401 | API key lacks read permissions | Check key permissions in WorkOS Dashboard |
+| 400 | Invalid event type in filter | Check fetched docs for valid event type list |
+| 400 | Invalid date format in range filter | Use ISO 8601 format: `2024-01-15T10:30:00Z` |
+| 400 | Invalid cursor in `after` param | Cursors are opaque — only use values from previous responses |
+| 429 | Rate limit exceeded | Implement exponential backoff (start with 1s delay, double each retry) |
 
-Check fetched docs for additional status codes and error response schemas.
+## Rate Limit Guidance
 
-## Rate Limits
+Check fetched docs for current rate limits. When hitting 429 responses:
 
-The Events API enforces rate limits per API key. 
-
-**Strategy:**
-- Track rate limit headers in responses (`X-RateLimit-Remaining`, `X-RateLimit-Reset`)
-- Implement exponential backoff: 1s, 2s, 4s, 8s delays
-- Add jitter to backoff to prevent thundering herd
-
-Check fetched docs for exact rate limit values.
+1. Read `Retry-After` header for wait time
+2. Implement exponential backoff: 1s → 2s → 4s → 8s
+3. Consider reducing `limit` parameter to make smaller requests
+4. Cache event data if polling frequently
 
 ## Runnable Verification
 
-**Test API connectivity:**
+Test your integration with this curl command:
+
 ```bash
-curl -X GET https://api.workos.com/events \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
+curl https://api.workos.com/events \
+  -H "Authorization: Bearer sk_your_api_key_here" \
   -H "Content-Type: application/json"
 ```
 
-Expected: 200 response with `data` array (may be empty if no events exist).
-
-**Test filtering:**
-```bash
-curl -X GET "https://api.workos.com/events?limit=5&events[]=directory.user.created" \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -H "Content-Type: application/json"
+**Expected response structure:**
+```json
+{
+  "data": [
+    {
+      "id": "event_123",
+      "event": "dsync.user.created",
+      "created_at": "2024-01-15T10:30:00.000Z",
+      "data": { /* event payload */ }
+    }
+  ],
+  "list_metadata": {
+    "after": "event_456"
+  }
+}
 ```
 
-Expected: 200 response with filtered events.
+## SDK Usage Pattern
 
-**SDK verification (pseudocode):**
+Use your language's WorkOS SDK to list events. Check fetched docs for exact method signature in your SDK version:
+
 ```
-client = WorkOS(api_key=WORKOS_API_KEY)
-events = client.events.list(limit=10)
-print(events.data)
-```
+# Pseudocode pattern
+events = workos.events.list(
+  limit=25,
+  events=['dsync.user.created', 'sso.connection.activated'],
+  organization_id='org_123'
+)
 
-Check fetched docs for SDK method signatures in your language.
-
-## Common Integration Patterns
-
-### Pattern 1: Audit Log Query
-```
-1. Fetch events for specific organization
-2. Filter by time range (last 30 days)
-3. Filter by event types (user.created, user.updated, user.deleted)
-4. Paginate through all results
-5. Store in audit database
+for event in events.data:
+  process(event)
 ```
 
-### Pattern 2: Compliance Reporting
-```
-1. Schedule daily job
-2. Fetch previous day's events (range_start/range_end)
-3. Aggregate by event type
-4. Generate compliance report
-```
+## Common Traps
 
-### Pattern 3: Event Replay for Debugging
-```
-1. Identify timestamp of issue
-2. Fetch events around that time (±1 hour)
-3. Filter by affected resource (organization_id, connection_id, etc.)
-4. Reconstruct event sequence
-```
+1. **Baked-in cursors**: Never hardcode `after` cursor values — they're opaque and expire
+2. **Event type typos**: Event types are case-sensitive — `dsync.user.created` ≠ `dsync.User.Created`
+3. **Timezone assumptions**: All timestamps are UTC — convert to local time in your application
+4. **Missing filters**: Without filters, you get ALL event types — add `events[]` param to avoid noise
+5. **Cursor reuse**: Don't reuse cursors across different filter sets — each query needs its own pagination flow
 
-## Traps and Gotchas
+## Webhook Alternative
 
-1. **Events API is NOT for real-time processing** — use webhooks for automation. Events API has built-in latency (up to 60 seconds) and is designed for historical queries.
+Events API is for PULL-based event retrieval. For PUSH-based notifications, use WorkOS Webhooks instead. The Events API is useful for:
+- Backfilling missed webhook deliveries
+- Auditing historical data
+- One-off investigations
 
-2. **Event retention** — events are retained for a limited period. Check fetched docs for retention policy. Do not rely on Events API for long-term storage.
-
-3. **Cursor expiration** — pagination cursors may expire after a period of inactivity. If pagination fails with 422, restart from the beginning.
-
-4. **Event ordering** — events are ordered by creation time, but near-simultaneous events may appear out of order. Do NOT assume strict ordering for events within the same second.
-
-5. **Filter array syntax** — event type filters use `events[]` (plural with brackets), not `event` or `events`. Verify exact syntax in fetched docs.
+Check `workos-api-webhooks` skill for push-based event handling.
 
 ## Related Skills
 
-- **workos-webhooks** — real-time event consumption (recommended for automation)
-- **workos-directory-sync** — generates directory.* events
-- **workos-organizations** — generates organization.* events
+- workos-api-webhooks — push-based event notifications
+- workos-api-organizations — filtering events by organization context

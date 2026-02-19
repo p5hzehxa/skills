@@ -9,194 +9,165 @@
 - https://workos.com/docs/reference/widgets
 - https://workos.com/docs/reference/widgets/get-token
 
-## Overview
+## What are Widgets?
 
-The Widgets API generates time-limited tokens that grant user access to embedded WorkOS UI components. This is a single-endpoint API focused on token generation.
-
-## Prerequisites
-
-- `WORKOS_API_KEY` (starts with `sk_`) — your secret API key
-- `WORKOS_CLIENT_ID` (starts with `client_`) — your WorkOS application ID
-- WorkOS SDK installed (or direct HTTP client for REST calls)
+Widgets are embeddable WorkOS components that handle specific user management flows (profile management, organization settings, etc.) within your application. The Widgets API generates short-lived tokens that authorize widget rendering.
 
 ## Endpoint Catalog
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/user_management/widgets/token` | Generate a widget token for a specific user |
+| POST | `/user_management/widgets/token` | Generate a widget authorization token |
 
 ## Authentication Setup
 
-Include your API key in the Authorization header:
+All Widgets API calls require:
 
-```
-Authorization: Bearer sk_your_api_key_here
+```bash
+Authorization: Bearer sk_yourworkosapikey
+Content-Type: application/json
 ```
 
-All requests require this header. Do NOT expose `WORKOS_API_KEY` in client-side code.
+Set `WORKOS_API_KEY` in your environment — verify it starts with `sk_`.
 
 ## Operation Decision Tree
 
-**When to call `/widgets/token`:**
-
-1. User logs into your application → generate token for authenticated session
-2. User navigates to profile/settings page → generate fresh token if current one expired
-3. Widget session expires (default 5 minutes) → generate new token on demand
+**When to use Widgets:**
+- User needs to manage their profile → generate token with `profile_settings` widget type
+- User needs to manage organization settings → generate token with `organization_settings` widget type
+- User needs to manage SSO connections → generate token with `sso_connections` widget type
 
 **Token generation pattern:**
-- Call POST `/user_management/widgets/token` with `user_id` and `organization_id`
-- Receive short-lived token in response
-- Pass token to frontend widget component
-- Widget uses token to authenticate with WorkOS-hosted UI
+1. User requests to view a widget (e.g., clicks "Edit Profile")
+2. Backend calls POST `/user_management/widgets/token` with widget type + user ID
+3. Backend returns token to frontend
+4. Frontend renders widget using returned token
 
-**Security model:**
-- Generate tokens server-side only (your API key must never reach the client)
-- Tokens are scoped to a single user and expire quickly
-- Each widget type (profile, organization switching) may require different tokens — check fetched docs for widget-specific requirements
+## Core Implementation Pattern
 
-## Request Pattern
+### Generate Widget Token (Pseudocode)
 
-**Backend endpoint (server-side):**
-
-```pseudo
-POST /user_management/widgets/token
-Content-Type: application/json
-Authorization: Bearer {WORKOS_API_KEY}
-
-{
-  "user_id": "user_01H1234567890ABCDEFGHIJK",
-  "organization_id": "org_01H1234567890ABCDEFGHIJK"
-}
+```
+WHEN user requests widget access:
+  CALL SDK method to generate widget token:
+    - widget_type: "profile_settings" | "organization_settings" | "sso_connections"
+    - user_id: WorkOS user identifier (starts with user_)
+    - organization_id: (required for org-scoped widgets)
+  
+  IF success:
+    RETURN token to frontend
+  
+  IF error:
+    CHECK error code mapping below
 ```
 
-**Response structure:**
-Check fetched docs for exact response schema. Expect a `token` field with a time-limited JWT.
+**Check fetched docs for:**
+- Exact SDK method signature for your language
+- Complete list of supported widget types
+- Required vs optional parameters per widget type
 
-**Frontend integration:**
-Pass the token to your widget component. The widget handles all communication with WorkOS using this token. Never include your API key in frontend code.
+### Frontend Widget Rendering (Pseudocode)
 
-## SDK Usage Pattern
-
-**Node.js example:**
-
-```javascript
-// Server-side route
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
-
-const token = await workos.userManagement.getWidgetToken({
-  user: userId,
-  organization: organizationId
-});
-
-res.json({ token }); // Send to frontend
 ```
-
-Check fetched docs for exact method signature in your SDK version.
+WHEN backend returns token:
+  LOAD WorkOS Widget SDK in frontend
+  
+  INITIALIZE widget:
+    - token: received from backend
+    - container: DOM element selector
+  
+  MOUNT widget in specified container
+```
 
 ## Error Code Mapping
 
-| Status Code | Cause | Fix |
-|-------------|-------|-----|
-| 401 | Invalid or missing API key | Verify `WORKOS_API_KEY` starts with `sk_` and is set in environment |
-| 403 | API key lacks permissions | Check Dashboard → API Keys → verify key has User Management scope |
-| 404 | `user_id` or `organization_id` not found | Verify IDs exist in WorkOS Dashboard → Users/Organizations |
-| 422 | Malformed request body | Check JSON structure matches fetched docs schema |
-| 429 | Rate limit exceeded | Implement exponential backoff (start with 1s delay, double on each retry) |
-| 500 | WorkOS service error | Retry with exponential backoff; check WorkOS status page |
+| Status | Cause | Fix |
+|--------|-------|-----|
+| 401 | Invalid API key | Verify `WORKOS_API_KEY` starts with `sk_` and is active in Dashboard |
+| 400 | Missing required field | Check fetched docs for required parameters for widget type |
+| 404 | Invalid user_id or organization_id | Verify ID format (user_ or org_ prefix) and resource exists |
+| 429 | Rate limit exceeded | Implement exponential backoff (start with 1s delay) |
 
-**Common pitfall:** Passing `user_id` without `organization_id` when the widget requires organization context. Check fetched docs for which parameters are required for each widget type.
-
-## Rate Limit Guidance
-
-Check fetched docs for current rate limits. If you hit 429 responses:
-
-1. Implement exponential backoff (1s → 2s → 4s → 8s)
-2. Cache tokens on your backend until they expire (default 5 minutes)
-3. Avoid generating new tokens on every page load — reuse unexpired tokens
+**Check fetched docs for:** Complete error response schema and additional error codes.
 
 ## Token Lifecycle
 
-1. Generate token server-side via API/SDK call
-2. Token is valid for ~5 minutes (check fetched docs for exact TTL)
-3. Pass token to frontend widget component
-4. Widget automatically refreshes if user session is active
-5. On token expiration, widget will require new token from your backend
+- Tokens are **short-lived** (check fetched docs for exact TTL)
+- Generate a new token each time user accesses widget
+- Do NOT cache or reuse tokens across sessions
+- Token is single-use per widget mount
 
-**Do NOT:** Store tokens in localStorage or cookies — they're short-lived and should be fetched on demand.
+## Dashboard Configuration
 
-## Runnable Verification
+Navigate to WorkOS Dashboard → User Management → Widgets to:
+1. Enable widget types for your environment
+2. Configure widget appearance (colors, logos)
+3. Set redirect URLs for widget actions
 
-**Test token generation (bash):**
+**Check fetched docs for:** Complete list of configurable widget settings.
+
+## Verification Commands
+
+### Test token generation:
 
 ```bash
 curl -X POST https://api.workos.com/user_management/widgets/token \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "user_id": "user_01H1234567890ABCDEFGHIJK",
-    "organization_id": "org_01H1234567890ABCDEFGHIJK"
+    "widget_type": "profile_settings",
+    "user_id": "user_01HXYZ..."
   }'
 ```
 
-Replace `user_id` and `organization_id` with real IDs from your WorkOS Dashboard.
+Expected response contains `token` field (JWT format).
 
-**Expected response:**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
+### Verify API key format:
+
+```bash
+echo $WORKOS_API_KEY | grep -q '^sk_' && echo "✓ Valid prefix" || echo "✗ Invalid key format"
 ```
 
-**Test with SDK:**
+## Security Considerations
 
-```javascript
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
+1. **Never expose tokens to client-side code** before user authentication
+2. **Generate tokens server-side only** — API key must not be in frontend
+3. **Validate user identity** before generating token for their user_id
+4. **Use HTTPS** for all token transmission
 
-try {
-  const token = await workos.userManagement.getWidgetToken({
-    user: 'user_01H1234567890ABCDEFGHIJK',
-    organization: 'org_01H1234567890ABCDEFGHIJK'
-  });
-  console.log('Token generated:', token);
-} catch (error) {
-  console.error('Token generation failed:', error.message);
-}
+## Rate Limits
+
+Widget token generation shares User Management API rate limits. Implement exponential backoff for 429 responses:
+
+```
+RETRY_DELAY = 1  // seconds
+MAX_RETRIES = 3
+
+ON 429 error:
+  WAIT RETRY_DELAY seconds
+  RETRY_DELAY = RETRY_DELAY * 2
+  INCREMENT retry_count
+  IF retry_count > MAX_RETRIES:
+    FAIL with rate limit error
 ```
 
-## Verification Checklist
+**Check fetched docs for:** Current rate limit values per environment.
 
-- [ ] `WORKOS_API_KEY` set in environment (starts with `sk_`)
-- [ ] `WORKOS_CLIENT_ID` set in environment (starts with `client_`)
-- [ ] Test user and organization exist in WorkOS Dashboard
-- [ ] Backend endpoint generates token successfully (curl test passes)
-- [ ] Token is passed to frontend without exposing API key
-- [ ] Widget component receives and uses token correctly
-- [ ] 401/403 errors are handled with user-friendly messages
+## Integration Traps
 
-## Common Integration Patterns
+### Common mistake: Caching tokens
+**Wrong:** Store token in session/localStorage for reuse  
+**Right:** Generate fresh token each time widget is opened
 
-**Pattern 1: On-demand token generation**
-```pseudo
-// Frontend requests token when mounting widget
-fetch('/api/widget-token', {
-  method: 'POST',
-  headers: { Authorization: userSessionToken }
-})
-→ Backend calls WorkOS API with server-side key
-→ Returns token to frontend
-→ Frontend passes token to widget component
-```
+### Common mistake: Frontend API key exposure
+**Wrong:** Call token endpoint directly from browser with API key  
+**Right:** Proxy through backend route that validates user session first
 
-**Pattern 2: Token caching**
-```pseudo
-// Backend caches tokens by user_id + organization_id
-if (cachedToken && !isExpired(cachedToken)) {
-  return cachedToken;
-}
-// Otherwise generate new token via WorkOS API
-```
+### Common mistake: Missing organization_id
+**Wrong:** Generate org-scoped widget token without organization_id  
+**Right:** Always include organization_id for organization_settings and sso_connections widgets
 
 ## Related Skills
 
-- workos-authkit-react — embedding WorkOS authentication UI in React apps
-- workos-authkit-nextjs — Next.js-specific authentication setup
+- workos-authkit-react — Add authentication before widget access
+- workos-authkit-nextjs — Implement widget token generation in Next.js API routes

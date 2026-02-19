@@ -16,180 +16,278 @@
 
 ## Prerequisites
 
-- WorkOS API key (`WORKOS_API_KEY`) — starts with `sk_` prefix
-- WorkOS SDK installed (`npm install @workos-inc/node` for Node.js)
-- Organization IDs follow format: `org_XXXXXXXXXXXXXXXXXXXX`
-
-## Endpoint Catalog
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/organizations` | Create a new organization |
-| GET | `/organizations/:id` | Retrieve organization by ID |
-| GET | `/organizations/by_external_id/:external_id` | Retrieve organization by your system's ID |
-| GET | `/organizations` | List all organizations (paginated) |
-| PUT | `/organizations/:id` | Update organization properties |
-| DELETE | `/organizations/:id` | Remove organization |
+- WorkOS API key (`WORKOS_API_KEY`) starting with `sk_`
+- WorkOS client ID (`WORKOS_CLIENT_ID`) starting with `client_`
+- WorkOS SDK installed in your project
 
 ## Authentication Setup
 
-Set the API key in your environment:
+Add your WorkOS API key to requests:
 
 ```bash
-export WORKOS_API_KEY=sk_live_...
+# All API calls require this header
+Authorization: Bearer ${WORKOS_API_KEY}
 ```
 
 SDK initialization pattern:
 
 ```
-import { WorkOS } from '@workos-inc/node'
-const workos = new WorkOS(process.env.WORKOS_API_KEY)
+import WorkOS SDK
+initialize SDK with WORKOS_API_KEY
 ```
 
-All requests require the API key in the `Authorization` header as a Bearer token.
+Check fetched docs for exact SDK initialization method for your language.
+
+## Available Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/organizations` | List all organizations (paginated) |
+| POST | `/organizations` | Create a new organization |
+| GET | `/organizations/{id}` | Get organization by WorkOS ID |
+| GET | `/organizations/by_external_id/{external_id}` | Get organization by your system's ID |
+| PUT | `/organizations/{id}` | Update an existing organization |
+| DELETE | `/organizations/{id}` | Delete an organization |
 
 ## Operation Decision Tree
 
-### Creating Organizations
-
-**Use POST `/organizations`** when:
-- Onboarding a new customer/tenant
-- Syncing an external organization to WorkOS for the first time
-- You need WorkOS to generate the organization ID
-
-**Required fields:** Check fetched docs for current requirements
-
-**Set `external_id`** to your system's identifier — enables lookup without storing WorkOS IDs everywhere.
-
-### Updating Organizations
-
-**Use PUT `/organizations/:id`** when:
-- Modifying organization name, logo, or custom domains
-- Updating metadata after organization creation
-- You have the WorkOS organization ID (`org_...`)
-
-**TRAP:** PUT replaces entire fields. Check fetched docs for partial update behavior.
-
-### Retrieving Organizations
-
-**Decision matrix:**
-
-| You Have | Use Endpoint | When |
-|----------|-------------|------|
-| WorkOS org ID (`org_...`) | GET `/organizations/:id` | After user login, webhook events |
-| Your system's ID | GET `/organizations/by_external_id/:external_id` | When mapping from your DB |
-| Need to browse all | GET `/organizations` | Admin dashboards, reporting |
-
-**Fetch by external ID** avoids storing WorkOS IDs in your database — use your existing tenant/customer ID as the bridge.
-
-### Deleting Organizations
-
-**Use DELETE `/organizations/:id`** when:
-- Customer churns and requests data deletion
-- Cleaning up test organizations
-
-**TRAP:** Deletion is permanent. Check fetched docs for cascade behavior (connections, directory sync, etc.)
-
-## Pagination Pattern
-
-The list endpoint returns paginated results:
+**Creating vs. Updating Organizations**
 
 ```
-GET /organizations?limit=10&after=org_XXXXX
+Do you have the WorkOS organization ID (org_*)?
+├─ YES → Use PUT /organizations/{id} to update
+└─ NO → Do you have your system's external_id?
+    ├─ YES → GET /organizations/by_external_id/{external_id} first
+    │        └─ If found → Use PUT /organizations/{id}
+    │        └─ If 404 → Use POST /organizations
+    └─ NO → Use POST /organizations (save the returned org ID)
 ```
 
-**Pattern:**
-1. Make initial request with `limit` parameter
-2. Response includes `list_metadata` with `after` cursor
-3. Pass `after` cursor to next request
-4. Continue until `list_metadata.after` is null
+**Looking Up Organizations**
 
-Check fetched docs for current pagination parameters and response structure.
+```
+What identifier do you have?
+├─ WorkOS ID (org_*) → GET /organizations/{id}
+├─ Your system's ID → GET /organizations/by_external_id/{external_id}
+└─ Need to browse all → GET /organizations (handle pagination)
+```
+
+**Deleting Organizations**
+
+```
+DELETE /organizations/{id}
+└─ Requires WorkOS organization ID (org_*)
+└─ If you only have external_id, fetch the org first to get its ID
+```
+
+## Pagination Handling
+
+The list endpoint (`GET /organizations`) supports pagination:
+
+```bash
+# First page
+GET /organizations?limit=10
+
+# Response includes pagination metadata
+{
+  "data": [...],
+  "list_metadata": {
+    "before": "cursor_value",
+    "after": "cursor_value"
+  }
+}
+
+# Next page
+GET /organizations?limit=10&after={cursor_value}
+```
+
+Pattern for consuming all pages:
+
+```
+cursor = null
+loop:
+  response = fetch /organizations with cursor
+  process response.data
+  if response.list_metadata.after exists:
+    cursor = response.list_metadata.after
+  else:
+    break
+```
 
 ## Error Code Mapping
 
 | Status | Cause | Fix |
 |--------|-------|-----|
-| 401 | Invalid API key format or missing header | Verify key starts with `sk_` and Authorization header is set |
-| 403 | Valid key but insufficient permissions | Check Dashboard → API Keys for key scope |
-| 404 | Organization ID not found | Verify ID format (`org_...`) and that org exists |
-| 409 | `external_id` already exists | Use GET by external ID or choose different external ID |
-| 422 | Invalid request parameters | Check fetched docs for required/allowed fields |
-| 429 | Rate limit exceeded | Implement exponential backoff (start with 1s delay) |
-| 500 | WorkOS server error | Retry with exponential backoff (transient) |
+| 401 | API key missing or malformed | Verify `WORKOS_API_KEY` starts with `sk_` and is in Authorization header |
+| 403 | API key lacks permissions | Check key permissions in WorkOS Dashboard |
+| 404 | Organization not found | Verify organization ID or external_id exists in your WorkOS environment |
+| 409 | Duplicate external_id | Your external_id must be unique across organizations — use a different value or fetch the existing org |
+| 422 | Invalid request payload | Check fetched docs for required fields and valid values for the specific endpoint |
+| 429 | Rate limit exceeded | Implement exponential backoff (wait 1s, 2s, 4s, etc.) before retrying |
+| 500/502/503 | WorkOS service error | Retry with exponential backoff — these are transient |
 
-## Rate Limit Guidance
+## Common Integration Patterns
 
-WorkOS applies rate limits per API key. When you hit 429:
+### Pattern: Sync Organization from Your System
 
 ```
-Retry-After: 5
+function syncOrganization(yourOrgData):
+  try:
+    # Try to find existing org by your ID
+    org = GET /organizations/by_external_id/{yourOrgData.id}
+    
+    # Update existing
+    result = PUT /organizations/{org.id} with {
+      name: yourOrgData.name,
+      domains: yourOrgData.domains
+    }
+  catch 404:
+    # Create new
+    result = POST /organizations with {
+      name: yourOrgData.name,
+      domains: yourOrgData.domains,
+      external_id: yourOrgData.id
+    }
+  
+  return result.id  # Save this for future updates
 ```
 
-**Strategy:**
-1. Parse `Retry-After` header (seconds)
-2. Wait specified duration before retry
-3. If header missing, use exponential backoff: 1s → 2s → 4s → 8s
-4. Maximum 5 retries before failing
+### Pattern: Handle External ID Collisions
+
+If you get a 409 when creating an organization:
+
+```
+catch 409:
+  # Another org already has this external_id
+  # Either:
+  # 1. Fetch the existing org and update it instead
+  existingOrg = GET /organizations/by_external_id/{external_id}
+  update that org
+  
+  # OR 2. Use a different external_id (e.g., append a suffix)
+  retry with modified external_id
+```
+
+### Pattern: Bulk Organization Migration
+
+```
+for each orgInYourSystem:
+  # Add delay to respect rate limits
+  sleep(100ms)
+  
+  try:
+    POST /organizations with {
+      name: orgInYourSystem.name,
+      external_id: orgInYourSystem.id,
+      domains: orgInYourSystem.domains
+    }
+  catch 409:
+    # Already exists — skip or update
+    continue
+  catch 429:
+    # Hit rate limit — back off
+    sleep(5s)
+    retry
+```
 
 ## Verification Commands
 
-Test API connectivity:
+**Test API key authentication:**
 
 ```bash
-# Test authentication and list organizations
-curl -X GET https://api.workos.com/organizations \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  -H "Content-Type: application/json"
+curl https://api.workos.com/organizations \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}"
+
+# Success: Returns {"data": [...], "list_metadata": {...}}
+# Failure: Returns {"error": "unauthorized", ...}
 ```
 
-Verify organization creation:
+**Test creating an organization:**
 
 ```bash
-# Create test organization
 curl -X POST https://api.workos.com/organizations \
   -H "Authorization: Bearer ${WORKOS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Test Org",
-    "external_id": "test-org-001"
+    "name": "Test Organization",
+    "external_id": "test-org-123",
+    "domains": ["test.example.com"]
   }'
+
+# Success: Returns organization object with "id": "org_*"
+# Save this ID for update/delete tests
 ```
 
-Expected response status: `201 Created` with organization object in body.
+**Test fetching by external ID:**
 
-## Common Integration Patterns
+```bash
+curl https://api.workos.com/organizations/by_external_id/test-org-123 \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}"
 
-### Pattern 1: Sync on User Signup
-
-```
-1. User signs up in your app
-2. POST /organizations with external_id = your_customer_id
-3. Store returned org.id for future webhook matching
-4. Proceed with SSO/Directory Sync setup using org.id
+# Success: Returns organization object
+# 404: Organization with that external_id doesn't exist
 ```
 
-### Pattern 2: Lazy Organization Creation
+**Test updating an organization:**
+
+```bash
+curl -X PUT https://api.workos.com/organizations/org_12345 \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated Organization Name"
+  }'
+
+# Success: Returns updated organization object
+```
+
+**Test deleting an organization:**
+
+```bash
+curl -X DELETE https://api.workos.com/organizations/org_12345 \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}"
+
+# Success: Returns 204 No Content
+# 404: Organization doesn't exist
+```
+
+## Rate Limits
+
+Check fetched docs for current rate limits. Implement exponential backoff for 429 responses:
 
 ```
-1. User initiates SSO login
-2. Lookup organization by external_id
-3. If not found, POST /organizations inline
-4. Continue SSO flow with org.id
+attempt = 1
+max_attempts = 5
+
+loop:
+  response = make_request()
+  
+  if response.status == 429:
+    if attempt >= max_attempts:
+      fail with rate limit error
+    
+    wait_seconds = 2^attempt  # 2, 4, 8, 16 seconds
+    sleep(wait_seconds)
+    attempt += 1
+    continue
+  
+  return response
 ```
 
-### Pattern 3: Bulk Import
+## Trap Warnings
 
-```
-1. Fetch existing customers from your database
-2. For each customer:
-   - POST /organizations with external_id
-   - Handle 409 conflicts (already exists)
-3. Store WorkOS org.id mapping
-```
+**External ID is NOT required but strongly recommended** — without it, you cannot reliably look up organizations from your system. Always set `external_id` to your internal organization identifier.
+
+**Domains are verified asynchronously** — when you add a domain to an organization, WorkOS validates it in the background. A successful POST/PUT doesn't mean the domain is verified yet. Check the `domains` array in the organization object for verification status.
+
+**Deleting an organization is permanent** — this removes all associated directory syncs, SSO connections, and user data. There is no undo. Confirm deletion in your UI before calling DELETE.
+
+**Organization IDs vs. External IDs** — WorkOS assigns org IDs (`org_*`) that are stable. Your external IDs can change if you update them. When storing references, prefer WorkOS IDs for stability.
+
+**Empty updates are no-ops** — calling PUT with no changes returns success but doesn't trigger webhooks or audit events. Always include at least one field you're actually changing.
 
 ## Related Skills
 
-- **workos-authkit-nextjs** — Integrate organizations with AuthKit authentication
-- **workos-sso** — Enable SSO connections for organizations
-- **workos-directory-sync** — Sync user directories to organizations
+- workos-user-management (for managing users within organizations)
+- workos-directory-sync-setup (for syncing directory data into organizations)
+- workos-sso-connection-setup (for enabling SSO for organizations)

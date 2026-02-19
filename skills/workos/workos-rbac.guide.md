@@ -6,8 +6,7 @@
 
 **STOP. Do not proceed until complete.**
 
-WebFetch these docs — they are the source of truth:
-
+WebFetch these URLs in order:
 - https://workos.com/docs/rbac/quick-start
 - https://workos.com/docs/rbac/organization-roles
 - https://workos.com/docs/rbac/integration
@@ -15,248 +14,242 @@ WebFetch these docs — they are the source of truth:
 - https://workos.com/docs/rbac/idp-role-assignment
 - https://workos.com/docs/rbac/configuration
 
-If this skill conflicts with fetched docs, follow the docs.
+These docs are the source of truth. If this skill conflicts with docs, follow docs.
 
 ## Step 2: Pre-Flight Validation
 
+### Account Setup
+
+Check Dashboard access:
+- Navigate to https://dashboard.workos.com/
+- Confirm API Key exists (Settings → API Keys)
+- Confirm at least one environment exists
+
 ### Environment Variables
 
-Check for:
-
+Check project for:
 - `WORKOS_API_KEY` - starts with `sk_`
-- `WORKOS_CLIENT_ID` - starts with `client_`
+- `WORKOS_CLIENT_ID` - starts with `client_` (if using AuthKit)
 
 ### SDK Installation
 
-Detect existing WorkOS SDK installation:
+Verify SDK package exists in project dependencies before writing code.
 
-```bash
-# Check package.json or equivalent for WorkOS SDK
-grep -E "@workos-inc|workos" package.json requirements.txt Gemfile composer.json
-```
-
-**Verify:** SDK package exists before writing imports.
-
-## Step 3: Configuration Strategy (Decision Tree)
-
-Choose role scope based on tenant isolation needs:
+## Step 3: Role Configuration Strategy (Decision Tree)
 
 ```
-Role scope?
+Role architecture needs?
   |
-  +-- Same roles across all organizations
-  |   --> Use environment-level roles (Dashboard > Roles)
+  +-- Same roles for all orgs --> Configure environment-level roles only
+  |                               (Dashboard → Roles & Permissions)
   |
-  +-- Different roles per organization
-  |   --> Use organization-level roles (Dashboard > Organization > Roles tab)
+  +-- Some orgs need custom roles --> Use organization-level roles
+  |                                   (per-org in Dashboard → Organizations → [Org] → Roles)
   |
-  +-- Hybrid (some custom, some shared)
-      --> Environment roles + organization overrides
+  +-- Mix of both --> Start with environment roles, add org roles as needed
 ```
 
-**Critical:** Organization roles take precedence over environment roles. Once you create an organization role, that org has its own default role and priority order.
+**Key structural facts:**
+- Environment roles: apply to all organizations by default
+- Organization roles: slug automatically prefixed with `org_`
+- Organization roles override environment roles when defined
 
-### Organization Role Prefixes
+## Step 4: Permission Model Design
 
-- Environment roles: custom slug (e.g., `admin`, `member`)
-- Organization roles: auto-prefixed with `org` (e.g., `org:custom-admin`)
+Before configuring in Dashboard, map your app's resources to permissions:
 
-**Trap:** Do NOT manually prefix organization role slugs — WorkOS adds `org:` automatically.
+**Pattern: `{resource}:{action}`**
 
-## Step 4: Role Assignment Strategy (Decision Tree)
+Examples:
+- `videos:view`, `videos:create`, `videos:delete`
+- `settings:read`, `settings:write`
+- `members:invite`, `members:remove`
+
+**Decision point: Granular vs. grouped permissions**
 
 ```
-How are roles assigned?
+Permission granularity?
   |
-  +-- Manual assignment (API/Dashboard)
-  |   --> Use Organization Membership API
+  +-- Fine-grained control needed --> One permission per action
+  |   (e.g., separate `videos:edit`, `videos:delete`)
   |
-  +-- From customer's IdP
-  |   |
-  |   +-- SSO-based
-  |   |   --> SSO group mappings (updates on each auth)
-  |   |
-  |   +-- Directory Sync-based
-  |       --> Directory group mappings (updates on directory events)
-  |
-  +-- Hybrid
-      --> IdP assignments take precedence over manual
+  +-- Simplified role management --> Group related actions
+      (e.g., single `videos:manage` permission)
 ```
-
-**Critical precedence rule:** IdP role assignment ALWAYS overrides API/Dashboard assignments. If a user has both:
-1. IdP-assigned role from SSO/Directory
-2. Manually assigned role via API
-
-The IdP role wins. Manual assignment will be overwritten.
-
-### Multiple Roles
-
-Check fetched docs for whether your integration pattern supports multiple roles:
-
-- **Group-based assignment:** User in multiple mapped groups receives ALL roles
-- **Single role enforcement:** Configure in Dashboard > Roles > Priority Order
 
 ## Step 5: Dashboard Configuration
 
-### Environment-Level Roles (Shared)
+### 5a: Environment Roles (if using)
 
-1. Navigate: Dashboard > Roles
-2. Create roles with slugs (e.g., `admin`, `member`, `viewer`)
-3. Assign permissions to each role
-4. Set default role (auto-assigned to new org members)
-5. Set priority order (for role precedence)
+Navigate: Dashboard → Roles & Permissions → Roles
 
-### Organization-Level Roles (Custom)
+Create roles with:
+1. Slug (no prefix, e.g., `admin`, `member`, `viewer`)
+2. Display name
+3. Assigned permissions
 
-1. Navigate: Dashboard > Organizations > [Org] > Roles tab
-2. Click "Create role" (first role triggers org-specific config)
-3. Create role — slug auto-prefixed with `org:`
-4. Set org-specific default role and priority
+**Set default role** - assigned automatically to new org memberships.
 
-**Trap:** Deleting an environment role that's a default for orgs requires choosing a replacement. This bulk-updates all affected org members.
+**Set priority order** - determines precedence for multi-role users.
 
-## Step 6: Access Checks in Application
+### 5b: Organization Roles (if using)
 
-### Reading Roles from Session
+Navigate: Dashboard → Organizations → [Select Org] → Roles
 
-Check fetched docs for session format. Roles typically available as:
+Click "Create role" to add org-specific role.
 
-- JWT claims (AuthKit sessions)
-- API response fields (Organization Membership API)
+**Critical:** First org role created triggers independent default role and priority order for that org. New environment roles still appear but at bottom of org's priority order.
 
-**Pattern for access checks:**
+## Step 6: Integration Pattern Selection (Decision Tree)
 
 ```
-1. Extract user's role(s) from session/membership
-2. Check role slug against expected value(s)
-3. Optional: Check specific permissions if role has multiple
+How are you managing users?
+  |
+  +-- Using AuthKit --> Proceed to Step 7 (role assignment via memberships)
+  |
+  +-- Using SSO only --> Check docs for SSO profile role mapping
+  |
+  +-- Using Directory Sync only --> Check docs for directory user role mapping
+  |
+  +-- Custom user system --> Use RBAC API directly (Step 8)
 ```
 
-**Trap:** Do NOT hardcode permission checks without checking role-permission mappings — permissions can change in Dashboard without code deploy.
+## Step 7: AuthKit Role Assignment
 
-### API-Based Access Checks
+### Assignment Methods (Priority Order)
 
-Use SDK method for fetching organization membership with roles. Check fetched docs for exact method signature.
+**1. IdP Role Assignment (Highest Priority)**
+- SSO groups → roles (updates on each auth)
+- Directory groups → roles (updates on sync events)
 
-**Pattern:**
+**2. API Assignment**
+Use SDK method for updating organization membership roles.
 
-1. Get user's organization membership(s)
-2. Extract `role` or `roles` field
-3. Compare against expected role slugs
+**3. Dashboard Assignment**
+Navigate: Dashboard → Organizations → [Org] → Members → [Member] → Edit roles
 
-## Step 7: IdP Role Assignment (Optional)
+**Trap warning:** IdP assignment ALWAYS overrides API/Dashboard. If roles keep reverting, check IdP group mappings.
 
-If using SSO or Directory Sync, map IdP groups to WorkOS roles:
+### Single vs. Multiple Roles
 
-### SSO Group Mapping
+Check fetched docs for multi-role configuration. Decision factors:
+- Does user belong to multiple groups with role mappings? → They receive all roles
+- Which role's permissions apply? → Union of all assigned role permissions
 
-- Navigate: Dashboard > SSO > [Connection] > Group Mappings
-- Map IdP group names to role slugs
-- Roles update on each user authentication
+## Step 8: Access Checks in Application
 
-### Directory Group Mapping
+### Server-Side Pattern (AuthKit)
 
-- Navigate: Dashboard > Directory Sync > [Directory] > Group Mappings
-- Map directory group names to role slugs
-- Roles update on directory sync events
+**For protected routes:**
+1. Extract session (JWT from cookie/header)
+2. Read `role` or `roles` claim from session
+3. Check role slug against required role for route
 
-**Critical:** IdP mappings override manual assignments. Document this for your support team.
+**For permission checks:**
+1. Extract `permissions` claim from session JWT
+2. Check if required permission exists in array
+3. Allow/deny action based on result
+
+Check fetched docs for exact JWT structure and SDK method for session validation.
+
+### Direct API Pattern (Non-AuthKit)
+
+Use SDK method for fetching organization membership, which includes assigned roles.
+
+**Verification pattern:**
+```
+Request with user ID + org ID
+  → Get membership object
+  → Extract roles array
+  → Check role slug(s) or permissions
+  → Return authorization decision
+```
+
+## Step 9: Role Deletion Impact
+
+**Environment role deletion:**
+- If role is any org's default → You MUST select replacement default for affected orgs
+- Members with deleted role → Automatically reassigned to new default
+
+**Organization role deletion:**
+- Only affects that org
+- Members reassigned to org's default role
+
+**Before deleting:** Run impact analysis in Dashboard to see affected memberships.
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these commands to confirm setup:
+Run these checks to confirm setup:
 
 ```bash
-# 1. Check environment variables exist
-env | grep WORKOS_API_KEY && env | grep WORKOS_CLIENT_ID
+# 1. Environment variables exist
+env | grep WORKOS_API_KEY || echo "FAIL: API key missing"
+env | grep WORKOS_CLIENT_ID || echo "FAIL: Client ID missing (if using AuthKit)"
 
-# 2. Verify SDK import works (language-specific)
-# Node.js example:
-node -e "require('@workos-inc/node')" 2>&1 | grep -v Error
+# 2. SDK package installed
+npm list @workos-inc/node 2>/dev/null || echo "Check for SDK package"
 
-# 3. Test API connectivity
-curl -H "Authorization: Bearer $WORKOS_API_KEY" \
-  https://api.workos.com/user_management/organizations | jq .
+# 3. Application builds
+npm run build || yarn build
 
-# 4. Verify Dashboard config
-# Manual check: Dashboard > Roles shows at least one role with permissions
+# 4. Type check passes (TypeScript projects)
+npx tsc --noEmit || echo "Type errors - check SDK types imported"
 ```
 
-**If check #3 fails:** Verify API key is correct and has permissions.
+**Manual Dashboard checks:**
+1. Navigate to Roles & Permissions → At least one role exists
+2. Navigate to Organizations → Select org → Members → At least one member has role assigned
+3. If using IdP assignment: Organizations → [Org] → Directory/SSO → Group mappings configured
 
 ## Error Recovery
 
-### "Role not found" in access checks
+### "User has no roles assigned"
 
-**Causes:**
-
-1. Role slug mismatch (check for `org:` prefix on organization roles)
-2. User's org membership missing role assignment
-3. IdP mapping not configured (if using SSO/Directory)
+**Root cause:** Membership exists but no role assigned and no default role set.
 
 **Fix:**
+1. Check Dashboard → Roles & Permissions → Default role is set
+2. If org-level roles exist: Check that org has default role set
+3. Manually assign role via Dashboard or API
 
-- Check exact role slug in Dashboard > Roles or Organization > Roles
-- Verify user's membership has role: API call or Dashboard > Organizations > [Org] > Members
-- For IdP: verify group mapping exists and user is in mapped group
+### "Role not found" / "Invalid role slug"
 
-### "Default role not set" warning
-
-**Cause:** No default role configured for environment or organization.
-
-**Fix:**
-
-- Environment: Dashboard > Roles > gear icon > Set default
-- Organization: Dashboard > Organizations > [Org] > Roles > gear icon > Set default
-
-### Role assignment doesn't persist (IdP override)
-
-**Cause:** IdP role assignment is overwriting manual assignment.
-
-**Fix pattern:**
-
-1. Confirm IdP mapping exists: Dashboard > SSO/Directory > Group Mappings
-2. Either:
-   - Remove IdP mapping (manual assignment will persist), or
-   - Change IdP group membership (assignment follows IdP)
-
-**Do NOT fight IdP assignment** — it's designed to be authoritative.
-
-### "Multiple roles not supported"
-
-**Cause:** Integration pattern only supports single role, but user has multiple.
-
-**Fix:** Check fetched docs for multiple role support in your integration pattern. If unsupported:
-
-- Enforce single role via Dashboard > Roles > Priority Order
-- Highest priority role will be effective role
-
-### API returns 401 "Unauthorized"
-
-**Causes:**
-
-1. `WORKOS_API_KEY` invalid or expired
-2. Key doesn't have User Management scope
+**Root cause:** Mismatch between code and Dashboard configuration.
 
 **Fix:**
+1. List all roles via SDK method for fetching roles
+2. Compare slugs in code against fetched slugs
+3. Remember: org role slugs have `org_` prefix, environment roles do not
 
-- Regenerate key: Dashboard > API Keys > Create key
-- Verify scopes include necessary permissions
+### "Permissions not in session JWT"
 
-### SDK method signature mismatch
-
-**Cause:** SDK version incompatible with code examples.
+**Root cause:** Session created before role/permission configuration, or session not refreshed.
 
 **Fix:**
+1. User must re-authenticate to get updated JWT
+2. Check token expiry - old tokens don't have new permissions
+3. Force re-auth by invalidating session
 
-- Check SDK version in package manifest
-- WebFetch the SDK README for correct version's API
-- Consider upgrading SDK to latest
+### "IdP assignment not working"
+
+**Root cause:** Group mapping misconfigured or group sync not triggered.
+
+**Fix:**
+1. Dashboard → Organizations → [Org] → Directory/SSO → Verify group mappings exist
+2. For Directory Sync: Trigger manual sync to force group update
+3. For SSO: User must authenticate again to trigger group sync
+4. Check fetched docs for group attribute name requirements (varies by IdP)
+
+### "Multiple roles causing permission conflicts"
+
+**Root cause:** Confusion about permission union vs. intersection.
+
+**Fix:**
+- Multi-role permissions are UNION (user has ALL permissions from ALL roles)
+- If user shouldn't have permission, remove role assignment or modify role's permissions
+- Check role priority order if conflicts exist (though union model means this rarely matters)
 
 ## Related Skills
 
-For implementing authentication before RBAC:
-
-- workos-authkit-react
-- workos-authkit-nextjs
-- workos-authkit-vanilla-js
+- workos-authkit-nextjs - Integrate RBAC with Next.js AuthKit implementation
+- workos-authkit-react - Integrate RBAC with React AuthKit implementation

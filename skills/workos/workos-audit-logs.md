@@ -9,18 +9,27 @@ description: Implement audit logging for compliance and security.
 
 ## When to Use
 
-Use this skill when you need to record and export compliance-grade activity logs for your application. Audit Logs is a managed service that captures user actions (who did what, when, and where) and makes them available for security investigations, compliance reporting, or streaming to external SIEM tools.
+Use this skill when you need to emit compliance-grade audit events from your application, export them for customer review, or stream them to external security tools. Audit Logs records "who did what, when" for security and compliance requirements.
+
+## Documentation
+
+- https://workos.com/docs/audit-logs/metadata-schema
+- https://workos.com/docs/audit-logs/log-streams
+- https://workos.com/docs/audit-logs/index
+- https://workos.com/docs/audit-logs/exporting-events
+- https://workos.com/docs/audit-logs/editing-events
 
 ## Key Vocabulary
 
-- **Event** — a single audit trail entry with actor, action, target, timestamp, and metadata
-- **Log Stream** — continuous export of audit events to external destinations (Datadog, Splunk, etc.)
-- **Actor** — the entity performing the action (user, API key, service account)
-- **Target** — the resource being acted upon (file, database, setting)
-- **Action** — the verb describing what happened (e.g., `user.login`, `file.delete`)
-- **Metadata Schema** — structured key-value pairs attached to events for filtering/searching
-- **Export** — manual CSV download of historical audit events
-- **Organization `org_`** — the tenant whose events you're logging
+- **Event** — a single audit record with actor, action, target, and metadata
+- **Actor** — the entity performing the action (user, API key, system)
+- **Action** — the verb describing what happened (e.g., `user.created`, `file.downloaded`)
+- **Target** — the resource being acted upon
+- **Metadata** — structured context for the event (JSON object)
+- **Log Stream** — continuous export to external systems (Datadog, Splunk, S3)
+- **Export** — on-demand CSV download of audit events
+- `WORKOS_API_KEY` — server-side authentication for emitting events
+- Organization `org_` — scopes audit events to a customer tenant
 
 ## Implementation Guide
 

@@ -9,27 +9,25 @@ description: Migrate to WorkOS from Stytch.
 
 ## When to Use
 
-Use this skill when migrating from Stytch's authentication system to WorkOS AuthKit. Covers user data export from Stytch, password hash migration, organization mapping, and session transition strategies.
+Use this skill when migrating user accounts and organization structures from Stytch to WorkOS. This guide covers exporting user data from Stytch's API, mapping Stytch's organization/member model to WorkOS's equivalent structures, and handling authentication state transitions.
+
+## Documentation
+
+- https://workos.com/docs/migrate/stytch
 
 ## Key Vocabulary
 
-- **User Entity** — Stytch user record with `user_id`, email, and password hash
-- **Organization `org_`** — WorkOS organization entity mapped from Stytch organizations
-- **Member `om_`** — WorkOS organization member linking users to organizations
-- **Password Hash Format** — Stytch uses bcrypt/scrypt; WorkOS requires bcrypt migration format
-- **Session Token** — Stytch session tokens must be invalidated during migration
-- **MFA Settings** — Stytch MFA configurations (TOTP, SMS) and their WorkOS equivalents
-- **OAuth Connections** — Stytch OAuth providers mapped to WorkOS SSO connections
-- **Magic Link Migration** — Stytch passwordless users transition to WorkOS email verification
-- **Stytch Project ID** — source system identifier for audit trails
+- **User** — Stytch user account (maps to WorkOS User)
+- **Organization** — Stytch organization entity (maps to WorkOS Organization `org_`)
+- **Member** — Stytch org membership (maps to WorkOS OrganizationMembership `om_`)
+- **Magic Links** — Stytch passwordless auth method
+- **Sessions** — Stytch session tokens (require re-authentication after migration)
+- **MFA** — Stytch multi-factor enrollment (not directly portable)
+- **`STYTCH_PROJECT_ID`** — Stytch project identifier for API calls
+- **`STYTCH_SECRET`** — Stytch API credential for data export
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-migrate-stytch.guide.md`
-
-## Related Skills
-
-- workos-authkit-base — AuthKit setup after migration
-- workos-user-management — managing migrated users in WorkOS

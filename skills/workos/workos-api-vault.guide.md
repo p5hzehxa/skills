@@ -17,280 +17,236 @@
 
 ## Authentication Setup
 
-Set your WorkOS API key as an environment variable:
+Set your API key as an environment variable:
 
 ```bash
-export WORKOS_API_KEY='sk_live_...'
+export WORKOS_API_KEY="sk_live_..."
 ```
 
-All Vault API requests require this key in the `Authorization` header:
+All Vault API requests require the API key in the `Authorization` header:
 
 ```
 Authorization: Bearer sk_live_...
 ```
 
-The SDK handles this automatically when you initialize the client with `WORKOS_API_KEY`.
+Verify authentication works:
+
+```bash
+curl https://api.workos.com/vault/keys \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
+```
+
+Expected: 200 OK with key list. If 401: check API key starts with `sk_` and has Vault permissions in Dashboard.
 
 ## Endpoint Catalog
 
-The Vault API provides two resource types: **Keys** (encryption key management) and **Objects** (encrypted data storage).
-
-### Key Management Endpoints
+### Data Key Operations
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | POST | `/vault/keys` | Create a new data encryption key |
-| POST | `/vault/keys/encrypt` | Encrypt data with a specific key |
-| POST | `/vault/keys/decrypt` | Decrypt data with a specific key |
+| POST | `/vault/keys/:key_id/encrypt` | Encrypt plaintext with a specific key |
+| POST | `/vault/keys/:key_id/decrypt` | Decrypt ciphertext with a specific key |
 
-### Object Storage Endpoints
+### Vault Object Operations
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/vault/objects` | Store encrypted data as a Vault object |
+| POST | `/vault/objects` | Store sensitive data (e.g., SSN, credit card) |
+| GET | `/vault/objects/:object_id` | Retrieve decrypted vault object |
+| PUT | `/vault/objects/:object_id` | Update existing vault object |
 
 ## Operation Decision Tree
 
-```
-Need to encrypt sensitive data?
-├─ Have encryption infrastructure already?
-│  └─ YES → Use Keys API (bring your own key management)
-│     ├─ Create key: POST /vault/keys
-│     ├─ Encrypt: POST /vault/keys/encrypt
-│     └─ Decrypt: POST /vault/keys/decrypt
-│
-└─ NO → Use Objects API (WorkOS manages keys)
-   └─ Store encrypted: POST /vault/objects
-      (WorkOS handles key creation, rotation, encryption)
-```
+### When to Use Data Keys vs Vault Objects
 
-**Key vs Object decision:**
-- Use **Keys API** when you need explicit control over encryption keys and their lifecycle
-- Use **Objects API** when you want WorkOS to handle key management transparently
+**Use Data Keys** when:
+- You want to encrypt/decrypt data in your own storage
+- You need fine-grained control over encryption keys
+- Data schema varies and you want to handle structure
 
-## Keys API Patterns
+**Use Vault Objects** when:
+- You want WorkOS to handle storage AND encryption
+- Storing PII that must be isolated from application database
+- Need compliance-friendly storage without managing keys yourself
 
-### Creating a Data Encryption Key
+### Create vs Update Decision
 
-```bash
-curl https://api.workos.com/vault/keys \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
+For Vault Objects:
+- **POST /vault/objects** — first-time creation (returns `object_id`)
+- **PUT /vault/objects/:object_id** — update existing object
 
-Check fetched docs for required parameters and response schema.
+There is no upsert endpoint. Track `object_id` in your database to decide which operation to use.
 
-### Encrypting Data
+## Encryption Patterns
+
+### Pattern 1: Encrypt Data with Data Key
 
 ```bash
-curl https://api.workos.com/vault/keys/encrypt \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "key": "key_...",
-    "data": "sensitive_value"
-  }'
+# Pseudocode pattern
+data_key = POST /vault/keys { purposes: ["encryption"] }
+encrypted = POST /vault/keys/{data_key.id}/encrypt { plaintext: "sensitive" }
+# Store encrypted.ciphertext in your database
+# Store data_key.id to decrypt later
 ```
 
-Returns ciphertext that can only be decrypted with the same key ID.
-
-### Decrypting Data
+### Pattern 2: Decrypt Data with Data Key
 
 ```bash
-curl https://api.workos.com/vault/keys/decrypt \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "key": "key_...",
-    "ciphertext": "encrypted_value"
-  }'
+# Pseudocode pattern
+decrypted = POST /vault/keys/{key_id}/decrypt { ciphertext: stored_value }
+# Use decrypted.plaintext in application
 ```
 
-## Objects API Pattern
-
-Store encrypted data without managing keys yourself:
+### Pattern 3: Store PII in Vault Object
 
 ```bash
-curl https://api.workos.com/vault/objects \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "data": {
-      "ssn": "123-45-6789",
-      "credit_card": "4242424242424242"
-    }
-  }'
+# Pseudocode pattern
+vault_object = POST /vault/objects {
+  type: "pii",
+  data: { ssn: "123-45-6789", dob: "1990-01-01" }
+}
+# Store vault_object.id in your database
+# Never store actual SSN/DOB
 ```
 
-WorkOS returns an object ID (`vault_obj_...`) that you store in your database. The actual sensitive data never touches your systems.
+### Pattern 4: Retrieve Vault Object
+
+```bash
+# Pseudocode pattern
+sensitive_data = GET /vault/objects/{object_id}
+# Data arrives decrypted — use immediately, do not persist
+```
 
 ## Error Code Mapping
 
-### 401 Unauthorized
-**Cause:** Invalid or missing API key  
-**Fix:** Verify `WORKOS_API_KEY` starts with `sk_` and is set in environment
-
 ### 400 Bad Request
-**Cause:** Malformed request body or missing required fields  
-**Fix:** Check fetched docs for required parameters for the specific endpoint
+
+**Cause:** Malformed request body or missing required fields
+**Fix:** Check fetched docs for required fields. Common: missing `plaintext` in encrypt, missing `ciphertext` in decrypt
+
+### 401 Unauthorized
+
+**Cause:** Invalid or missing API key
+**Fix:** Verify `WORKOS_API_KEY` environment variable is set and starts with `sk_`. Check Dashboard → API Keys for active status
 
 ### 404 Not Found
-**Cause:** Key ID or object ID does not exist  
-**Fix:** Verify the resource ID format (`key_...` or `vault_obj_...`) and that it was created in the same environment
+
+**Cause 1:** Data key ID doesn't exist
+**Fix:** Verify `key_id` matches the ID returned from POST /vault/keys
+
+**Cause 2:** Vault object ID doesn't exist
+**Fix:** Verify `object_id` was stored correctly after creation
 
 ### 422 Unprocessable Entity
-**Cause:** Invalid data format or encryption failure  
-**Fix:** For Keys API, ensure data and ciphertext match. For Objects API, verify data is valid JSON
+
+**Cause:** Decryption failed — ciphertext was encrypted with different key or corrupted
+**Fix:** Ensure `key_id` in decrypt request matches the key used to encrypt. Check ciphertext wasn't truncated in storage
 
 ### 429 Too Many Requests
-**Cause:** Rate limit exceeded  
-**Fix:** Check fetched docs for current rate limits. Implement exponential backoff (initial 1s delay, double on each retry, max 32s)
+
+**Cause:** Rate limit exceeded
+**Fix:** Implement exponential backoff (start at 1s, double on each retry, max 32s). Check fetched docs for current rate limits
 
 ### 500 Internal Server Error
-**Cause:** WorkOS service issue  
-**Fix:** Retry with exponential backoff. If persistent, contact WorkOS support with request ID from response headers
 
-## Rate Limits and Retries
+**Cause:** WorkOS service issue
+**Fix:** Retry with exponential backoff. If persists >5 minutes, contact WorkOS support
 
-Check fetched docs for current rate limits (typically per-second and per-minute quotas).
+## Pagination Handling
 
-**Retry strategy for transient errors (429, 500, 503):**
+Vault API does NOT use pagination for encryption/decryption operations (single-item requests).
 
-```
-attempt = 0
-while attempt < 5:
-    response = call_vault_api()
-    if response.status in [429, 500, 503]:
-        wait = min(2^attempt, 32)  # exponential backoff, max 32s
-        sleep(wait)
-        attempt += 1
-    else:
-        break
-```
-
-Never retry 4xx errors except 429 — they indicate request problems that won't resolve with retries.
+If listing data keys (GET /vault/keys), check fetched docs for pagination parameters — typical WorkOS pattern uses cursor-based pagination with `after` and `limit` query params.
 
 ## Verification Commands
 
-### 1. Test API authentication
+### Verify API Key Access
 
 ```bash
-curl -I https://api.workos.com/vault/keys \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}"
-
-# Expected: 200 OK or 405 Method Not Allowed (means auth succeeded)
-# Failure: 401 Unauthorized (check API key)
+curl -s https://api.workos.com/vault/keys \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  | jq '.data | length'
 ```
 
-### 2. Create and encrypt test data (Keys API)
+Expected: Number (0 or more). Error 401 = bad API key.
+
+### Test Data Key Encryption Flow
 
 ```bash
-# Create key
-KEY_RESPONSE=$(curl -s https://api.workos.com/vault/keys \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+# Create data key
+KEY_ID=$(curl -s -X POST https://api.workos.com/vault/keys \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{}')
-
-KEY_ID=$(echo $KEY_RESPONSE | jq -r '.key')
+  -d '{"purposes": ["encryption"]}' \
+  | jq -r '.id')
 
 # Encrypt test data
-curl https://api.workos.com/vault/keys/encrypt \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+CIPHERTEXT=$(curl -s -X POST https://api.workos.com/vault/keys/$KEY_ID/encrypt \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"key\": \"$KEY_ID\", \"data\": \"test_value\"}"
+  -d '{"plaintext": "secret123"}' \
+  | jq -r '.ciphertext')
 
-# Expected: JSON with ciphertext field
+# Decrypt and verify
+curl -X POST https://api.workos.com/vault/keys/$KEY_ID/decrypt \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"ciphertext\": \"$CIPHERTEXT\"}" \
+  | jq -r '.plaintext'
 ```
 
-### 3. Store encrypted object (Objects API)
+Expected: `secret123`. If mismatch: check key ID consistency.
+
+### Test Vault Object Storage Flow
 
 ```bash
-curl https://api.workos.com/vault/objects \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+# Create vault object
+OBJECT_ID=$(curl -s -X POST https://api.workos.com/vault/objects \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{
-    "data": {
-      "test_field": "test_value"
-    }
-  }'
+  -d '{"type": "pii", "data": {"test_field": "sensitive_value"}}' \
+  | jq -r '.id')
 
-# Expected: JSON with object ID starting with vault_obj_
+# Retrieve and verify
+curl https://api.workos.com/vault/objects/$OBJECT_ID \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  | jq '.data'
 ```
 
-## SDK Integration Patterns
+Expected: `{"test_field": "sensitive_value"}`. If 404: object creation failed.
 
-### Keys API pseudocode
+## Rate Limit Guidance
 
-```python
-# Create encryption key
-key_response = workos.vault.keys.create()
-key_id = key_response['key']
+Check fetched docs for current limits. Typical WorkOS rate limits:
 
-# Encrypt sensitive data
-encrypted = workos.vault.keys.encrypt(
-    key=key_id,
-    data="sensitive_value"
-)
-ciphertext = encrypted['ciphertext']
+- Default: 100 requests/minute per API key
+- Bursts allowed up to 200 requests in 10-second window
 
-# Store ciphertext + key_id in your database
-save_to_db(ciphertext=ciphertext, key_id=key_id)
+If you hit 429:
+1. Parse `Retry-After` header (seconds to wait)
+2. Implement exponential backoff starting at `Retry-After` value
+3. For bulk operations, batch requests and add delay between batches
 
-# Later: decrypt
-decrypted = workos.vault.keys.decrypt(
-    key=key_id,
-    ciphertext=ciphertext
-)
-plaintext = decrypted['data']
-```
+## Common Integration Traps
 
-### Objects API pseudocode
+### Trap 1: Storing Plaintext After Decryption
 
-```python
-# Store encrypted object
-vault_response = workos.vault.objects.create(
-    data={
-        'ssn': '123-45-6789',
-        'credit_card': '4242424242424242'
-    }
-)
-object_id = vault_response['id']  # vault_obj_...
+**Wrong:** Decrypt vault object → store plaintext in database
+**Right:** Decrypt → use in memory → discard. Store only `object_id`
 
-# Store only the object_id in your database
-save_to_db(vault_object_id=object_id)
+### Trap 2: Reusing Data Keys Across Environments
 
-# To retrieve: use object_id with Vault retrieval endpoint
-# Check fetched docs for retrieval endpoint details
-```
+Data keys created in test environment (`sk_test_...`) cannot decrypt data in production. Keep environment-specific keys separate.
 
-Check fetched docs for exact SDK method signatures in your language.
+### Trap 3: Losing Key ID Reference
 
-## Common Traps
+Without the original `key_id`, you cannot decrypt data encrypted with that key. Always store `key_id` alongside ciphertext in your database schema.
 
-### Trap 1: Storing plaintext after encryption
-**Wrong:** Save both plaintext and ciphertext  
-**Right:** Save only ciphertext (Keys API) or object ID (Objects API). Discard plaintext immediately.
+### Trap 4: Not Handling Partial Failures in Batch Operations
 
-### Trap 2: Mixing key IDs across environments
-Keys created in test mode (`sk_test_...`) cannot decrypt data encrypted in live mode (`sk_live_...`).  
-**Fix:** Use environment-specific key storage and never share keys across environments.
-
-### Trap 3: Not handling key rotation
-If you rotate encryption keys, old ciphertexts cannot be decrypted with new keys.  
-**Fix:** Implement versioned key storage or re-encrypt data when rotating keys.
-
-### Trap 4: Logging encrypted data
-Ciphertexts are opaque but still sensitive (they reveal data existence and size).  
-**Fix:** Redact ciphertexts in logs. Log only key IDs and operation types.
-
-## ID Prefixes
-
-- Keys: `key_...`
-- Vault objects: `vault_obj_...`
-
-If you see different prefixes, you're calling the wrong API or using the wrong environment.
+If encrypting 100 records, handle per-record errors gracefully. One 422 shouldn't fail the entire batch — log the error and continue.
 
 ## Related Skills
 
-- N/A (Vault is a standalone encryption service without feature-layer skills)
+- **workos-vault** — Feature overview and use cases for Vault

@@ -9,18 +9,23 @@ description: WorkOS Directory Sync API endpoints — directories, users, groups,
 
 ## When to Use
 
-Use this skill when you need to read directory data (users, groups) synced from identity providers like Okta, Azure AD, or Google Workspace. This is a read-only API — WorkOS handles the sync from the provider; you fetch the cached directory state. Use when you need org member lists, group memberships, or profile attributes for provisioning/deprovisioning workflows.
+Use this skill when you need to read directory data (users, groups) from a WorkOS-managed directory. This is a **read-only API** for querying synced identity data after a directory connection is established. If you need to set up the directory connection itself, use the Admin Portal or Directory Sync integration guides instead.
+
+## Documentation
+
+- https://workos.com/docs/reference/directory-sync
+- https://workos.com/docs/reference/directory-sync/directory
+- https://workos.com/docs/reference/directory-sync/directory-group
+- https://workos.com/docs/reference/directory-sync/directory-group/get
+- https://workos.com/docs/reference/directory-sync/directory-group/list
 
 ## Key Vocabulary
 
-- **Directory** `directory_` — a synced identity provider connection (one per org)
-- **Directory User** `directory_user_` — a synced user record with email, username, profile data
-- **Directory Group** `directory_group_` — a synced group with member references
-- **Organization** `org_` — the WorkOS entity owning the directory
-- **State** — directory lifecycle: `linked`, `unlinked`, `invalid_credentials`, `deleting`
-- **Type** — provider identifier: `azure scim v2.0`, `okta scim v2.0`, `generic scim v2.0`, etc.
-- **Primary Email** — the canonical email field for a directory user (vs raw SCIM attributes)
-- **Raw Attributes** — unprocessed SCIM payload from the provider (JSON object)
+- **Directory** `directory_` — a synced identity provider connection (e.g., Okta, Google Workspace)
+- **Directory User** `directory_user_` — a user record synced from the directory
+- **Directory Group** `directory_group_` — a group record synced from the directory
+- **Organization** `org_` — the WorkOS organization that owns the directory
+- `WORKOS_API_KEY` — server-side authentication credential
 
 ## Implementation Guide
 
@@ -30,5 +35,4 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- `workos-directory-sync` — webhook events and sync lifecycle
-- `workos-user-management` — creating WorkOS users from directory data
+None — this is a foundational API skill with no cross-dependencies.

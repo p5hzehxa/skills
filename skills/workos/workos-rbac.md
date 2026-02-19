@@ -9,18 +9,24 @@ description: Set up role-based access control for your application.
 
 ## When to Use
 
-Use this skill when you need to assign users predefined roles (like "admin", "member", "viewer") within organizations and check those assignments at runtime. This is for coarse-grained permissions tied to organization membership — if you need attribute-based or resource-level access control, use Fine-Grained Authorization instead.
+Use this skill when you need to assign fixed roles to users within organizations and enforce permissions based on those roles. RBAC is appropriate when your access control model is hierarchical (e.g., "admin", "member", "viewer") and permissions are tied to role membership rather than resource-specific relationships.
+
+## Documentation
+
+- https://workos.com/docs/rbac/quick-start
+- https://workos.com/docs/rbac/organization-roles
+- https://workos.com/docs/rbac/integration
+- https://workos.com/docs/rbac/index
+- https://workos.com/docs/rbac/idp-role-assignment
 
 ## Key Vocabulary
 
-- **Role** — a named set of permissions (e.g., "admin", "member") defined in the WorkOS dashboard
-- **Organization** `org_` — the tenant context where roles are assigned
-- **User** `user_` — the identity receiving role assignments
-- **Authorization object** — the JWT payload shape returned after checking a user's role
-- **`listRoles()`** — SDK method to fetch all roles defined for an organization
-- **Dashboard → Roles** — where you define custom roles and default assignments
-- **Role slugs** — the canonical identifier for roles in API calls (e.g., `"admin"`, `"billing-manager"`)
-- **IdP role mapping** — automatic role assignment based on SAML/OIDC attributes from identity providers
+- **Organization** `org_` — tenant entity that contains users and roles
+- **Role** — named permission set (e.g., "admin", "member") assigned to users
+- **User** `user_` — authenticated entity with role assignments
+- **OrganizationMembership** `org_membership_` — links a user to an organization with a role
+- **Permission** — granular capability checked in authorization logic
+- **IdP Role Mapping** — automatic role assignment from SAML/OIDC claims
 
 ## Implementation Guide
 

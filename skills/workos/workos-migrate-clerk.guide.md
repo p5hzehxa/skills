@@ -8,334 +8,235 @@
 
 WebFetch: `https://workos.com/docs/migrate/clerk`
 
-The documentation is the source of truth. If this skill conflicts with the docs, follow the docs.
+The docs are the source of truth. If this skill conflicts with docs, follow docs.
 
-## Step 2: Pre-Flight Validation
-
-### WorkOS Account Setup
-
-- Confirm WorkOS Dashboard access
-- Confirm API keys exist in Dashboard → API Keys:
-  - `WORKOS_API_KEY` - starts with `sk_`
-  - `WORKOS_CLIENT_ID` - starts with `client_`
-
-### Clerk Export Access
-
-Decision tree for obtaining user data:
+## Step 2: Migration Decision Tree
 
 ```
-Do you need password hashes?
+Do you need to preserve user passwords?
   |
-  +-- YES --> Use Clerk Backend API (passwordDigest field available)
-  |           Rate limit: Check Clerk docs for export API limits
+  +-- YES --> Clerk Backend API export required (Step 3A)
+  |           Then proceed to Step 4 (import with hashes)
   |
-  +-- NO  --> Use Clerk Backend API OR request CSV from Clerk support
-              (Support export is faster for large datasets)
+  +-- NO  --> Skip password export
+              Proceed directly to Step 3B (user data only)
 ```
 
-**Critical:** Clerk does NOT export plaintext passwords. Only bcrypt hashes are available via API.
+**Critical limitation:** Clerk does NOT export plaintext passwords. Only bcrypt hashes via their Backend API.
 
-### WorkOS SDK Installation
+## Step 3A: Export Passwords (If Needed)
 
-Detect package manager, install SDK for your language (check fetched docs for exact package name).
+Use Clerk Backend API to export users with password hashes as CSV:
 
-**Verify:** SDK package exists before writing import code.
+- Check fetched docs for Clerk API endpoint
+- Exported field name: `password_digest`
+- Algorithm: bcrypt (WorkOS-compatible)
 
-## Step 3: Export User Data from Clerk
+**Verification:** CSV contains `password_digest` column with bcrypt hashes (starts with `$2a$` or `$2b$`).
 
-### Using Clerk Backend API
+## Step 3B: Export User Data
 
-Use Clerk's User API to export user data. Check Clerk docs for:
-- Pagination parameters (page size limits)
-- Rate limits on list endpoints
-- Fields included in User object
+Two paths:
 
-**Critical fields to export:**
+**Path A: Clerk Backend API**
+- Paginate through users programmatically
+- Standard fields: `email_addresses`, `first_name`, `last_name`
 
-- `email_addresses` (may contain multiple emails separated by `|`)
-- `primary_email_address_id` (needed to determine primary email)
-- `first_name`, `last_name`
-- `password_digest` (if migrating passwords)
+**Path B: Clerk Support**
+- Request JSON export from Clerk support team
+- Same field schema
 
-### Multiple Email Addresses (TRAP)
+**Multi-email trap:** Clerk separates multiple emails with pipe (`|`). Export does NOT indicate which is primary. Use Clerk User object API to determine primary before importing.
 
-Clerk exports multiple emails as pipe-delimited string: `"john@example.com|john.doe@example.com"`
+## Step 4: Import Users to WorkOS
 
-**Problem:** Export doesn't indicate which is primary.
-
-**Solution:** Fetch User object from Clerk API to get `primary_email_address_id`, then match against full email list.
-
-**Do NOT:** Guess primary email by position or alphabetically — this will break login for users.
-
-### Password Export
-
-If exporting passwords via Clerk API:
-- Field name is `password_digest` (NOT `password_hash`)
-- Algorithm is bcrypt (WorkOS compatible)
-- Digest format includes bcrypt version prefix (e.g., `$2a$10$...`)
-
-**Verify:** Each digest starts with `$2` before importing.
-
-## Step 4: Import Users into WorkOS
-
-### Option A: Use WorkOS Import Tool (Recommended for Large Datasets)
-
-GitHub repo: `https://github.com/workos/migrate-clerk-users`
-
-This tool handles:
-- Rate limiting automatically
-- Retry logic for failed imports
-- Progress tracking
-
-Follow README for environment variables and CSV format requirements.
-
-### Option B: Direct API Import
-
-Use WorkOS User Management API. Check fetched docs for:
-- `/user_management/users` endpoint
-- Rate limits (important for bulk imports)
-- Required vs. optional fields
-
-**Field mapping:**
+### Field Mapping
 
 ```
-Clerk field           → WorkOS API parameter
---------------------- → --------------------
-email_addresses       → email (primary email only)
-first_name            → first_name
-last_name             → last_name
-password_digest       → password_hash (with password_hash_type)
+Clerk export       --> WorkOS Create User API
+email_addresses    --> email
+first_name         --> first_name
+last_name          --> last_name
+password_digest    --> password_hash (if exported)
 ```
 
-**Password import parameters:**
+### Import Method Decision
 
 ```
-password_hash_type: "bcrypt"
-password_hash: <value from Clerk password_digest field>
+User count?
+  |
+  +-- <1000  --> Use WorkOS GitHub migration tool
+  |              (github.com/workos/migrate-clerk-users)
+  |
+  +-- 1000+  --> Write custom script using WorkOS API
+                 (rate limits apply - check fetched docs)
 ```
 
-### Rate Limit Handling (CRITICAL)
+### Password Hash Parameters (CRITICAL)
 
-WorkOS rate limits user creation. Check fetched docs for current limits.
+If importing passwords, pass to WorkOS Create User API:
 
-**Strategy for large imports:**
+- `password_hash_type`: `'bcrypt'`
+- `password_hash`: value from Clerk's `password_digest` field
 
-1. Batch requests (check docs for max batch size)
-2. Implement exponential backoff on 429 responses
-3. Track failed imports for retry
-4. Do NOT run import in parallel without rate limit logic
+**Trap:** Do NOT pass plaintext passwords. WorkOS expects the bcrypt hash exactly as exported.
 
-**Verification command after import:**
+## Step 5: Handle Multi-Email Users
+
+For users with pipe-separated emails in Clerk export:
+
+1. Use Clerk User object API to fetch primary email indicator
+2. Import primary email to WorkOS `email` field
+3. Store additional emails in WorkOS user metadata if needed
+
+**Do NOT guess** which email is primary from export alone.
+
+## Step 6: Social Auth Migration
+
+Users who signed in via social providers (Google, Microsoft, etc.) in Clerk:
+
+1. Configure equivalent provider in WorkOS Dashboard (see integrations page in fetched docs)
+2. No explicit migration needed — WorkOS auto-links by email on first sign-in
+3. User signs in with provider → WorkOS matches by email → links to imported user
+
+**Critical:** Email matching is case-sensitive. Normalize emails during import.
+
+## Step 7: Organization Export (If Using)
+
+If you use Clerk organizations:
+
+### Export Organizations
+
+Use Clerk Backend SDK to paginate organization list. For each org:
+
+1. Export org data
+2. Create matching WorkOS organization via API
+
+Check fetched docs for WorkOS Organization Create API parameters.
+
+### Export Memberships
+
+Use Clerk Backend SDK to paginate memberships per organization. For each membership:
+
+1. Map Clerk user ID → WorkOS user ID (from Step 4 import)
+2. Create WorkOS organization membership via API
+
+Check fetched docs for WorkOS Organization Membership Create API parameters.
+
+**Trap:** Complete user import (Step 4) BEFORE creating memberships. Membership creation will fail for non-existent users.
+
+## Step 8: MFA Migration (Manual Re-enrollment)
+
+**CRITICAL INCOMPATIBILITY:** Clerk SMS-based MFA cannot migrate to WorkOS.
+
+WorkOS does NOT support SMS MFA due to security issues. Affected users MUST:
+
+1. Re-enroll using TOTP authenticator app, OR
+2. Switch to WorkOS email-based Magic Auth
+
+**Communication plan required:** Notify SMS MFA users before migration. Provide re-enrollment instructions.
+
+Check fetched docs for WorkOS MFA enrollment guide.
+
+## Verification Checklist (ALL MUST PASS)
+
+Run these checks to confirm migration. **Do not mark complete until all pass:**
 
 ```bash
-# Count users in WorkOS (requires API call - check docs for list endpoint)
-curl -H "Authorization: Bearer $WORKOS_API_KEY" \
-  "https://api.workos.com/user_management/users" | jq '.data | length'
+# 1. Verify WorkOS environment variables set
+env | grep -E "WORKOS_(API_KEY|CLIENT_ID)" || echo "FAIL: Missing WorkOS env vars"
+
+# 2. Test user import with sample user (replace with actual user data)
+curl -X POST https://api.workos.com/users \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","first_name":"Test"}' \
+  | jq -r '.id' || echo "FAIL: User creation failed"
+
+# 3. Verify social provider configured (replace PROVIDER with actual, e.g., google_oauth)
+# Check WorkOS Dashboard → Authentication → Social Providers
+echo "Manually verify social providers in Dashboard"
+
+# 4. Test organization creation if using (replace with actual org data)
+curl -X POST https://api.workos.com/organizations \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test Org"}' \
+  | jq -r '.id' || echo "FAIL: Org creation failed"
 ```
-
-Compare count to Clerk export row count.
-
-## Step 5: Migrate Social Auth Users
-
-### Provider Setup
-
-For each OAuth provider used in Clerk (Google, Microsoft, GitHub, etc.):
-
-1. Navigate to WorkOS Dashboard → Authentication → SSO
-2. Configure provider credentials (check fetched docs for provider-specific setup)
-3. Verify redirect URIs match your application
-
-**Critical:** WorkOS links social auth users by **email address match**. Users signing in with provider credentials will auto-link to existing WorkOS user IF emails match.
-
-**Trap:** If Clerk user's primary email differs from their OAuth provider email, link will fail. Resolve mismatches BEFORE migration cutover.
-
-### Verification
-
-Test each provider:
-
-```bash
-# 1. Trigger OAuth flow for provider
-# 2. Check WorkOS Dashboard → Users to confirm user was linked (not created as duplicate)
-# 3. Verify user's email matches expected primary email
-```
-
-## Step 6: Migrate Organizations
-
-### Export Clerk Organizations
-
-Use Clerk Backend SDK to list organizations. Check Clerk docs for:
-- Pagination parameters
-- Organization metadata fields available
-
-### Create WorkOS Organizations
-
-Use WorkOS Organization API. Check fetched docs for:
-- `/organizations` endpoint
-- Required fields (usually just `name`)
-- Optional fields (`domains`, `allow_profiles_outside_organization`, etc.)
-
-**Field mapping:**
-
-```
-Clerk Organization    → WorkOS Organization
---------------------- → --------------------
-id                    → external_id (for tracking)
-name                  → name
-```
-
-Store Clerk ID as `external_id` or in custom metadata to maintain mapping during migration.
-
-### Migrate Organization Memberships
-
-**Process:**
-
-1. For each Clerk organization, export member list using Clerk Backend SDK
-2. Map Clerk user IDs to WorkOS user IDs (use email as join key)
-3. Use WorkOS Organization Membership API to add users to organizations
-
-Check fetched docs for:
-- `/organization_memberships` endpoint
-- Role slug options (if migrating roles from Clerk)
-- Batch operations (if available)
-
-**Trap:** Clerk organization roles may not map 1:1 to WorkOS roles. Plan role mapping BEFORE bulk import.
-
-### Verification
-
-```bash
-# Count memberships per organization
-# (Requires API call - check docs for list endpoint with org filter)
-curl -H "Authorization: Bearer $WORKOS_API_KEY" \
-  "https://api.workos.com/user_management/organization_memberships?organization_id=<ORG_ID>" \
-  | jq '.data | length'
-```
-
-Compare to Clerk org member counts.
-
-## Step 7: Multi-Factor Auth Migration
-
-### Compatibility Matrix
-
-```
-Clerk MFA Type       WorkOS Support    Migration Path
--------------------- ----------------- ----------------------------------
-TOTP (authenticator) ✅ Supported      Auto-migrate (same algorithm)
-SMS                  ❌ Not supported  Users must re-enroll (email or TOTP)
-Email codes          ✅ Supported      Config in WorkOS Dashboard
-```
-
-**Critical:** WorkOS does NOT support SMS-based MFA due to security concerns (SIM swapping, SS7 attacks).
-
-### SMS User Migration Strategy
-
-For users with SMS-based MFA in Clerk:
-
-1. **Before cutover:** Email users warning that SMS MFA will be disabled
-2. **During cutover:** Import users WITHOUT MFA enrolled
-3. **After cutover:** Prompt users to enroll in TOTP or email-based MFA
-
-Check fetched docs for:
-- MFA enrollment flows
-- MFA challenge configuration
-
-**Do NOT:** Attempt to migrate SMS factors — they will be rejected by WorkOS API.
-
-### TOTP Migration
-
-If Clerk provides TOTP secrets in export:
-- WorkOS uses same TOTP algorithm (RFC 6238)
-- Secrets can be imported during user creation (check fetched docs for parameter name)
-
-**Trap:** Clerk may NOT export TOTP secrets via API (security policy). If unavailable, users must re-enroll.
-
-## Step 8: Cutover Checklist
-
-Run these checks BEFORE switching production traffic:
-
-```bash
-# 1. User count matches
-echo "Clerk users: $(clerk-user-count)"
-echo "WorkOS users: $(workos-user-count)"
-
-# 2. Test password login for migrated user
-# (Manual test - trigger sign-in with known test user)
-
-# 3. Test social auth login
-# (Manual test - trigger OAuth flow)
-
-# 4. Verify organizations exist
-curl -H "Authorization: Bearer $WORKOS_API_KEY" \
-  "https://api.workos.com/organizations" | jq '.data | length'
-
-# 5. Spot-check org memberships
-# (Pick 3 random orgs, verify member counts)
-```
-
-**All checks must pass** before DNS/routing changes.
 
 ## Error Recovery
 
-### "User already exists" during import
+### "User creation rate limit exceeded"
 
-**Root cause:** Duplicate email in import data OR previous partial import.
+**Root cause:** Importing users too quickly.
 
-**Fix:**
-1. Check if user already exists in WorkOS (list users, filter by email)
-2. If exists with correct data: Skip and continue
-3. If exists with wrong data: Update user instead of create (check docs for update endpoint)
+Fix:
+1. Check fetched docs for current rate limits
+2. Add delay between Create User API calls
+3. Implement exponential backoff on 429 responses
+4. Consider using WorkOS migration tool (handles rate limiting)
 
-### "Invalid password hash" on import
+### "Invalid password hash format"
 
-**Root cause:** Password hash format not recognized by WorkOS.
+**Root cause:** Passing plaintext password or wrong hash type.
 
-**Fix:**
-1. Verify hash starts with `$2` (bcrypt version prefix)
-2. Check `password_hash_type` parameter is exactly `"bcrypt"` (case-sensitive)
-3. If hash is NOT bcrypt: Cannot import passwords — users must reset
+Fix:
+1. Verify Clerk export contains `password_digest` field
+2. Verify hash starts with `$2a$` or `$2b$` (bcrypt prefix)
+3. Pass `password_hash_type: 'bcrypt'` parameter
+4. Do NOT modify hash value from Clerk export
 
-### Rate limit 429 during bulk import
+### "Email already exists"
 
-**Root cause:** Exceeding WorkOS rate limits.
+**Root cause:** Duplicate user import or email collision.
 
-**Fix:**
-1. Implement exponential backoff (start with 1s delay, double each retry)
-2. Reduce batch size or add delay between requests
-3. Check fetched docs for current rate limits
-4. Consider using WorkOS import tool (handles this automatically)
+Fix:
+1. Check if user already exists before creating
+2. Use Update User API instead if updating existing user
+3. For multi-email users, ensure only primary email used for `email` field
 
-### Social auth user not linking to existing user
+### "Organization membership failed: user not found"
 
-**Root cause:** Email mismatch between OAuth provider and WorkOS user record.
+**Root cause:** Creating membership before user imported.
 
-**Fix:**
-1. Check user's email in WorkOS Dashboard
-2. Check email returned by OAuth provider (log the claims)
-3. If mismatch: Update WorkOS user email to match provider email BEFORE migration
-4. Re-test OAuth flow after email correction
+Fix:
+1. Complete ALL user imports (Step 4) first
+2. Maintain mapping: Clerk user ID → WorkOS user ID
+3. Use WorkOS user ID when creating memberships
 
-### Organization membership creation fails
+### "Social auth user not linked after sign-in"
 
-**Root cause:** User or organization doesn't exist yet, OR invalid role slug.
+**Root cause:** Email mismatch between imported user and social provider email.
 
-**Fix:**
-1. Verify user exists: GET `/user_management/users?email=<EMAIL>`
-2. Verify org exists: GET `/organizations/<ORG_ID>`
-3. Check role slug against WorkOS docs (exact spelling required)
-4. If entities missing: Import order is wrong — users and orgs MUST exist before memberships
+Fix:
+1. Verify imported email exactly matches social provider email
+2. Check for email case sensitivity differences
+3. Ensure social provider configured in WorkOS Dashboard before testing
+4. Check WorkOS logs for linking errors
 
-### MFA enrollment failing post-migration
+### Clerk export missing `password_digest`
 
-**Root cause:** User had SMS MFA in Clerk (not supported in WorkOS).
+**Root cause:** Using standard export instead of Backend API export.
 
-**Fix:**
-1. Confirm user's MFA type in Clerk export
-2. If SMS: Expected behavior — prompt user to enroll in TOTP or email
-3. Provide clear UI messaging: "SMS authentication is no longer supported. Please set up an authenticator app."
+Fix:
+1. Use Clerk Backend API export (not Dashboard export)
+2. Check fetched docs for Clerk changelog link (2024-10-23 feature)
+3. Ensure API export includes password data parameter
+
+### MFA users cannot sign in after migration
+
+**Root cause:** SMS MFA users not re-enrolled.
+
+Fix:
+1. Identify SMS MFA users in Clerk before migration
+2. Send re-enrollment instructions BEFORE migration
+3. Provide fallback: temporary password reset for SMS users
+4. Guide users to enroll TOTP or switch to Magic Auth
 
 ## Related Skills
 
-After migration is complete, integrate WorkOS authentication:
-
-- workos-authkit-nextjs - For Next.js applications
-- workos-authkit-react - For React SPAs
-- workos-authkit-vanilla-js - For plain JavaScript apps
+After migration complete:
+- workos-authkit-nextjs — if using Next.js
+- workos-authkit-react — if using React
+- workos-authkit-vanilla-js — if using vanilla JavaScript

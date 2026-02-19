@@ -9,17 +9,23 @@ description: WorkOS Vault API endpoints — create, read, update, delete encrypt
 
 ## When to Use
 
-Use Vault when you need encrypted key-value storage with versioning and envelope encryption. Vault provides customer-managed encryption keys (CMEKs), data key generation/decryption, and versioned object storage. Choose Vault over database encryption when you need cryptographic isolation per customer or tenant.
+Use Vault API when you need to encrypt/decrypt sensitive data server-side or store encrypted objects with WorkOS-managed keys. This is a low-level encryption primitive — if you need to store user credentials or secrets tied to organizations, consider Directory Sync or User Management APIs instead.
+
+## Documentation
+
+- https://workos.com/docs/reference/vault
+- https://workos.com/docs/reference/vault/key
+- https://workos.com/docs/reference/vault/key/create-data-key
+- https://workos.com/docs/reference/vault/key/decrypt-data
+- https://workos.com/docs/reference/vault/key/decrypt-data-key
 
 ## Key Vocabulary
 
-- **Vault Key** — encryption key resource used for envelope encryption
-- **Vault Object `vlt_obj_`** — encrypted key-value record with versioning
-- **Data Key** — ephemeral symmetric key generated from a Vault Key, used to encrypt data client-side
-- **Envelope Encryption** — pattern where data is encrypted with a data key, and the data key is encrypted with a master key
-- **Object Version** — immutable snapshot of a Vault Object at a point in time
-- **Object Metadata** — key-value tags associated with a Vault Object for filtering/search
-- **`WORKOS_API_KEY`** — required env var for Vault API authentication
+- **Vault Object** — encrypted storage unit with metadata (no ID prefix documented)
+- **Data Key** — ephemeral encryption key for client-side operations
+- **Object Name** — unique string identifier for retrieving objects by name
+- **Object Version** — immutable snapshot created on each update
+- `WORKOS_API_KEY` — server-side authentication for Vault operations
 
 ## Implementation Guide
 
@@ -29,5 +35,4 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-user-management — for storing encrypted user PII in Vault Objects
-- workos-webhooks — for reacting to Vault Object lifecycle events
+_None — Vault is a standalone encryption primitive._

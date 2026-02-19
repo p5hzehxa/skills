@@ -9,19 +9,25 @@ description: Subscribe to and handle WorkOS webhook events.
 
 ## When to Use
 
-Use this skill when you need to consume WorkOS system events (user sign-ins, directory sync changes, audit log writes) via webhooks or the Events API. Events provides real-time notifications and historical event retrieval for all WorkOS products, enabling observability, data syncing, and workflow automation.
+Use this skill when you need to consume real-time notifications about WorkOS resource changes (SSO authentications, Directory Sync updates, user provisioning events, etc.) via webhooks or polling. Events provide a push-based alternative to periodic API polling for keeping your application state synchronized with WorkOS.
+
+## Documentation
+
+- https://workos.com/docs/events/index
+- https://workos.com/docs/events/observability/datadog
+- https://workos.com/docs/events/data-syncing/webhooks
+- https://workos.com/docs/events/data-syncing/index
+- https://workos.com/docs/events/data-syncing/events-api
 
 ## Key Vocabulary
 
-- Event types follow the pattern `{product}.{resource}.{action}` (e.g., `dsync.user.created`, `user.created`)
-- Event object with `id`, `event`, `created_at`, `data` structure
-- Webhook endpoint URL (configured in WorkOS Dashboard → Webhooks)
-- `WORKOS_WEBHOOK_SECRET` environment variable for signature verification
-- Events API endpoint: `/events` with cursor-based pagination
-- `after` and `before` query parameters for time-range filtering
-- `events` query parameter for filtering by event type
-- Datadog integration via Events Streams in Dashboard
-- Event retention: 30 days for most events, 90 days for audit logs
+- **Event** `event_` — A WorkOS resource change notification with type, timestamp, and payload
+- **Event type patterns** — Dot-notation format like `dsync.user.created`, `connection.activated`, `session.created`
+- **Webhook endpoint** — HTTPS URL in your application that receives POST requests from WorkOS
+- **Webhook signature** — `WorkOS-Signature` header value for verifying event authenticity
+- **`WORKOS_WEBHOOK_SECRET`** — Environment variable containing the signing secret for webhook verification
+- **Events API** — REST endpoint for polling events (alternative to webhooks)
+- **Event delivery** — At-least-once guarantee; application must handle duplicates
 
 ## Implementation Guide
 

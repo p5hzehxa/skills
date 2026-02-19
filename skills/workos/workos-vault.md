@@ -9,17 +9,22 @@ description: Encrypt, store, and manage sensitive data with WorkOS Vault.
 
 ## When to Use
 
-Use Vault when you need to encrypt and store sensitive data (tokens, credentials, secrets) with strong isolation guarantees. Vault provides encrypted storage with key rotation, access logging, and optional bring-your-own-key (BYOK) support. Choose Vault over direct database encryption when you need audit trails of data access or want to centralize key management.
+Use Vault when you need to encrypt and store sensitive user data (API keys, credentials, tokens) with zero-knowledge security — WorkOS cannot decrypt your data. Use Bring Your Own Key (BYOK) when compliance requires you to control encryption keys in your own KMS (AWS, GCP, Azure).
+
+## Documentation
+
+- https://workos.com/docs/vault/quick-start
+- https://workos.com/docs/vault/key-context
+- https://workos.com/docs/vault/index
+- https://workos.com/docs/vault/byok
 
 ## Key Vocabulary
 
-- **Vault Item** — encrypted data object with `vault_item_` ID prefix
-- **Key Context** — isolation boundary for encryption keys; ties items to specific tenants/users
-- **BYOK (Bring Your Own Key)** — use your own KMS keys instead of WorkOS-managed encryption
-- **`WORKOS_API_KEY`** — environment variable for server-side SDK authentication
-- **Encryption Context** — metadata associated with encrypted data (not encrypted itself)
-- **Key Rotation** — periodic re-encryption with new keys (automatic for WorkOS-managed keys)
-- **Vault Dashboard** — WorkOS Admin panel → Vault section for BYOK configuration
+- **Vault Item** `vault_item_` — encrypted data record (key-value pairs)
+- **Key Context** — encryption scope (per-user, per-org, etc.)
+- **BYOK** — Bring Your Own Key (external KMS integration)
+- **`WORKOS_API_KEY`** — server-side authentication
+- **`WORKOS_CLIENT_ID`** — your WorkOS application identifier
 
 ## Implementation Guide
 

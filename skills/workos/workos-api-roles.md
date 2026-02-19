@@ -9,18 +9,23 @@ description: WorkOS RBAC API endpoints — roles, permissions, and role assignme
 
 ## When to Use
 
-Use this API when you need programmatic control over authorization models — creating roles, assigning permissions, and managing organization-specific role overrides. Reach for this when building admin panels, custom permission UIs, or automation that modifies authorization structures. If you only need to check existing permissions, use the User Management API's `user.getOrganizationMembership()` instead.
+Use this skill when you need to manage fine-grained authorization for organization members. The Roles & Permissions API lets you define what actions users can perform within an organization by creating roles, assigning permissions to those roles, and associating roles with organization members. This is distinct from top-level User Management — it controls what authenticated users can DO, not who can authenticate.
+
+## Documentation
+
+- https://workos.com/docs/reference/roles
+- https://workos.com/docs/reference/roles/organization-role
+- https://workos.com/docs/reference/roles/organization-role/add-permission
+- https://workos.com/docs/reference/roles/organization-role/create
+- https://workos.com/docs/reference/roles/organization-role/delete
 
 ## Key Vocabulary
 
-- **Role** `role_` — account-level template defining a set of permissions
-- **Organization Role** `org_role_` — organization-specific role instance, can override permissions
-- **Permission** `perm_` — granular capability string (e.g., `documents:read`)
-- **Organization** `org_` — tenant context for role assignments
-- **User** `user_` — identity receiving role assignments via memberships
-- **Membership** `mem_` — links user to organization with assigned role
-- `/roles` — root endpoint for account-level role templates
-- `/organization-role` — endpoint family for org-specific role overrides
+- **Role** `role_` — a named set of permissions that can be assigned to users across multiple organizations
+- **OrganizationRole** `orgrole_` — a role scoped to a specific organization, inherits from a parent Role
+- **Permission** `perm_` — an action identifier (e.g., `documents:edit`, `billing:view`) that can be granted or denied
+- **Organization** `org_` — the tenant context for scoped roles and member assignments
+- **User** `user_` — the entity that receives role assignments within an organization
 
 ## Implementation Guide
 
@@ -30,5 +35,4 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- `workos-api-user-management` — for checking permissions via memberships
-- `workos-api-organizations` — for managing the org entities roles apply to
+- workos-api-user-management (for managing organization members who receive role assignments)

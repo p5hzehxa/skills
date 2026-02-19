@@ -9,16 +9,22 @@ description: Enable self-service admin portal for your enterprise customers.
 
 ## When to Use
 
-Use Admin Portal when you need to give customers a self-service UI for managing SSO connections, Directory Sync, or other WorkOS integrations. It eliminates the need to build your own configuration screens—customers access a hosted portal to set up their integrations without involving your support team.
+Use this skill when you need to provide self-service SSO and Directory Sync configuration to your customers. Admin Portal is a hosted UI that lets end users configure their own organization settings without requiring your engineering team to build custom configuration screens.
+
+## Documentation
+
+- https://workos.com/docs/admin-portal/index
+- https://workos.com/docs/admin-portal/example-apps
+- https://workos.com/docs/admin-portal/custom-branding
 
 ## Key Vocabulary
 
-- **Organization** `org_` — the customer entity that owns connections
-- **Portal Link** — time-limited URL (`https://id.workos.com/portal/launch?token=...`) that grants access to the portal
-- **Intent** — the feature a customer can configure (`sso`, `dsync`, `audit_logs`, `log_streams`)
-- **Success URL** — where WorkOS redirects the customer after completing portal actions
-- **Return URL** — optional URL to return customers mid-session (e.g., "Back to Dashboard")
-- **WORKOS_API_KEY** — server-side credential for generating portal links
+- **Organization** `org_` — the entity representing a customer company
+- **Portal Link** — time-limited URL for accessing the Admin Portal
+- **Intent** — the specific configuration flow (e.g., `sso`, `dsync`, `audit_logs`)
+- **Return URL** — where users land after completing portal actions
+- **Custom Branding** — logo, colors, and favicon customization for the portal
+- `WORKOS_API_KEY` — server-side authentication credential
 
 ## Implementation Guide
 

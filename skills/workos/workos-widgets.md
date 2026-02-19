@@ -9,19 +9,25 @@ description: Embed WorkOS UI widgets in your application.
 
 ## When to Use
 
-Use Widgets to embed pre-built UI components for user account management (profile editing, security settings, session management) into your application without building custom interfaces. Widgets are iframe-based components that handle their own authentication and styling while integrating with your WorkOS Directory Sync or User Management setup.
+Use Widgets when you need to embed pre-built UI components for user profile management, session management, or security settings. Widgets provide drop-in React/JavaScript components that handle user-facing workflows without building custom UIs. They integrate with User Management and require a Widgets API token for initialization.
+
+## Documentation
+
+- https://workos.com/docs/widgets/user-sessions
+- https://workos.com/docs/widgets/user-security
+- https://workos.com/docs/widgets/user-profile
+- https://workos.com/docs/widgets/user-management
+- https://workos.com/docs/widgets/tokens
 
 ## Key Vocabulary
 
-- **Widget Token** — short-lived JWT generated server-side to authenticate widget sessions
-- **User ID** `user_` — identifier for the user accessing the widget
-- **Organization ID** `org_` — identifier for the user's organization (optional, for multi-tenant apps)
-- **Session widget** — displays active user sessions with revocation controls
-- **Security widget** — manages MFA enrollment and authentication methods
-- **Profile widget** — handles user profile information updates
-- **User Management widget** — administrative interface for managing organization users
-- `WORKOS_API_KEY` — server-side credential for generating widget tokens
-- `scope` parameter — defines which widget type to load (`session`, `security`, `profile`, `user_management`)
+- **Widget Token** — short-lived JWT for initializing Widgets components
+- **User Management ID** (`user_`) — identifier for the authenticated user
+- **Organization ID** (`org_`) — identifier for the user's organization context
+- **Session** — user authentication state managed by Widgets
+- **Profile Widget** — component for displaying/editing user profile data
+- **Security Widget** — component for managing MFA and password settings
+- **Session Widget** — component for viewing active sessions and devices
 
 ## Implementation Guide
 

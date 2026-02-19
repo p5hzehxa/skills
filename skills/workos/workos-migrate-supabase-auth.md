@@ -9,7 +9,7 @@ description: Migrate to WorkOS from Supabase Auth.
 
 ## When to Use
 
-Use this skill when migrating an existing user base from Supabase Auth to WorkOS User Management. This handles user identity transfer, including encrypted password hashes and metadata, while maintaining authentication continuity for your users.
+Migrate existing user authentication from Supabase Auth to WorkOS when you need enterprise SSO, Directory Sync, or advanced auth features while preserving user credentials. Use this skill when you have users with email/password or social login in Supabase and need to transition them to WorkOS without forcing password resets.
 
 ## Documentation
 
@@ -17,15 +17,14 @@ Use this skill when migrating an existing user base from Supabase Auth to WorkOS
 
 ## Key Vocabulary
 
-- User Management environment `env_`
-- Organization `org_`
-- User `user_`
-- Password hash `$2a$` (bcrypt format from Supabase)
-- `WORKOS_API_KEY` environment variable
-- Migration API endpoint for bulk imports
-- Supabase `auth.users` table structure
-- Email verification status mapping
-- User metadata field mapping
+- **User** — Supabase Auth user record exported via SQL or Management API
+- **Password Hash** — bcrypt hash extracted from Supabase `auth.users.encrypted_password`
+- **Identity** — Supabase social login connection (e.g., Google, GitHub)
+- **User Management API** — WorkOS endpoint for importing users with `POST /user_management/users`
+- **Organization** `org_` — WorkOS container for migrated users
+- **Password** `password_` — WorkOS entity storing imported bcrypt hashes
+- **Email Verification** — Supabase `confirmed_at` field maps to WorkOS `email_verified` boolean
+- **User Metadata** — Supabase `raw_user_meta_data` maps to WorkOS custom user attributes
 
 ## Implementation Guide
 

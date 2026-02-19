@@ -9,24 +9,21 @@ description: Migrate to WorkOS from Clerk.
 
 ## When to Use
 
-Migrate existing users and organizations from Clerk to WorkOS AuthKit when you need to preserve user identities, authentication state, and organizational structures. This skill covers data export from Clerk, transformation into WorkOS formats, and import strategies that minimize user friction during the transition.
-
-## Key Vocabulary
-
-- **Organization** (`org_`) — WorkOS entity representing a company/team
-- **User** (`user_`) — WorkOS entity representing an individual account
-- **Connection** (`conn_`) — SSO configuration linking an organization to an identity provider
-- **Environment** (`environment_`) — WorkOS deployment environment (staging/production)
-- **Clerk User ID** — source system identifier to preserve in migration metadata
-- **Clerk Organization ID** — source system organization identifier
-- **`WORKOS_API_KEY`** — server-side authentication credential
-- **`WORKOS_CLIENT_ID`** — application identifier for AuthKit
-- **User Management API** — WorkOS endpoint for creating/updating users
-- **Organizations API** — WorkOS endpoint for creating/updating organizations
+Use this skill when migrating an existing authentication system from Clerk to WorkOS AuthKit. This guide covers user and organization data transfer, including password hash migration and organization membership mapping. Choose this over other migration skills when your source system is specifically Clerk.
 
 ## Documentation
 
 - https://workos.com/docs/migrate/clerk
+
+## Key Vocabulary
+
+- **User** — identity entity with email, name, and authentication credentials
+- **Organization `org_`** — workspace or tenant entity in WorkOS
+- **Organization Membership** — relationship linking users to organizations with roles
+- **Password Hash** — bcrypt-hashed credential exported from Clerk
+- **SCIM Directory Sync** — automated user provisioning system (alternative to manual migration)
+- **Clerk User ID** — source system identifier to preserve in `externalId`
+- **AuthKit** — WorkOS authentication UI and session management system
 
 ## Implementation Guide
 
@@ -37,5 +34,5 @@ For step-by-step implementation, verification commands, and error recovery:
 ## Related Skills
 
 - workos-authkit-base
-- workos-authkit-nextjs
 - workos-authkit-react
+- workos-authkit-nextjs

@@ -9,16 +9,7 @@ description: WorkOS Admin Portal API endpoints — generate portal links for cus
 
 ## When to Use
 
-The Admin Portal API generates short-lived links for IT admins to configure SSO, Directory Sync, or other integrations via WorkOS's hosted UI. Use this when you want to delegate connection setup to end-user admins without building your own configuration screens, or when you need to fetch provider icons for custom UIs.
-
-## Key Vocabulary
-
-- **Portal Link** — time-limited URL granting access to the Admin Portal for a specific organization
-- **Organization `org_`** — the WorkOS entity whose admin will configure connections
-- **Intent** — the portal workflow type (e.g., `sso`, `dsync`, `audit_logs`)
-- **Return URL** — the URL where WorkOS redirects admins after completing setup
-- **Success URL** — optional override for successful configuration flows
-- **Provider icons** — logo images for identity providers (Google, Okta, etc.)
+Use this skill when you need to generate Admin Portal links that allow end-user organizations to self-configure SSO, Directory Sync, or other WorkOS integrations. The Admin Portal provides a white-labeled UI for customer-facing configuration without requiring you to build custom admin interfaces.
 
 ## Documentation
 
@@ -27,8 +18,23 @@ The Admin Portal API generates short-lived links for IT admins to configure SSO,
 - https://workos.com/docs/reference/admin-portal/portal-link/generate
 - https://workos.com/docs/reference/admin-portal/provider-icons
 
+## Key Vocabulary
+
+- **Organization** — entity that owns configurations; ID prefix `org_`
+- **Portal Link** — short-lived URL for accessing the Admin Portal
+- **Intent** — the configuration flow to show (`sso`, `dsync`, `log_streams`, `domain_verification`, `audit_logs`)
+- **Return URL** — where to redirect users after completing configuration
+- **Provider Icons** — endpoint for fetching SSO provider logo assets
+- **Success URL** — optional redirect destination after successful configuration
+
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-api-admin-portal.guide.md`
+
+## Related Skills
+
+- workos-authkit-base — for authentication flows that feed into Admin Portal
+- workos-sso — for understanding SSO configurations managed via Admin Portal
+- workos-directory-sync — for Directory Sync setups initiated through Admin Portal

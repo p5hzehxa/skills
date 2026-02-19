@@ -9,24 +9,24 @@ description: Configure email delivery for WorkOS authentication flows.
 
 ## When to Use
 
-Use this skill when you need to send transactional emails (password resets, magic links, verification codes) through WorkOS's managed infrastructure. WorkOS handles deliverability, rate limiting, and email provider management, so you don't need to integrate SendGrid/Mailgun directly.
+Use this skill when you need to send transactional emails (password resets, verification codes, notifications) through WorkOS's managed email infrastructure. This skill covers API-based email sending, template management, and delivery tracking. Choose this over direct SMTP when you want WorkOS-managed deliverability, bounce handling, and compliance.
+
+## Documentation
+
+- https://workos.com/docs/email
 
 ## Key Vocabulary
 
-- **Email `email_`** — the unique identifier for a sent email message
-- **`WORKOS_API_KEY`** — server-side authentication token for Email API
-- **Email Template** — reusable HTML/text content managed in WorkOS Dashboard
-- **Dashboard path** — Email → Templates → Create Template
-- **Event types** — `email.sent`, `email.delivered`, `email.bounced`, `email.opened`
-- **Sender domain** — custom domain configured for "From" addresses (Dashboard → Email → Domains)
+- **Email** `email_` — the email message object
+- **Template** `template_` — reusable email template with variables
+- **Environment** `env_` — isolated sending context (dev/staging/prod)
+- **`WORKOS_API_KEY`** — authentication credential for API requests
+- **Recipient** — destination email address with optional metadata
+- **Delivery Status** — tracking state (sent, delivered, bounced, failed)
+- **Send Event** — webhook notification for email lifecycle changes
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-email.guide.md`
-
-## Related Skills
-
-- workos-authkit-base (for magic link integration)
-- workos-user-management (for password reset flows)

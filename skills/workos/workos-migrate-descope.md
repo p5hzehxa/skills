@@ -9,26 +9,30 @@ description: Migrate to WorkOS from Descope.
 
 ## When to Use
 
-Migrate users and organizations from Descope to WorkOS when consolidating identity providers or moving to WorkOS's unified authentication platform. This skill covers mapping Descope's project structure (projects → tenants) to WorkOS organizations and importing user identities without password hashes.
-
-## Key Vocabulary
-
-- **Organization** (`org_`) — WorkOS entity that maps to a Descope project or tenant
-- **User** (`user_`) — WorkOS entity representing an imported Descope user identity
-- **Connection** (`conn_`) — authentication method linking organizations to identity providers
-- **Authentication Factor** — mapped from Descope's MFA settings (TOTP, SMS, email)
-- **Descope Management API** — source API for exporting project/tenant/user data
-- **Project** — Descope's top-level container (maps to WorkOS organization)
-- **Tenant** — Descope's multi-tenant isolation unit (also maps to WorkOS organization)
-- `WORKOS_API_KEY` — authentication credential for WorkOS API calls
-- `userManagement.createUser()` — SDK method for importing user records
+Use this skill when migrating existing user identities and organization structures from Descope to WorkOS. This migration preserves user authentication states, organization hierarchies, and role assignments while transitioning to WorkOS's User Management API.
 
 ## Documentation
 
 - https://workos.com/docs/migrate/descope
+
+## Key Vocabulary
+
+- **User** (`user_`) — user identity record in WorkOS User Management
+- **Organization** (`org_`) — tenant/workspace entity in WorkOS
+- **Organization Membership** (`om_`) — links users to organizations with role assignments
+- **Email Verification** — user email verification state (verified/unverified)
+- **Password Hash** — encrypted password credentials migrated from source system
+- **Role** — user permission level within an organization (e.g., `member`, `admin`)
+- **WORKOS_API_KEY** — server-side authentication token for WorkOS API calls
+- **Migration Flow** — phased process: organizations → users → memberships → verification
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-migrate-descope.guide.md`
+
+## Related Skills
+
+- **workos-user-management** — target system APIs for creating users and managing organizations
+- **workos-authkit-nextjs** — post-migration authentication setup for Next.js applications

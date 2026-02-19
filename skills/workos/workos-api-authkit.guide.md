@@ -15,261 +15,281 @@
 - https://workos.com/docs/reference/authkit/authentication
 - https://workos.com/docs/reference/authkit/authentication-errors
 
-_These docs contain the current API surface, request/response schemas, and behavioral requirements. Check them for exact parameter names, required fields, and error codes._
+_2 additional doc pages available at https://workos.com/docs_
 
 ## Prerequisites
 
-- A WorkOS account with API keys (`WORKOS_API_KEY`, `WORKOS_CLIENT_ID`)
-- WorkOS SDK installed (`npm install @workos-inc/node` for Node.js)
-- Environment variables configured:
-  - `WORKOS_API_KEY` — starts with `sk_`
-  - `WORKOS_CLIENT_ID` — starts with `client_`
+- WorkOS account with API credentials
+- API key (`WORKOS_API_KEY`) starting with `sk_` prefix
+- Client ID (`WORKOS_CLIENT_ID`) starting with `client_` prefix
+- WorkOS SDK installed for your language
 
 ## Authentication Setup
 
-All API calls require authentication via the `Authorization` header:
+All API requests require authentication via Bearer token in the Authorization header:
 
 ```
-Authorization: Bearer {WORKOS_API_KEY}
+Authorization: Bearer sk_your_api_key_here
 ```
 
-**Verification command:**
+Set environment variables:
 ```bash
-curl https://api.workos.com/user_management/organizations \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -H "Content-Type: application/json"
+export WORKOS_API_KEY=sk_...
+export WORKOS_CLIENT_ID=client_...
 ```
 
-If this returns 401, your API key is invalid or missing required permissions.
+Verify credentials are loaded:
+```bash
+echo $WORKOS_API_KEY | grep -E '^sk_'
+echo $WORKOS_CLIENT_ID | grep -E '^client_'
+```
 
-## Endpoint Catalog
+## API Endpoint Catalog
 
-AuthKit API endpoints are organized by resource type:
+### Authentication Endpoints
 
-### API Key Management
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/organizations/{org_id}/api_keys` | Create API key for organization |
-| GET | `/organizations/{org_id}/api_keys` | List API keys for organization |
-| DELETE | `/api_keys/{api_key_id}` | Delete an API key |
-| POST | `/api_keys/validate` | Validate an API key |
+| GET | `/user_management/authenticate` | Authenticate user with code from callback |
+| POST | `/user_management/sessions` | Create new session |
+| GET | `/user_management/sessions/:id` | Retrieve session details |
+| DELETE | `/user_management/sessions/:id` | Revoke session (logout) |
+| POST | `/user_management/sessions/:id/refresh` | Refresh expired session |
 
-### Authentication
+### API Key Management Endpoints
+
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/user_management/authorize` | Initiate OAuth flow |
-| POST | `/user_management/authenticate` | Exchange code for session |
-| POST | `/user_management/sessions/revoke` | Revoke session |
-
-**Check fetched docs for complete endpoint list, including User Management and SSO endpoints.**
+| POST | `/user_management/organizations/:org_id/api_keys` | Create API key for organization |
+| GET | `/user_management/organizations/:org_id/api_keys` | List organization API keys |
+| DELETE | `/user_management/api_keys/:key_id` | Delete specific API key |
+| POST | `/user_management/api_keys/validate` | Validate API key is active |
 
 ## Operation Decision Tree
 
-### Creating vs Listing API Keys
+### When to use which authentication endpoint:
 
-**When to create a new key:**
-- Programmatically provisioning organization access
-- Setting up service-to-service authentication
-- Implementing key rotation strategy
+**Initial authentication (OAuth callback)**
+→ Use `GET /user_management/authenticate` with `code` parameter
 
-**When to list existing keys:**
-- Audit which keys are active
-- Find key ID for deletion
-- Verify key creation succeeded
+**Check existing session validity**
+→ Use `GET /user_management/sessions/:id`
 
-**Pseudocode pattern:**
-```
-if need_new_key:
-    response = sdk.create_api_key(organization_id, name)
-    store_key_securely(response.secret)  # Only returned once
-else:
-    keys = sdk.list_api_keys(organization_id)
-    use_existing_key(keys[0].id)
-```
+**Session expired but refresh token valid**
+→ Use `POST /user_management/sessions/:id/refresh`
 
-### Authentication Flow Selection
+**User logout**
+→ Use `DELETE /user_management/sessions/:id`
 
-**Use Authorization Code flow when:**
-- Authenticating end users in web apps
-- Need SSO integration
-- Require MFA support
+**Need new session without re-login**
+→ Use `POST /user_management/sessions` (requires valid refresh token)
 
-**Use API key authentication when:**
-- Making server-to-server calls
-- Background jobs or cron tasks
-- Internal service communication
+### When to use which API key endpoint:
 
-**Decision command:**
-```bash
-# For user auth: redirect to authorize URL
-echo "https://api.workos.com/user_management/authorize?client_id=$WORKOS_CLIENT_ID&redirect_uri=..."
+**Generate new org-scoped API key**
+→ Use `POST /user_management/organizations/:org_id/api_keys`
 
-# For service auth: use API key directly
-curl -H "Authorization: Bearer $WORKOS_API_KEY" https://api.workos.com/...
-```
+**Audit existing keys**
+→ Use `GET /user_management/organizations/:org_id/api_keys`
+
+**Revoke compromised key**
+→ Use `DELETE /user_management/api_keys/:key_id`
+
+**Verify key before operations**
+→ Use `POST /user_management/api_keys/validate`
 
 ## Error Code Mapping
 
-### API Key Operations
+### HTTP 401 Unauthorized
 
-| Status Code | Cause | Fix |
-|-------------|-------|-----|
-| 401 | Invalid or expired API key | Verify key starts with `sk_`, check Dashboard for key status |
-| 403 | Key lacks required permission | Check key scopes in WorkOS Dashboard |
-| 404 | Organization or key not found | Verify organization ID format (`org_`), confirm key exists |
-| 422 | Invalid request parameters | Check fetched docs for required fields and format |
-| 429 | Rate limit exceeded | Implement exponential backoff, check rate limits in fetched docs |
+**Cause**: Invalid or missing API key
+**Fix**: Verify `WORKOS_API_KEY` is set and starts with `sk_`
+**Verification**:
+```bash
+curl -H "Authorization: Bearer $WORKOS_API_KEY" \
+  https://api.workos.com/user_management/sessions/session_01H1234
+# Should NOT return 401
+```
 
-### Authentication Errors
+### HTTP 404 Not Found
 
-| Error Code | Cause | Fix |
-|------------|-------|-----|
-| `invalid_client` | Wrong `client_id` or `client_secret` | Verify credentials in WorkOS Dashboard |
-| `invalid_grant` | Authorization code expired or already used | Codes expire after 10 minutes, must be used once |
-| `invalid_redirect_uri` | Redirect URI not allowlisted | Add URI to allowed list in Dashboard |
-| `access_denied` | User cancelled authentication | Handle gracefully, show re-auth option |
+**Session endpoint**: Session ID doesn't exist or was revoked
+**Fix**: Check session ID format (`session_` prefix) and verify session hasn't expired
 
-**For complete error reference, check:**
-https://workos.com/docs/reference/authkit/authentication-errors
+**API key endpoint**: Organization ID or key ID doesn't exist
+**Fix**: Verify organization ID format (`org_` prefix) and key ID format (`api_key_` prefix)
+
+### HTTP 422 Unprocessable Entity
+
+**Cause**: Malformed request body or invalid parameters
+**Fix**: Check fetched docs for exact request schema requirements
+**Common issues**:
+- Missing required `code` parameter in authenticate call
+- Invalid `grant_type` in refresh request
+- Missing organization ID in API key creation
+
+### HTTP 429 Too Many Requests
+
+**Cause**: Rate limit exceeded
+**Fix**: Implement exponential backoff with jitter
+**Pattern**:
+```
+base_delay = 1 second
+max_retries = 3
+retry_delay = base_delay * (2 ^ attempt) + random(0, 1000ms)
+```
 
 ## Pagination Handling
 
-AuthKit list endpoints use **before/after cursor pagination**:
+AuthKit API uses cursor-based pagination for list endpoints (API keys):
 
-**Pattern:**
+**Request pattern**:
 ```
-GET /organizations/{org_id}/api_keys?limit=10&after={cursor}
-```
-
-**Response structure:**
-```json
-{
-  "data": [...],
-  "list_metadata": {
-    "after": "cursor_value_for_next_page",
-    "before": "cursor_value_for_previous_page"
-  }
-}
+GET /user_management/organizations/:org_id/api_keys?limit=10&after=cursor_value
 ```
 
-**Pseudocode for fetching all pages:**
+**Response includes**:
+- `data`: array of results
+- `list_metadata.after`: cursor for next page (null if no more pages)
+
+**Fetching all pages**:
 ```
-def fetch_all_api_keys(org_id):
-    all_keys = []
-    cursor = None
-    
-    while True:
-        response = sdk.list_api_keys(org_id, after=cursor, limit=100)
-        all_keys.extend(response.data)
-        
-        if not response.list_metadata.after:
-            break
-        cursor = response.list_metadata.after
-    
-    return all_keys
-```
-
-Check fetched docs for exact pagination parameter names and limits.
-
-## Rate Limiting
-
-**Standard limits:**
-- Check fetched docs for current rate limits per endpoint
-- Rate limit headers returned in responses:
-  - `X-RateLimit-Limit`
-  - `X-RateLimit-Remaining`
-  - `X-RateLimit-Reset`
-
-**Retry strategy for 429 responses:**
-```
-def call_with_retry(fn, max_retries=3):
-    for attempt in range(max_retries):
-        response = fn()
-        if response.status != 429:
-            return response
-        
-        wait_time = 2 ** attempt  # Exponential backoff
-        sleep(wait_time)
-    
-    raise Exception("Rate limit exceeded after retries")
+1. Call endpoint without 'after' parameter
+2. Extract 'list_metadata.after' from response
+3. If after != null, call again with after=cursor_value
+4. Repeat until after == null
 ```
 
 ## Runnable Verification Commands
 
-### Test API Key Validity
+### Verify API key authentication works
+
 ```bash
-curl -X POST https://api.workos.com/api_keys/validate \
+curl -f -H "Authorization: Bearer $WORKOS_API_KEY" \
+  "https://api.workos.com/user_management/organizations?limit=1"
+# Should return 200 with organization list
+```
+
+### Verify session lookup works
+
+```bash
+# Replace session_01H1234 with actual session ID
+curl -f -H "Authorization: Bearer $WORKOS_API_KEY" \
+  "https://api.workos.com/user_management/sessions/session_01H1234"
+# Should return 200 with session object or 404 if not found
+```
+
+### Verify API key validation endpoint
+
+```bash
+curl -f -X POST \
   -H "Authorization: Bearer $WORKOS_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"api_key": "'"$WORKOS_API_KEY"'"}'
+  -d '{"api_key": "sk_test_key_to_validate"}' \
+  "https://api.workos.com/user_management/api_keys/validate"
+# Should return 200 with validation status
 ```
 
-Expected: 200 response with `{"valid": true}`
+### Verify rate limiting behavior
 
-### Test Organization Access
 ```bash
-curl https://api.workos.com/user_management/organizations \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
+for i in {1..100}; do
+  curl -w "%{http_code}\n" -o /dev/null -s \
+    -H "Authorization: Bearer $WORKOS_API_KEY" \
+    "https://api.workos.com/user_management/organizations?limit=1"
+done | grep -c "429"
+# Should eventually return 429 status codes
 ```
 
-Expected: 200 response with organization list (may be empty)
+## Integration Patterns
 
-### Test Authorization Endpoint Accessibility
-```bash
-curl -I "https://api.workos.com/user_management/authorize?client_id=$WORKOS_CLIENT_ID&redirect_uri=http://localhost:3000/callback&response_type=code"
+### Authentication flow pseudocode
+
+```
+# Step 1: Redirect user to WorkOS
+redirect_url = get_authorization_url(
+  client_id=WORKOS_CLIENT_ID,
+  redirect_uri=YOUR_CALLBACK_URL
+)
+
+# Step 2: Handle callback (user returns with code)
+code = extract_code_from_callback_params()
+auth_response = authenticate_with_code(code)
+session_id = auth_response.session_id
+access_token = auth_response.access_token
+
+# Step 3: Store session ID (in cookie, DB, etc)
+set_secure_cookie("session_id", session_id)
+
+# Step 4: Verify session on subsequent requests
+session = get_session(session_id)
+if session.expired:
+  refresh_session(session_id)
 ```
 
-Expected: 302 redirect to login page (not 404 or 500)
+### API key management pseudocode
+
+```
+# Create organization-scoped key
+api_key_response = create_api_key(
+  organization_id="org_01H1234",
+  name="Production App Key"
+)
+# Store api_key_response.secret securely - shown only once
+
+# List keys for audit
+keys = list_api_keys(organization_id="org_01H1234")
+for key in keys:
+  log(key.name, key.created_at, key.last_used_at)
+
+# Revoke compromised key
+delete_api_key(key_id="api_key_01H5678")
+```
 
 ## Common Integration Traps
 
-### API Key Creation
-**Trap:** The API key secret is only returned once during creation. Losing it requires generating a new key.
-**Fix:** Store the secret immediately in secure storage (env vars, secrets manager).
+### Trap 1: Using session ID as access token
+**Wrong**: Pass session ID in Authorization header
+**Right**: Use session ID to retrieve access token, THEN use access token for user info
 
-### Authorization Code Expiration
-**Trap:** Authorization codes expire after 10 minutes and can only be used once.
-**Fix:** Exchange codes for sessions immediately after receiving them. Do not cache codes.
+### Trap 2: Not handling session refresh
+**Wrong**: Treat sessions as permanent
+**Right**: Check session expiry and call refresh endpoint before expiration
 
-### Redirect URI Mismatches
-**Trap:** The redirect URI must match EXACTLY (including trailing slashes, query params).
-**Fix:** Allowlist all variations in WorkOS Dashboard, or normalize URLs before redirecting.
+### Trap 3: Storing API key client-side
+**Wrong**: Include `WORKOS_API_KEY` in frontend JavaScript
+**Right**: API key ONLY in server-side code; frontend uses session tokens
 
-### Session Revocation Race Conditions
-**Trap:** Revoking a session doesn't immediately invalidate cached tokens.
-**Fix:** Implement token refresh logic and handle 401 responses by clearing local session state.
+### Trap 4: Ignoring API key rotation
+**Wrong**: Create one key and use forever
+**Right**: List keys periodically, delete unused keys, rotate keys on schedule
 
-## SDK Method Reference
+### Trap 5: Not validating code parameter
+**Wrong**: Assume callback code is always present
+**Right**: Check for error parameters in callback (user denied access, etc)
 
-**Node.js SDK:**
-```javascript
-const { WorkOS } = require('@workos-inc/node');
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
+## Error Recovery Procedures
 
-// Check fetched docs for exact method signatures
-workos.userManagement.createApiKey({ organizationId, name });
-workos.userManagement.listApiKeys({ organizationId });
-workos.userManagement.deleteApiKey(apiKeyId);
-workos.userManagement.getAuthorizationUrl({ /* params */ });
-workos.userManagement.authenticateWithCode({ code, clientId });
-```
+### Session expired during request
+1. Extract session ID from request
+2. Call `POST /user_management/sessions/:id/refresh`
+3. If refresh succeeds, retry original request with new token
+4. If refresh fails (refresh token expired), redirect to login
 
-For other languages (Python, Ruby, Go), check fetched docs for equivalent SDK methods.
+### API key validation fails
+1. Call `POST /user_management/api_keys/validate` with key
+2. If returns invalid, generate new key via `POST /user_management/organizations/:org_id/api_keys`
+3. Update application configuration with new key
+4. Revoke old key via `DELETE /user_management/api_keys/:key_id`
 
-## Testing Checklist
-
-- [ ] API key authentication succeeds (200 response from validate endpoint)
-- [ ] Organization listing returns expected data
-- [ ] API key creation returns secret (store it immediately)
-- [ ] API key deletion removes key from list
-- [ ] Authorization URL redirects to login page
-- [ ] Code exchange returns valid session
-- [ ] Invalid codes return `invalid_grant` error
-- [ ] Rate limit headers appear in responses
-- [ ] Pagination cursors fetch next page correctly
+### Rate limit hit
+1. Extract `Retry-After` header from 429 response (if present)
+2. Wait for specified duration OR use exponential backoff
+3. Retry request after delay
+4. If retries exhausted, return error to user with "try again later" message
 
 ## Related Skills
 
-- **workos-authkit-base** — AuthKit feature overview and setup
-- **workos-authkit-nextjs** — Next.js integration patterns
-- **workos-authkit-react** — React integration patterns
+- **workos-authkit-base** — Core AuthKit concepts and configuration
+- **workos-authkit-nextjs** — Next.js-specific implementation patterns
+- **workos-authkit-react** — React implementation patterns

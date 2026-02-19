@@ -10,336 +10,283 @@ WebFetch: `https://workos.com/docs/migrate/standalone-sso`
 
 The migration guide is the source of truth. If this skill conflicts with the guide, follow the guide.
 
-## Step 2: Pre-Flight Validation
+## Step 2: Pre-Migration Assessment
 
-### System Audit
+### Identify Current Integration Pattern
 
-Map your current standalone SSO API usage:
+Locate your existing standalone SSO API calls:
 
 ```
-For each SSO integration point:
+Current codebase search:
   |
-  +-- Initiation (Get Authorization URL)?
-  |   └── Location: _____________
+  +-- "Get Authorization URL" (SSO API) --> Note all initiation points
   |
-  +-- Callback (exchange code for profile)?
-  |   └── Location: _____________
+  +-- "Get a Profile and Token" (SSO API) --> Note all callback handlers
   |
-  +-- Profile ID storage?
-      └── Database schema: _____________
+  +-- Profile ID storage --> Map to user records
 ```
 
-**Critical:** Document every place you store Profile IDs — these will become invalid after migration.
+**Critical mapping:** Profile IDs from standalone SSO API ≠ User IDs from AuthKit. You will need a migration strategy for existing user records.
 
-### Environment Variables
-
-Check that these exist:
-
-- `WORKOS_API_KEY` - starts with `sk_`
-- `WORKOS_CLIENT_ID` - starts with `client_`
-
-**Do not proceed** if either is missing.
-
-## Step 3: User ID Migration Strategy (Decision Tree)
-
-AuthKit returns User objects with **different IDs** than standalone SSO API Profile objects.
+### User ID Migration Decision Tree
 
 ```
-How do you identify users?
+Do you use email as unique identifier?
   |
-  +-- By Profile ID only
-  |   └── RISK: High — requires database migration before launch
-  |       Action: Plan ID remapping strategy (see Step 4)
+  +-- YES --> AuthKit User.email matches verified email
+  |           No user ID mapping needed in database
+  |           WorkOS verifies email before auth completes
   |
-  +-- By email (unique constraint)
-  |   └── SAFE: Use email to match existing users
-  |       Note: WorkOS verifies emails before completing auth
+  +-- NO  --> You have two choices:
+              |
+              +-- Option A: Add workos_user_id column, keep old profile_id
+              |             Map on first AuthKit login by email
+              |
+              +-- Option B: Migrate all profile_id → user_id in one pass
+                            Requires WorkOS support to export mapping
+```
+
+**Trap:** Do NOT assume Profile IDs will work with AuthKit APIs. They are different ID spaces.
+
+### Feature Configuration Assessment
+
+Check if your app uses these standalone SSO API features:
+
+- **Organization-level SSO connections** (SAML, OIDC)
+- **Domain verification** for auto-routing users
+- **Custom state parameters** for preserving app context
+- **IdP-initiated flows** (user starts at IdP, lands in your app)
+
+All are supported in AuthKit. Check fetched docs for any behavioral differences.
+
+## Step 3: Switch Authorization Initiation
+
+### Code Location: SSO Start Points
+
+Find calls to standalone SSO API "Get Authorization URL" endpoint.
+
+**Pattern to replace:**
+
+```
+Standalone SSO API call with:
+  - connection_id OR organization_id OR provider (e.g., "GoogleOAuth")
+  - redirect_uri
+  - state (optional)
+  - domain_hint (optional)
+
+Replace with:
+AuthKit "Get Authorization URL" API with same parameters
+```
+
+**New capability:** AuthKit supports `provider: "authkit"` — this enables hosted AuthKit UI with email/password and magic links. Use this for users without SSO connections.
+
+Check fetched docs for exact API endpoint and SDK method signature.
+
+### Verification Command
+
+```bash
+# Search for old SSO API references
+grep -r "sso.*authorization" . --include="*.ts" --include="*.js" || echo "No matches - confirm manually"
+```
+
+## Step 4: Switch Callback Handler
+
+### Code Location: OAuth Callback Route
+
+Find your redirect_uri handler that receives `code` and `state` parameters.
+
+**Pattern to replace:**
+
+```
+Standalone SSO API "Get a Profile and Token":
+  - Exchanges code for Profile object
+  - Profile has: id, email, first_name, last_name, connection_id, organization_id
+
+Replace with:
+AuthKit "Authenticate" API:
+  - grant_type: "authorization_code"
+  - code: (from callback URL param)
+  - Returns User object (richer than Profile)
+```
+
+**CRITICAL differences in User object:**
+
+- `user.id` ≠ old `profile.id` (see Step 2 for migration strategy)
+- `user.email` is verified by WorkOS before auth completes
+- `user.email_verified` is always true for successful auth
+- `user.profile_picture_url` may be present (not in old Profile)
+- Connection metadata in `user.connection_id`, `user.organization_id` (same as before)
+
+Check fetched docs for complete User schema and SDK method signature.
+
+### Verification Command
+
+```bash
+# Find callback handlers
+grep -r "redirect_uri\|callback" . --include="*.ts" --include="*.js" | grep -i "route\|handler"
+```
+
+## Step 5: Handle New Authentication Flows
+
+AuthKit introduces security features that may interrupt the authentication flow with challenges. Your callback handler may now receive error responses instead of a User object.
+
+### Error Response Decision Tree
+
+```
+Authenticate API response:
   |
-  +-- By external ID (from identity provider)
-      └── VERIFY: Check if external ID persists in User object
-          (WebFetch docs to confirm field mapping)
-```
-
-**Trap:** If you skip ID migration planning, existing user sessions will break on first AuthKit login.
-
-## Step 4: ID Remapping Strategy (if Profile ID is primary key)
-
-### Option A: Dual-ID Transition Period
-
-1. Add `workos_user_id` column to user table (nullable)
-2. On first AuthKit login: match by email, store new User ID
-3. Update application logic to check both IDs
-4. After all users migrated: drop old Profile ID column
-
-### Option B: Pre-Migration ID Mapping
-
-Use WorkOS API to fetch all existing Profiles, create mapping table:
-
-```
-profile_migrations
-  - old_profile_id (from standalone SSO API)
-  - workos_user_id (from AuthKit)
-  - matched_by (email/external_id)
-  - migrated_at
-```
-
-**Verification:** Query unmigrated users before launch: `SELECT COUNT(*) WHERE workos_user_id IS NULL`
-
-## Step 5: Replace SSO Initiation
-
-### Current Code Pattern (Standalone SSO API)
-
-```
-Initiate SSO:
-  → Call: Get Authorization URL (SSO API)
-  → Parameters: provider, connection, organization, redirect_uri, state
-  → Returns: authorization_url
-  → Action: Redirect user to authorization_url
-```
-
-### New Code Pattern (AuthKit)
-
-```
-Initiate AuthKit:
-  → Call: Get Authorization URL (AuthKit API)
-  → Parameters: Same as above, PLUS new option: provider="authkit"
-  → Returns: authorization_url
-  → Action: Redirect user to authorization_url
-```
-
-**Key difference:** AuthKit API accepts `provider="authkit"` for hosted UI. For direct SSO connections, use existing provider values (Google, Okta, etc.).
-
-**Check fetched docs for:** Exact API endpoint path and parameter schema.
-
-### Decision: Hosted UI vs Direct SSO
-
-```
-Migration path?
+  +-- Success (200) --> User object returned, proceed as before
   |
-  +-- Keep existing SSO-only flow
-  |   └── Use provider-specific values (Google, Okta, etc.)
-  |       AuthKit API is backward-compatible
+  +-- Email verification required --> User must verify email first
+  |                                   WorkOS sends verification email
+  |                                   User clicks link, retries auth
   |
-  +-- Add password/magic link auth
-      └── Use provider="authkit" for hosted UI
-          Requires: AuthKit configuration in Dashboard
+  +-- MFA enrollment required --> User must set up 2FA
+  |                               (If MFA is enabled in Dashboard)
+  |
+  +-- Account linking required --> Multiple auth methods for same email
+                                   User must confirm account merge
 ```
 
-## Step 6: Replace Callback Handler
+**Do you use AuthKit Hosted UI?**
 
-### Current Code Pattern (Standalone SSO API)
+- **YES** → These flows are handled automatically. Users never reach your callback until verified/enrolled. You can ignore error handling for these cases.
+- **NO** (custom auth UI) → You MUST handle these error responses and build UI flows for email verification, MFA enrollment, and account linking.
 
-```
-Callback receives: code, state
-  |
-  +-- Exchange code for Profile
-  |   Call: Get Profile and Token (SSO API)
-  |   Receives: Profile object with profile_id
-  |
-  +-- Create/update user session
-      Store: profile_id in session/database
-```
+**Opt-out option:** If you don't want these security features, disable them in WorkOS Dashboard → Authentication settings. This restores standalone SSO API behavior (immediate auth, no challenges).
 
-### New Code Pattern (AuthKit)
+Check fetched docs for exact error response schemas and error codes.
 
-```
-Callback receives: code, state (SAME)
-  |
-  +-- Exchange code for User
-  |   Call: Authenticate (AuthKit API)
-  |   Parameters: grant_type="authorization_code", code
-  |   Receives: User object with id (NOT profile_id)
-  |
-  +-- Handle new response types (IMPORTANT)
-  |   Success → User object
-  |   Error → email_verification_required | mfa_enrollment | ...
-  |
-  +-- Create/update user session
-      IF using email matching:
-        1. Look up user by User.email
-        2. Update workos_user_id if needed
-      ELSE:
-        Store User.id directly
+### Verification Command
+
+```bash
+# Check if error handling exists
+grep -r "email.*verif\|mfa.*enroll\|account.*link" . --include="*.ts" --include="*.js" || echo "No error handling found - add if using custom UI"
 ```
 
-**Trap:** AuthKit returns **errors for security flows** (email verification, MFA) that standalone SSO API auto-handled. See Step 7.
+## Step 6: Enable AuthKit Provider (Optional)
 
-**Check fetched docs for:** Complete list of new error types and response schemas.
+If you want to support users WITHOUT SSO connections (e.g., email/password, magic links), enable AuthKit provider.
 
-## Step 7: Handle New Authentication Flows (CRITICAL)
-
-AuthKit enforces security features that may interrupt the callback flow.
+**Decision:** Do you have users who should authenticate without SSO?
 
 ```
-Authenticate API response?
+User base:
   |
-  +-- Success (200)
-  |   └── User object returned
-  |       Proceed to session creation
+  +-- ONLY enterprise SSO users --> Skip this step, use connection_id/organization_id
   |
-  +-- email_verification_required
-  |   └── User must verify email before completing auth
-  |       IF using AuthKit Hosted UI: Handled automatically
-  |       IF using API directly: Display verification pending UI
+  +-- Mix of SSO + individual users --> Enable AuthKit provider
   |
-  +-- mfa_enrollment (if MFA required)
-  |   └── User must enroll in MFA
-  |       IF using AuthKit Hosted UI: Handled automatically
-  |       IF using API directly: Redirect to MFA enrollment
-  |
-  +-- pending_authentication
-      └── MFA challenge in progress
-          Wait for user to complete challenge
+  +-- ONLY individual users --> Use provider: "authkit" exclusively
 ```
 
-**Decision:** Disable features in Dashboard OR handle errors in code.
+**To enable:**
 
-### Dashboard Configuration Options
+1. WorkOS Dashboard → Authentication → Enable AuthKit
+2. Configure branding (logo, colors, custom domain)
+3. In authorization call, use `provider: "authkit"` instead of connection_id
 
-Navigate to: WorkOS Dashboard → Authentication
+**Hosted UI benefits:**
 
-**If you want standalone SSO API behavior** (no interruptions):
-- Disable "Require Email Verification"
-- Disable "Require MFA"
-- Set "Account Linking" to "Auto-link by email"
+- Pre-built email verification flow
+- Pre-built MFA enrollment flow
+- Pre-built account linking flow
+- Automatic CSRF protection
+- Mobile-responsive design
 
-**If you want enhanced security:**
-- Keep features enabled
-- Use AuthKit Hosted UI (handles flows automatically), OR
-- Implement error handling for each flow type
+Check fetched docs for AuthKit configuration options and custom domain setup.
 
-**Trap:** If you disable features in Dashboard, migration is backward-compatible. If you enable them WITHOUT handling errors, auth will break.
+## Step 7: Session Management Migration
 
-## Step 8: AuthKit Hosted UI (Optional)
+**Framework-specific AuthKit SDKs (Next.js, React, etc.) include session management.** 
 
-If you want password auth, magic links, or automatic security flow handling:
+If you're migrating to one of these SDKs, configure session settings per the framework's AuthKit skill:
 
-### Enable AuthKit in Dashboard
+- **Next.js App Router:** workos-authkit-nextjs
+- **React SPA:** workos-authkit-react
+- **React Router:** workos-authkit-react-router
+- **Vanilla JS:** workos-authkit-vanilla-js
 
-1. Navigate to: WorkOS Dashboard → AuthKit
-2. Configure branding (logo, colors)
-3. Set custom domain (optional)
-4. Note redirect URI for your environment
+If you're using AuthKit API directly (no framework SDK), you are responsible for:
 
-### Update Initiation Code
+- Storing User object in session after authentication
+- Refreshing access tokens before expiry
+- Clearing session on logout
 
-Change provider parameter:
-
-```
-From: provider="google" | "okta" | connection="conn_..."
-To:   provider="authkit"
-```
-
-This redirects users to WorkOS-hosted UI instead of directly to IdP.
-
-**Verification:** Test login — should see WorkOS-branded UI, not direct IdP redirect.
-
-**Check fetched docs for:** AuthKit configuration options and branding customization.
-
-## Step 9: Framework-Specific Integration
-
-For framework SDKs (Next.js, React, etc.), use the AuthKit SDK instead of migrating API calls manually.
-
-```
-Framework?
-  |
-  +-- Next.js (App Router 13+)
-  |   └── Use: workos-authkit-nextjs skill
-  |       Handles: Middleware, callbacks, session management
-  |
-  +-- React SPA
-  |   └── Use: workos-authkit-react skill
-  |       Handles: useAuth() hook, protected routes
-  |
-  +-- Vanilla JS
-  |   └── Use: workos-authkit-vanilla-js skill
-  |       Handles: Fetch wrappers, token refresh
-  |
-  +-- Other / API-only
-      └── Follow Steps 5-7 (manual API integration)
-```
-
-**Do NOT mix:** Framework SDKs with manual API calls — pick one approach.
+Check fetched docs for access token refresh flow and token expiry times.
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these checks in order. **Do not mark complete until all pass:**
+Run these commands to confirm migration. **Do not mark complete until all pass:**
 
 ```bash
-# 1. Verify AuthKit API is reachable
-curl -X POST https://api.workos.com/user_management/authenticate \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"client_id":"'$WORKOS_CLIENT_ID'","grant_type":"authorization_code","code":"invalid"}' \
-  | grep -q "invalid_grant" && echo "PASS: API reachable" || echo "FAIL: Check API key"
+# 1. Old SSO API calls removed
+! grep -r "sso.*profile.*token" . --include="*.ts" --include="*.js" || echo "FAIL: Old SSO API calls still present"
 
-# 2. Check for Profile ID references in codebase
-grep -r "profile_id\|ProfileID" . --exclude-dir=node_modules | wc -l
-# If count > 0: Verify ID migration strategy from Step 4 is implemented
+# 2. AuthKit API calls present
+grep -r "authkit.*authenticate\|authorization_code" . --include="*.ts" --include="*.js" || echo "FAIL: No AuthKit API calls found"
 
-# 3. Check for standalone SSO API endpoints (should be replaced)
-grep -r "sso/authorize\|sso/profile" . --exclude-dir=node_modules
-# Should return NO matches after migration
+# 3. User ID migration strategy implemented (if needed)
+grep -r "workos_user_id\|user\.id" . --include="*.ts" --include="*.js" || echo "WARNING: Verify user ID migration strategy"
 
-# 4. Test auth flow end-to-end
-# Start login → Complete at IdP → Verify callback receives User object (not Profile)
+# 4. Application builds
+npm run build || yarn build || pnpm build
 ```
-
-**If check #2 returns hits:** Review each occurrence — update to use User.id or email matching.
-
-**If check #3 returns hits:** Incomplete migration — go back to Steps 5-6.
 
 ## Error Recovery
 
-### "Invalid user ID" on existing user login
+### "User ID not found" after migration
 
-**Root cause:** Application looking up user by old Profile ID.
+**Root cause:** Profile IDs from standalone SSO API don't match User IDs from AuthKit.
 
-Fix:
-1. Check ID migration strategy (Step 3)
-2. If using email matching: Ensure lookup by `User.email` before `User.id`
-3. If using dual-ID: Ensure fallback to old Profile ID until migration complete
+**Fix:**
 
-### "Email verification required" blocks login
+1. If using email as unique ID: Query user by `user.email` instead of `user.id`
+2. If using numeric IDs: Implement fallback lookup by email on first AuthKit login, then store `user.id` for future lookups
+3. For bulk migration: Contact WorkOS support for Profile ID → User ID mapping export
 
-**Root cause:** Email verification enabled in Dashboard, but callback doesn't handle error.
+### "Email verification required" error in production
 
-Fix options:
-1. **Easiest:** Disable email verification in Dashboard (WorkOS → Authentication)
-2. **Recommended:** Switch to AuthKit Hosted UI (handles automatically)
-3. **Advanced:** Implement error handler for `email_verification_required` response
+**Root cause:** AuthKit email verification is enabled in Dashboard, but your app doesn't handle the error flow.
 
-**Check fetched docs for:** Email verification error response schema.
+**Fix options:**
 
-### "User not found" for existing SSO users
+1. Use AuthKit Hosted UI (`provider: "authkit"`) — it handles verification automatically
+2. Build custom email verification UI using error response details (check fetched docs for schema)
+3. Disable email verification in Dashboard (not recommended for production)
 
-**Root cause:** Email not matching OR external ID lost in migration.
+### "Invalid grant" error on callback
 
-Fix:
-1. Check User object fields: verify `email` matches Profile `email` exactly
-2. If using external ID: WebFetch docs to confirm field name in User object
-3. Test with known SSO user: compare Profile vs User response side-by-side
+**Root cause:** Authorization code already used or expired (AuthKit codes expire faster than standalone SSO API codes).
 
-### AuthKit Authenticate returns 401
+**Fix:**
 
-**Root cause:** Invalid client ID or API key.
+- Ensure callback handler doesn't retry the same code
+- Check for race conditions (duplicate callback requests)
+- Verify clock sync between your server and WorkOS
 
-Fix:
-1. Verify `WORKOS_CLIENT_ID` starts with `client_`
-2. Verify `WORKOS_API_KEY` starts with `sk_` and belongs to same environment
-3. Check Dashboard: API key has "User Management" permissions
+### Connection metadata missing
 
-### Redirect loop after callback
+**Root cause:** User authenticated via `provider: "authkit"` instead of SSO connection.
 
-**Root cause:** Callback handler not setting session correctly, re-initiating auth.
+**Fix:**
 
-Fix:
-1. Verify callback stores User ID in session (not Profile ID)
-2. Check session middleware: ensure it recognizes new User ID format
-3. Test: Log session contents immediately after callback — should contain `workos_user_id`
+- Check `user.connection_id` and `user.organization_id` — they will be null for AuthKit-only users
+- Add conditional logic: SSO users have connection metadata, email/password users don't
+
+### "Provider not found" error
+
+**Root cause:** Passing old standalone SSO API provider values that don't exist in AuthKit.
+
+**Fix:**
+
+- Replace generic `provider: "GoogleOAuth"` with `connection_id` for specific org connections
+- OR use `provider: "authkit"` for hosted AuthKit UI
+- Check fetched docs for supported provider values
 
 ## Related Skills
 
-- workos-authkit-nextjs - Next.js App Router (13+) integration
-- workos-authkit-react - React SPA with protected routes
-- workos-authkit-vanilla-js - Vanilla JavaScript implementation
+- workos-authkit-nextjs — Next.js App Router integration
+- workos-authkit-react — React SPA integration
+- workos-authkit-react-router — React Router integration
+- workos-authkit-vanilla-js — Framework-agnostic JavaScript integration

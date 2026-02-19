@@ -17,247 +17,250 @@
 
 ## Authentication Setup
 
-Authenticate API calls using your WorkOS API key:
+Set these environment variables:
 
 ```bash
-Authorization: Bearer sk_live_...
+WORKOS_API_KEY=sk_test_...
+WORKOS_CLIENT_ID=client_...
 ```
 
-Set environment variables:
-- `WORKOS_API_KEY` — starts with `sk_test_` or `sk_live_`
-- `WORKOS_CLIENT_ID` — starts with `client_`
+All API requests use Bearer token authentication:
 
-Verify authentication setup:
+```bash
+Authorization: Bearer sk_test_...
+```
+
+Verify authentication works:
 
 ```bash
 curl https://api.workos.com/sso/connections \
   -H "Authorization: Bearer $WORKOS_API_KEY"
 ```
 
-Expected response: 200 OK with connection list or empty array.
+Expected: 200 response with connection list (may be empty array).
 
 ## Endpoint Catalog
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/sso/authorize` | Generate authorization URL to initiate SSO login |
-| GET | `/sso/profile` | Exchange authorization code for user profile |
-| GET | `/sso/connections` | List SSO connections for an organization |
-| GET | `/sso/connections/:id` | Get details of a specific connection |
-| DELETE | `/sso/connections/:id` | Delete an SSO connection |
+| GET | `/sso/connections` | List all SSO connections for an organization |
+| GET | `/sso/connections/{id}` | Retrieve a specific SSO connection |
+| DELETE | `/sso/connections/{id}` | Delete an SSO connection |
+| GET | `/sso/authorize` | Generate authorization URL to initiate SSO flow |
+
+Connection IDs start with `conn_`. Organization IDs start with `org_`.
 
 ## Operation Decision Tree
 
-**Which endpoint do I need?**
+### When to use which endpoint
+
+**Creating SSO connections:** Done via WorkOS Dashboard, not API. Direct users to Dashboard > SSO > Add Connection.
+
+**Listing connections:**
+- Use `GET /sso/connections` with `organization_id` filter to show an organization's connections
+- Use `connection_type` filter to show only specific providers (e.g., `GoogleOAuth`, `OktaSAML`)
+- Check fetched docs for complete filter list
+
+**Getting connection details:**
+- Use `GET /sso/connections/{id}` when you have a connection ID
+- Use `GET /sso/connections?organization_id=X` when you need to find connections for an organization
+
+**Initiating SSO login:**
+- Use `GET /sso/authorize` to generate the authorization URL
+- EITHER pass `organization_id` (if user selected their org) OR `connection_id` (if you know the exact connection)
+- Never pass both — check fetched docs for parameter rules
+
+**Deleting connections:**
+- Use `DELETE /sso/connections/{id}` to remove a connection
+- This is permanent — confirm before deleting
+
+## Authorization URL Pattern
+
+The SSO flow starts by redirecting users to a WorkOS-generated URL:
 
 ```
-├─ Initiate SSO login?
-│  └─ GET /sso/authorize
-│     ├─ Have organization ID? → provider=oauth&organization=org_123
-│     ├─ Have connection ID? → connection=conn_123
-│     └─ Have domain? → provider=oauth&domain=company.com
-│
-├─ Complete SSO login (exchange code)?
-│  └─ GET /sso/profile with code parameter
-│
-├─ Manage connections programmatically?
-│  ├─ List all → GET /sso/connections?organization_id=org_123
-│  ├─ Get one → GET /sso/connections/:id
-│  └─ Delete → DELETE /sso/connections/:id
-│
-└─ Configure SSO provider (SAML/OIDC)?
-   └─ Use WorkOS Dashboard — API is read-only for connection CRUD
+1. Your app calls GET /sso/authorize with:
+   - client_id (your WorkOS client ID)
+   - redirect_uri (your callback URL)
+   - organization_id OR connection_id (never both)
+   - Optional: state parameter for CSRF protection
+
+2. WorkOS returns authorization_url
+
+3. Redirect user to authorization_url
+
+4. User authenticates with IdP
+
+5. WorkOS redirects back to your redirect_uri with:
+   - code parameter (exchange for profile)
+   - state parameter (if you sent one)
 ```
 
-**Key decision: Authorization URL strategy**
+Pseudocode:
 
-- **Organization selector**: User picks from multiple connections
-  - Use `provider=oauth&organization=org_123`
-  - WorkOS shows connection picker UI if multiple exist
-  
-- **Direct connection**: Skip picker, use specific connection
-  - Use `connection=conn_123`
-  - Fastest flow when connection is known
-  
-- **Domain lookup**: Auto-match by email domain
-  - Use `provider=oauth&domain=company.com`
-  - WorkOS finds connection by configured domain
-
-Check fetched docs for parameter requirements and constraints for each strategy.
-
-## SSO Flow Pattern
-
-### 1. Generate Authorization URL
-
-```pseudocode
-authUrl = generateAuthorizationUrl({
-  provider: "oauth",
-  organization: "org_123",  // or connection: "conn_123"
-  redirect_uri: "https://yourapp.com/callback",
-  state: generateCsrfToken()  // your CSRF token
-})
-
-redirect(authUrl)
 ```
-
-The authorization URL includes:
-- `client_id` — your WorkOS client ID
-- `redirect_uri` — callback URL (must match Dashboard config)
-- `state` — CSRF token you generate
-- `organization` or `connection` or `domain` — routing parameter
-
-### 2. Handle Callback
-
-```pseudocode
-// User redirected to: /callback?code=...&state=...
-
-if (state !== expectedState) {
-  throw "CSRF validation failed"
+# Generate authorization URL
+params = {
+  client_id: ENV['WORKOS_CLIENT_ID'],
+  redirect_uri: "https://yourapp.com/auth/callback",
+  organization_id: user_selected_org_id,
+  state: generate_csrf_token()
 }
 
-profile = exchangeCode(code)
-// Returns: { id, email, first_name, last_name, ... }
-
-session.userId = profile.id
-session.email = profile.email
+authorization_url = workos_client.sso.get_authorization_url(params)
+redirect_to(authorization_url)
 ```
 
-Check fetched docs for complete profile schema — fields vary by provider.
+Check fetched docs for exact SDK method signature for your language.
 
-### 3. Connection Management
+## Listing Connections with Filters
 
-```pseudocode
-// List connections for an organization
-connections = listConnections({ organization_id: "org_123" })
+List all connections for an organization:
 
-// Get connection details
-connection = getConnection("conn_123")
-// Returns: { id, name, state, type, ... }
-
-// Delete connection
-deleteConnection("conn_123")
+```bash
+curl "https://api.workos.com/sso/connections?organization_id=org_123" \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
 ```
 
-**Trap**: Connection deletion is immediate and irreversible. Connections can only be created via Dashboard, not API.
+Filter by connection type:
+
+```bash
+curl "https://api.workos.com/sso/connections?connection_type=OktaSAML" \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
+```
+
+The API returns paginated results. Check fetched docs for pagination parameters (`before`, `after`, `limit`).
 
 ## Error Code Mapping
 
-Check https://workos.com/docs/reference/sso/get-authorization-url/error-codes for complete list.
+Check https://workos.com/docs/reference/sso/get-authorization-url/error-codes for the complete error code list. Common causes:
 
-### Authorization URL Errors
+**401 Unauthorized:**
+- Cause: Invalid or missing API key
+- Fix: Verify `WORKOS_API_KEY` is set and starts with `sk_`
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `invalid_redirect_uri` | Redirect URI not configured | Add URI to Dashboard → Configuration → Redirect URIs |
-| `invalid_client_id` | Wrong `WORKOS_CLIENT_ID` | Verify client ID starts with `client_` |
-| `organization_not_found` | Invalid organization ID | Check organization exists and ID is correct |
-| `connection_not_found` | Invalid connection ID | List connections to verify ID |
-| `no_active_connection` | Organization has no active SSO | User must configure SSO in Dashboard first |
+**400 Bad Request with `invalid_redirect_uri`:**
+- Cause: redirect_uri not registered in WorkOS Dashboard
+- Fix: Add redirect_uri to Dashboard > Configuration > Redirect URIs
 
-### Profile Exchange Errors
+**400 Bad Request with `invalid_organization` or `invalid_connection`:**
+- Cause: Organization or connection ID doesn't exist or doesn't have SSO enabled
+- Fix: Verify the ID exists and has at least one active connection
 
-| Status | Cause | Fix |
-|--------|-------|-----|
-| 401 | Invalid API key | Verify `WORKOS_API_KEY` starts with `sk_` |
-| 400 | Invalid code parameter | Code expires after 10 minutes — regenerate authorization URL |
-| 422 | Code already used | Authorization codes are single-use — initiate new flow |
+**422 Unprocessable Entity:**
+- Cause: Passed both `organization_id` AND `connection_id` (mutually exclusive)
+- Fix: Pass only one identifier, not both
 
-### Connection API Errors
+## Redirect URI Configuration
 
-| Status | Cause | Fix |
-|--------|-------|-----|
-| 404 | Connection not found | Verify connection ID is correct |
-| 403 | Connection belongs to different environment | Check you're using correct API key (test vs live) |
+Your callback URLs must be registered in the WorkOS Dashboard before use:
 
-## Pagination Handling
+1. Navigate to Dashboard > Configuration > Redirect URIs
+2. Add each URI your app will use (e.g., `https://yourapp.com/auth/callback`)
+3. Use exact match — `http://localhost:3000/callback` ≠ `http://localhost:3000/callback/`
 
-Connection listing supports pagination:
+Verification command:
 
 ```bash
-curl "https://api.workos.com/sso/connections?organization_id=org_123&limit=10&after=conn_123" \
+# Test with a registered redirect_uri
+curl -G "https://api.workos.com/sso/authorize" \
+  -d "client_id=$WORKOS_CLIENT_ID" \
+  -d "redirect_uri=https://yourapp.com/auth/callback" \
+  -d "organization_id=org_123"
+```
+
+Expected: JSON with `authorization_url` field. If you get `invalid_redirect_uri` error, the URI isn't registered.
+
+## Pagination Pattern
+
+The `GET /sso/connections` endpoint returns paginated results:
+
+```bash
+# First page (default limit is 10)
+curl "https://api.workos.com/sso/connections?organization_id=org_123&limit=10" \
   -H "Authorization: Bearer $WORKOS_API_KEY"
 ```
 
 Response includes:
+
 ```json
 {
-  "data": [...],
+  "data": [ /* connection objects */ ],
   "list_metadata": {
-    "after": "conn_456",  // cursor for next page
-    "before": null
+    "before": "conn_xyz",
+    "after": "conn_abc"
   }
 }
 ```
 
-Pattern: Pass `after` value from response to `after` parameter for next page. Stop when `after` is null.
+Fetch next page:
+
+```bash
+curl "https://api.workos.com/sso/connections?organization_id=org_123&after=conn_abc" \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
+```
+
+Check fetched docs for `before` parameter to paginate backwards.
 
 ## Rate Limits
 
-Check fetched docs for current rate limits. If you receive 429 status:
-- Implement exponential backoff (start with 1s delay, double each retry)
-- Cache connection lists to reduce API calls
-- Use webhooks for connection state changes instead of polling
+WorkOS APIs are rate-limited. Check fetched docs for current limits and retry strategies. Implement exponential backoff for 429 responses:
+
+```
+if response.status == 429:
+  retry_after = response.headers['Retry-After']
+  wait(retry_after seconds)
+  retry_request()
+```
 
 ## Verification Commands
 
-**Test API key authentication:**
+Test authentication setup:
 
 ```bash
 curl https://api.workos.com/sso/connections \
   -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -w "\nStatus: %{http_code}\n"
+  -w "\nHTTP Status: %{http_code}\n"
 ```
 
-Expected: 200 status with connection array.
+Expected: HTTP Status 200 with JSON response.
 
-**Test authorization URL generation (SDK):**
+Test authorization URL generation:
 
 ```bash
-# Verify SDK can generate URL without errors
-node -e "
-const WorkOS = require('@workos-inc/node').default;
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
-const url = workos.sso.getAuthorizationUrl({
-  provider: 'oauth',
-  clientId: process.env.WORKOS_CLIENT_ID,
-  redirectUri: 'http://localhost:3000/callback',
-  organization: 'org_123'
-});
-console.log('URL generated:', url);
-"
+curl -G "https://api.workos.com/sso/authorize" \
+  -d "client_id=$WORKOS_CLIENT_ID" \
+  -d "redirect_uri=https://yourapp.com/callback" \
+  -d "organization_id=org_123" \
+  -w "\nHTTP Status: %{http_code}\n"
 ```
 
-Expected: URL starting with `https://api.workos.com/sso/authorize?`.
+Expected: HTTP Status 200 with `authorization_url` in JSON.
 
-**Test connection retrieval:**
+Test connection retrieval:
 
 ```bash
-# Replace conn_123 with real connection ID from Dashboard
+# Replace conn_123 with actual connection ID from list response
 curl https://api.workos.com/sso/connections/conn_123 \
-  -H "Authorization: Bearer $WORKOS_API_KEY" | jq .
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -w "\nHTTP Status: %{http_code}\n"
 ```
 
-Expected: 200 status with connection object containing `id`, `name`, `state`, `type`.
+Expected: HTTP Status 200 with connection details.
 
-## Redirect URI Configuration
+## Common Integration Traps
 
-**Trap**: Authorization will fail if redirect URI isn't pre-configured.
+1. **Don't pass both `organization_id` and `connection_id`** — the API rejects this. Choose based on your UX: org selector (use organization_id) or direct link (use connection_id).
 
-Before calling `/sso/authorize`, add redirect URIs in Dashboard:
-1. Navigate to Configuration → Redirect URIs
-2. Add exact callback URL (including protocol, domain, path)
-3. For local development, add `http://localhost:3000/callback`
-4. For production, add `https://yourapp.com/callback`
+2. **Don't hardcode redirect URIs** — use environment variables so you can register different URIs per environment (localhost for dev, production domain for prod).
 
-**Pattern**: Use different redirect URIs per environment:
-- Development: `http://localhost:3000/callback`
-- Staging: `https://staging.yourapp.com/callback`
-- Production: `https://yourapp.com/callback`
+3. **Don't skip state parameter** — use it for CSRF protection. Generate a random token, store it in session, verify it matches when user returns.
 
-Check fetched docs for redirect URI validation rules and wildcard support.
+4. **Don't assume connections exist** — always handle empty arrays from list endpoint. An organization may have SSO configured in Dashboard but no active connections yet.
+
+5. **Connection deletion is immediate** — there's no soft delete or undo. Confirm with user before calling DELETE.
 
 ## Related Skills
 
-- workos-authkit-react — Pre-built React components for SSO login UI
-- workos-authkit-nextjs — Next.js integration with SSO middleware
-- workos-authkit-vanilla-js — Vanilla JavaScript SSO implementation
+- workos-authkit-nextjs — Full authentication implementation with SSO
+- workos-authkit-react — React-specific SSO integration patterns

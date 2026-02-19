@@ -9,7 +9,7 @@ description: Migrate to WorkOS from the standalone SSO API.
 
 ## When to Use
 
-Migrate an existing WorkOS standalone SSO API integration to AuthKit. Use this skill when you have a working SSO implementation using WorkOS connection objects and need to transition to the unified AuthKit authentication system while preserving existing SSO connections.
+Migrate an existing WorkOS standalone SSO API integration to AuthKit. Use this skill when you have an app using WorkOS's SSO endpoints directly (authorize URL generation, profile retrieval) and want to adopt AuthKit's session management and authentication flow. This is a WorkOS-to-WorkOS migration, not a third-party provider migration.
 
 ## Documentation
 
@@ -17,13 +17,13 @@ Migrate an existing WorkOS standalone SSO API integration to AuthKit. Use this s
 
 ## Key Vocabulary
 
-- **Connection** `conn_` — SSO provider configuration (SAML, OAuth) linked to an organization
-- **Organization** `org_` — tenant entity that owns SSO connections
-- **Authorization URL** — standalone SSO API endpoint for initiating login (`/sso/authorize`)
-- **Redirect URI** — callback URL after SSO authentication completes
-- **Profile object** — user identity payload returned by standalone SSO API
-- **AuthKit Sign-In URL** — new unified authentication endpoint replacing standalone authorize
-- **Session management** — framework-specific AuthKit SDK responsibility (not `WORKOS_COOKIE_PASSWORD`)
+- **Connection** `conn_` — SSO connection entity linking your organization to an identity provider
+- **Organization** `org_` — tenant entity in WorkOS
+- **Profile** — user identity data returned after authentication (becomes User object in AuthKit)
+- **User** `user_` — AuthKit's representation of an authenticated user
+- **Session** — AuthKit's encrypted session token (framework-specific implementation)
+- **Authorization URL** — SSO login redirect endpoint (standalone SSO API construct)
+- **Callback endpoint** — route that receives SSO authentication responses
 
 ## Implementation Guide
 
@@ -33,7 +33,5 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- `workos-authkit-nextjs` — if migrating a Next.js application
-- `workos-authkit-react` — if migrating a React application
-- `workos-directory-sync` — if your SSO integration includes user provisioning
-- `workos-organizations` — managing organization entities that own SSO connections
+- workos-authkit-nextjs
+- workos-authkit-react

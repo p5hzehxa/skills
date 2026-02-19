@@ -9,18 +9,24 @@ description: Sync user directories from identity providers like Okta, Azure AD, 
 
 ## When to Use
 
-Use this skill when you need to import and continuously sync user/group data from enterprise identity providers (Okta, Azure AD, Google Workspace) into your application. Directory Sync maintains a local copy of organizational structure, enabling user provisioning, deprovisioning, and role mapping without requiring end-users to manually create accounts.
+Use this skill when you need to automatically provision, update, and deprovision users and groups from an external identity provider (Google Workspace, Okta, Azure AD, etc.) into your application's database. Directory Sync keeps your user data in sync with the customer's authoritative source, eliminating manual user management and ensuring your application always reflects the current state of their organization.
+
+## Documentation
+
+- https://workos.com/docs/directory-sync/understanding-events
+- https://workos.com/docs/directory-sync/quick-start
+- https://workos.com/docs/directory-sync/index
+- https://workos.com/docs/directory-sync/identity-provider-role-assignment
+- https://workos.com/docs/directory-sync/handle-inactive-users
 
 ## Key Vocabulary
 
-- **Directory** `directory_` — a connection to an identity provider's user/group data source
-- **Directory User** `directory_user_` — a synced user record from the provider
-- **Directory Group** `directory_group_` — a synced group/team record from the provider
-- **Events API** — `workos.events.listEvents()` for batch processing and event recovery
-- **Webhook events** — `dsync.user.created`, `dsync.user.updated`, `dsync.user.deleted`, `dsync.group.created`, `dsync.group.updated`, `dsync.group.deleted`, `dsync.activated`, `dsync.deleted`
-- **Primary email** — the `emails[0].value` field, guaranteed present on Directory Users
-- **Dashboard path** — WorkOS Dashboard → Directories → [Select Directory] → Events / Users / Groups
-- **Environment variables** — `WORKOS_API_KEY`, `WORKOS_WEBHOOK_SECRET`
+- **Directory** `directory_` — A connection to an identity provider's user/group data
+- **User** `directory_user_` — An employee record synced from the directory
+- **Group** `directory_group_` — An organizational unit or team synced from the directory
+- **Event types**: `dsync.user.created`, `dsync.user.updated`, `dsync.user.deleted`, `dsync.group.created`, `dsync.group.updated`, `dsync.group.deleted`, `dsync.activated`, `dsync.deleted`
+- **State attribute**: `active`, `inactive`, `suspended` — User lifecycle states
+- **Events API** — Polling-based alternative to webhooks for batch processing or event recovery
 
 ## Implementation Guide
 

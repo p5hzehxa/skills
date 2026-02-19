@@ -2,207 +2,300 @@
 
 # WorkOS Email Delivery
 
-## Step 1: Fetch Documentation (BLOCKING)
+## Step 1: Fetch SDK Documentation (BLOCKING)
 
 **STOP. Do not proceed until complete.**
 
 WebFetch: `https://workos.com/docs/email`
 
-The docs are the source of truth. If this skill conflicts with docs, follow docs.
+The documentation is the source of truth. If this skill conflicts with the docs, follow the docs.
 
-## Step 2: Email Delivery Strategy (Decision Tree)
+## Step 2: Choose Email Strategy (Decision Tree)
 
-Choose ONE of three delivery methods. This decision affects ALL WorkOS features that send email (invitations, password resets, Magic Auth).
+WorkOS provides three email delivery approaches. Choose based on your control/convenience trade-off:
 
 ```
-Email delivery strategy?
+Email strategy?
   |
-  +-- WorkOS domain (workos-mail.com)
-  |   → Zero config, works immediately
-  |   → Lower user trust (unfamiliar sender domain)
-  |   → Use for: prototypes, internal tools
+  +-- WorkOS email domain (workos-mail.com)
+  |     ├─ Fastest setup (no DNS config)
+  |     ├─ Lower deliverability than custom domain
+  |     └─ Users see emails from unfamiliar domain
   |
-  +-- Your domain (welcome@yourdomain.com)
-  |   → Requires DNS config (CNAME records)
-  |   → Higher user trust (recognized sender)
-  |   → Use for: production apps with external users
-  |   → Go to Step 3
+  +-- Your email domain (recommended)
+  |     ├─ Requires DNS verification (3 CNAME records)
+  |     ├─ Better deliverability (users recognize sender)
+  |     └─ You control domain reputation
   |
-  +-- Self-managed (event-driven)
-      → Your email provider handles sending
-      → WorkOS emits webhook events only
-      → Maximum control, maximum work
-      → See workos-webhooks skill for event handling
+  +-- Event-based (send your own)
+        ├─ WorkOS emits events, you handle sending
+        ├─ Maximum customization and control
+        └─ You manage email provider integration
+
 ```
 
-**If using WorkOS domain:** Skip to Step 5 (Deliverability Best Practices).
+**Default choice:** Your email domain. Provides best user experience with manageable setup cost.
 
-**If using your domain:** Continue to Step 3.
+## Step 3A: Using WorkOS Email Domain (Simplest Path)
 
-**If self-managed:** This skill does not apply — implement webhook handlers and your email provider integration separately.
+If you chose the WorkOS email domain:
 
-## Step 3: DNS Configuration (Your Domain)
+1. No configuration required — WorkOS sends from `workos-mail.com` automatically
+2. Skip to Step 4 (Content Guidelines)
 
-### Locate Configuration UI
+**Trade-off:** Lower deliverability due to shared domain reputation. Users may not recognize sender.
 
-Dashboard → Settings → Email Domain
+## Step 3B: Using Your Email Domain (Recommended)
 
-### DNS Records Required
+If you chose your own email domain:
 
-You MUST create THREE CNAME records with your DNS provider:
+### DNS Configuration
 
-1. **Domain verification** — Proves ownership
-2. **SPF authentication** — Via SendGrid automated security
-3. **DKIM authentication** — Via SendGrid automated security
+Navigate to: WorkOS Dashboard → Settings → Email Domain
 
-**Critical:** All three records must exist before WorkOS will send from your domain. Dashboard shows verification status.
+You will need to create **3 CNAME records** with your DNS provider:
 
-### Sender Addresses
+1. **Domain verification** — proves you own the domain
+2. **SPF authentication** — via SendGrid's automated security
+3. **DKIM authentication** — via SendGrid's automated security
 
-WorkOS will send from:
-- `welcome@yourdomain.com` — User onboarding flows
-- `access@yourdomain.com` — Access management flows
+Check fetched docs for the exact CNAME values to use — they are unique to your account.
 
-## Step 4: Inbox Setup (IMPORTANT)
-
-Create REAL inboxes for both sender addresses:
+**Verification command:**
 
 ```bash
-# Create these inboxes with your email provider:
-welcome@yourdomain.com
-access@yourdomain.com
+# Replace example.com with your domain
+dig CNAME _workos.example.com +short
+# Should return WorkOS verification value
 ```
 
-**Why:** Email providers verify sender address validity. Nonexistent inboxes trigger spam filters.
+### Email Addresses
 
-**Trap:** Do not use aliases or catch-alls. Create dedicated inboxes.
+WorkOS will send from these addresses on your domain:
 
-## Step 5: DMARC Policy (RECOMMENDED)
+- `welcome@yourdomain.com` — onboarding and invitation emails
+- `access@yourdomain.com` — authentication emails (password reset, Magic Auth)
 
-Add DMARC DNS TXT record to reject unauthorized senders:
+### Create Actual Inboxes (CRITICAL)
+
+Email providers check if sender addresses have real inboxes. Create mailboxes for both addresses:
+
+```bash
+# Verify inboxes exist - should not bounce
+echo "Test" | mail -s "Inbox check" welcome@yourdomain.com
+echo "Test" | mail -s "Inbox check" access@yourdomain.com
+```
+
+**Trap:** Forgetting to create the inboxes reduces deliverability. This is easy to miss because the DNS records will verify successfully.
+
+### DMARC Policy (Required for Google/Yahoo)
+
+Add a DNS TXT record for DMARC. This tells receiving servers how to handle emails that fail authentication.
+
+**Minimal DMARC record:**
 
 ```
-Record Type: TXT
+TXT Record
+Name: _dmarc.yourdomain.com
+Content: v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com
+```
+
+**Strict DMARC record (recommended after monitoring):**
+
+```
+TXT Record
 Name: _dmarc.yourdomain.com
 Content: v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com
 ```
 
-**Why:** Google, Yahoo, Apple now require DMARC for bulk senders. Without it, your emails may be rejected entirely.
+Start with `p=none` to monitor, then move to `p=reject` once you confirm legitimate emails pass.
 
-Check fetched docs for complete DMARC examples and RUA reporting setup.
-
-## Step 6: Deliverability Best Practices (CRITICAL)
-
-These rules apply to ALL delivery methods. Violations will cause deliverability failures:
-
-### Spam Filter Traps
-
-**Never send unsolicited email.** Invitation emails MUST result from explicit user action (user requests access, admin invites colleague). Do NOT bulk-invite users from marketing lists.
-
-**Check naming:** Team names and organization names appear in email bodies. Avoid spam trigger words:
-- "Free", "Winner", "Cash", "Loan", "Limited time"
-- ALL CAPS names
-- Excessive punctuation (!!!, ???)
-
-See [common spam words](https://mailtrap.io/blog/email-spam-words/) — if your org name matches these patterns, email will be flagged.
-
-### Domain Reputation
-
-**If using your domain:**
-- Warm up the domain — start with low volume, gradually increase
-- Monitor bounce rates — high bounces damage reputation permanently
-- Never purchase email lists or scrape contacts
-
-**If using WorkOS domain:**
-- WorkOS manages reputation, but your content (org names, team names) still matters
-- Unsolicited email on WorkOS domain may result in account suspension
-
-## Verification Checklist
-
-Run these checks to confirm email delivery will work:
+**Verification command:**
 
 ```bash
-# 1. DNS verification (if using your domain)
-dig CNAME _domainkey.yourdomain.com  # Should return SendGrid CNAME
-dig TXT _dmarc.yourdomain.com        # Should return DMARC policy
-
-# 2. Dashboard verification
-# → Dashboard shows "Verified" status for email domain
-
-# 3. Inbox existence check (manual)
-# Send test email to welcome@yourdomain.com — should deliver to inbox, not bounce
-
-# 4. Spam testing (before production)
-# Use https://www.mail-tester.com/ — score should be 8+ out of 10
+dig TXT _dmarc.yourdomain.com +short
+# Should return your DMARC policy
 ```
 
-**Do not deploy to production** until spam testing scores 8+.
+Check fetched docs for DMARC policy options and their meanings.
+
+## Step 3C: Event-Based Email (Maximum Control)
+
+If you chose event-based email:
+
+1. WorkOS emits events when email should be sent (e.g., `user.invitation_created`)
+2. Subscribe to events via Webhooks
+3. Use your own email provider (SendGrid, Postmark, etc.) to send
+
+Check fetched docs for:
+- Event type naming conventions
+- Webhook setup instructions
+- Event payload schemas
+
+**Related Skills:**
+- workos-webhooks (for event subscription patterns)
+
+## Step 4: Content Guidelines (All Strategies)
+
+### Organization and Team Names
+
+WorkOS emails include:
+- Your team account name
+- Organization names under your team
+
+**Trap:** Names with spam trigger words reduce deliverability. Avoid:
+- "Free", "Winner", "Click here", "Urgent"
+- ALL CAPS text
+- Excessive punctuation (!!!, $$$)
+
+Check [common spam words list](https://mailtrap.io/blog/email-spam-words/) before naming organizations.
+
+**Verification command:**
+
+```bash
+# Check for spam words in your team/org names
+curl -s https://mailtrap.io/blog/email-spam-words/ | \
+  grep -i -f <(echo "YOUR_TEAM_NAME\nYOUR_ORG_NAME") && \
+  echo "WARNING: Potential spam words detected"
+```
+
+### Prevent Unsolicited Email
+
+**CRITICAL:** Only send email when a user explicitly requests it.
+
+**Allowed triggers:**
+- User requests password reset
+- Admin invites specific user by email
+- User signs up and triggers welcome flow
+
+**Forbidden triggers:**
+- Bulk imports from marketing lists
+- Automated enrollment without user action
+- Speculative invitations to drive signups
+
+**Trap:** Sending unsolicited email from WorkOS domain damages shared reputation, affecting all WorkOS customers.
+
+## Verification Checklist (ALL MUST PASS)
+
+If using your email domain, run these commands:
+
+```bash
+# 1. DNS verification
+dig CNAME _workos.yourdomain.com +short
+# Should return WorkOS verification string
+
+# 2. SPF/DKIM records (via SendGrid)
+dig CNAME s1._domainkey.yourdomain.com +short
+dig CNAME s2._domainkey.yourdomain.com +short
+# Should return SendGrid DKIM values
+
+# 3. DMARC policy
+dig TXT _dmarc.yourdomain.com +short
+# Should return v=DMARC1; p=...
+
+# 4. Inbox existence (should not bounce)
+echo "Test" | mail -s "Inbox check" welcome@yourdomain.com
+echo "Test" | mail -s "Inbox check" access@yourdomain.com
+
+# 5. Check WorkOS Dashboard shows "Verified"
+# Manual check required
+```
+
+**Do not mark complete until all checks pass.**
 
 ## Error Recovery
 
-### Email not reaching inboxes (ALL USERS)
+### Email Not Reaching Users
 
-**Root cause:** Domain reputation issue or missing authentication.
+**Diagnosis tree:**
 
-Fix checklist:
-1. Verify DMARC record exists: `dig TXT _dmarc.yourdomain.com`
-2. Check Google Postmaster Tools — shows reputation score
-3. Check Microsoft Sender Support — shows reputation score
-4. Verify all DNS records in dashboard show "Verified"
-5. Confirm no bulk-sending from marketing lists
+```
+Who is affected?
+  |
+  +-- All users
+  |     └─ Likely domain reputation issue
+  |         ├─ Check DMARC/SPF/DKIM records
+  |         ├─ Review organization/team names for spam words
+  |         └─ Use Google Postmaster Tools (see below)
+  |
+  +-- Only Gmail/Google Workspace users
+  |     └─ Enhanced Pre-delivery Scanning may delay emails
+  |         ├─ User should check spam folder
+  |         └─ Use Google Postmaster Tools to check domain reputation
+  |
+  +-- Only Microsoft/Outlook users
+  |     └─ Check Microsoft Sender Support (see below)
+  |
+  +-- Specific organization/email provider
+        └─ Organization's IT may have custom filters
+            └─ Ask IT admin to allowlist yourdomain.com
+```
 
-If all pass, problem is likely domain warmup — reduce send volume temporarily.
+### DNS Records Not Verifying
 
-### Email not reaching inboxes (SOME USERS)
+**Symptoms:** WorkOS Dashboard shows "Pending" status after 24 hours
 
-**Root cause:** Recipient-specific spam filters or corporate IT policies.
+**Root causes:**
 
-Diagnosis:
-- If Gmail/Google Workspace users only → Check [Google Postmaster Tools](https://postmaster.google.com/)
-- If Outlook/Microsoft 365 users only → Check [Microsoft Sender Support](https://sendersupport.olc.protection.outlook.com/)
-- If single organization → Contact their IT team (corporate firewall blocking sender domain)
+1. **Wrong DNS zone** — CNAME was added to subdomain instead of apex domain
+   - Fix: Verify you're editing the correct zone file
+2. **TTL not expired** — Old DNS records still cached
+   - Fix: Wait for TTL to expire (check `dig` output for TTL value)
+3. **Proxy enabled** — Cloudflare/similar proxy intercepts CNAME
+   - Fix: Disable proxy (set to "DNS only" mode) for WorkOS CNAMEs
 
-**Enhanced Pre-delivery Scanning:** Google Workspace admins can enable aggressive scanning that delays emails 5-10 minutes. This is normal, not a deliverability failure.
+**Verification command:**
 
-### Emails delayed (5+ minutes)
+```bash
+# Check from multiple DNS servers to confirm propagation
+dig @8.8.8.8 CNAME _workos.yourdomain.com +short
+dig @1.1.1.1 CNAME _workos.yourdomain.com +short
+# Results should match and return WorkOS value
+```
 
-**Root cause:** Enhanced security scanning at recipient.
+### Emails Going to Spam
 
-- Google: [Enhanced Pre-delivery Message Scanning](https://support.google.com/a/answer/7380368)
-- Microsoft: Advanced Threat Protection scanning
+**Tools for diagnosis:**
 
-This is expected behavior when enabled. Advise users to check spam folders if not received within 15 minutes.
+- **Google Postmaster Tools:** https://postmaster.google.com
+  - Check domain reputation, spam rate, authentication rate
+  - Requires domain ownership verification
+- **Microsoft Sender Support:** https://sendersupport.olc.protection.outlook.com/pm/
+  - Check delisting status if blocked by Outlook
+- **Generic spam testers:**
+  - Litmus: https://www.litmus.com/email-testing
+  - Warmly: https://www.warmy.io/free-tools/email-deliverability-test/
 
-### Dashboard shows "Unverified" domain
+**Common fixes:**
 
-**Root cause:** DNS propagation incomplete or incorrect CNAME values.
+1. **DMARC policy too lax** — Move from `p=none` to `p=quarantine` or `p=reject`
+2. **Missing DKIM/SPF** — Re-verify CNAME records are correct
+3. **Inbox doesn't exist** — Create mailboxes for welcome@ and access@ addresses
+4. **Spam trigger words** — Rename organizations/team to remove flagged terms
 
-Fix:
-1. Wait 24-48 hours for DNS propagation
-2. Verify CNAME values match dashboard exactly (trailing dots matter)
-3. Use `dig` to confirm records exist: `dig CNAME <record-name>`
-4. Check with DNS provider — some require manual record activation
+### Email Delayed (Not Spam, Just Slow)
 
-### "Domain reputation poor" in Postmaster Tools
+**Root cause:** Enhanced scanning features at recipient's email provider (Google Workspace, Microsoft 365)
 
-**Root cause:** High bounce rate or spam complaints.
+**Fix:** No action required — emails will arrive once scanning completes (typically 5-30 minutes)
 
-Recovery:
-1. STOP all sending immediately
-2. Clean email list — remove bounced addresses
-3. Verify opt-in for all recipients
-4. Wait 7-14 days for reputation reset
-5. Resume sending at 10% previous volume
-6. Gradually increase volume over 4 weeks
+**User workaround:** Check spam folder, mark as "Not Spam" to train filters
 
-**Critical:** Domain reputation damage is cumulative. Multiple violations may result in permanent blacklisting.
+### "Domain Already Claimed" Error
 
-### Debugging tools
+**Root cause:** Another WorkOS team already verified this domain
 
-- [Google Postmaster Tools](https://www.gmail.com/postmaster/) — Gmail deliverability metrics
-- [Microsoft Sender Support](https://sendersupport.olc.protection.outlook.com/) — Outlook deliverability
-- [Mail Tester](https://www.mail-tester.com/) — Spam score testing
-- [Litmus](https://www.litmus.com/email-testing) — Comprehensive email testing
-- [Warmly](https://www.warmy.io/free-tools/email-deliverability-test/) — Deliverability testing
+**Fix:** Contact WorkOS support to transfer domain ownership or use a subdomain (e.g., `mail.yourdomain.com`)
 
-If issues persist after using these tools, contact WorkOS support with tool results.
+## Next Steps
+
+After email delivery is configured:
+
+- Test invitation flows with real email addresses
+- Monitor Google Postmaster Tools for domain reputation trends
+- Set up DMARC reporting (`rua=` parameter) to catch authentication failures
+
+If issues persist despite following these steps, contact WorkOS support with:
+- Domain name
+- DNS record outputs (from dig commands above)
+- Example recipient email addresses showing the problem

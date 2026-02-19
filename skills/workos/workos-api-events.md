@@ -9,16 +9,23 @@ description: WorkOS Events/Webhooks API endpoints — list events, manage webhoo
 
 ## When to Use
 
-Use this skill when you need to retrieve audit logs or system events from WorkOS services. The Events API provides a unified log stream of authentication, directory sync, and administrative actions. Reach for this when building compliance dashboards, debugging user flows, or auditing organizational activity.
+Use this skill when you need to retrieve historical event logs from WorkOS. This is a read-only API for fetching events that have already occurred in your WorkOS organization, typically for audit trails, debugging webhooks, or backfilling event data. For real-time event delivery, use webhooks instead.
+
+## Documentation
+
+- https://workos.com/docs/reference/events
+- https://workos.com/docs/reference/events/list
 
 ## Key Vocabulary
 
-- **Event** (`event_`) — a single logged action with timestamp, actor, and target metadata
-- **Event types** — namespaced strings like `authentication.email_verification_succeeded`, `dsync.user.created`, `connection.activated`
-- **`after` parameter** — pagination cursor for retrieving events chronologically
-- **`events` array** — top-level response field containing event objects
-- **`list_metadata`** — pagination metadata with `after` cursor for next page
-- **`occurred_at`** — ISO 8601 timestamp when the event occurred
+- **Event** `event_` — immutable log record of a WorkOS state change
+- `WORKOS_API_KEY` — authentication credential for API requests
+- `created_at` — ISO 8601 timestamp filter parameter
+- `limit` — pagination size parameter (max 100)
+- `after`, `before` — cursor-based pagination tokens
+- Event type patterns: `connection.activated`, `dsync.user.created`, `user.created`
+- `organization_id` — filter events by organization
+- `events` — array field in list response
 
 ## Implementation Guide
 
@@ -28,6 +35,4 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-directory-sync
-- workos-audit-logs
-- workos-sso
+- workos-api-webhooks — for real-time event delivery setup

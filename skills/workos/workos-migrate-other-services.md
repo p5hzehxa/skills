@@ -9,25 +9,28 @@ description: Migrate to WorkOS from other services.
 
 ## When to Use
 
-Use this skill when migrating user authentication from a custom-built identity system or a provider not covered by WorkOS's provider-specific guides. This covers scenarios where you control the user data store and export format, but need guidance on password handling, field mapping, and cutover strategy for generic migration scenarios.
-
-## Key Vocabulary
-
-- **User Management API** — the WorkOS API for bulk user creation and provisioning
-- **Environment `environment_`** — WorkOS tenant isolation boundary (prod, staging, dev)
-- **Organization `org_`** — the target entity for imported users
-- **Password migration strategies** — reset-on-first-login vs hash import vs JIT migration patterns
-- **User Import API** — batch endpoint for creating users with custom attributes
-- **`WORKOS_API_KEY`** — server-side credential for User Management API calls
-- **Identity linking** — mapping external user IDs to WorkOS user IDs during migration
-- **Staged rollout** — phased cutover approach (shadow mode → partial traffic → full cutover)
+Use this skill when migrating users from a custom authentication system or database that doesn't have a dedicated WorkOS migration guide. This covers any user data store (custom auth, internal systems, or unsupported third-party services) where you control the export format.
 
 ## Documentation
 
 - https://workos.com/docs/migrate/other-services
+
+## Key Vocabulary
+
+- **User Management API** — WorkOS service for creating and managing user accounts
+- **User `user_`** — WorkOS user entity with email, identity, and optional password
+- **Organization `org_`** — tenant container for users
+- **Email Verification** — `email_verified` boolean flag on user records
+- **Password Import** — WorkOS supports bcrypt, Firebase scrypt, and plaintext formats
+- **Migration Strategy** — phased cutover, parallel run, or bulk import approach
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-migrate-other-services.guide.md`
+
+## Related Skills
+
+- **workos-user-management** — for creating and managing users after migration
+- **workos-authkit-base** — for implementing authentication after migration completes
