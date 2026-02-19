@@ -1,13 +1,15 @@
 rules:
-  - id: dsync-webhooks-mandatory
-    description: "Directory Sync requires webhooks — polling is not supported"
+  - id: dsync-event-delivery
+    description: "Directory Sync supports both webhooks (recommended) and Events API polling"
     severity: error
     promoted: true
     must_contain:
       - pattern: "webhook"
-        context: "Must mention webhooks as the event delivery mechanism"
+        context: "Must mention webhooks as the primary event delivery mechanism"
+      - pattern: "events api|events.listEvents|polling|poll"
+        context: "Must acknowledge the Events API as a valid alternative to webhooks"
     must_not_contain:
-      - pattern: "poll(ing)? for.*(directory|sync|dsync).*event"
-        context: "Polling is not supported for Directory Sync events"
-      - pattern: "optional.*(webhook|event delivery)"
-        context: "Webhooks are mandatory, not optional"
+      - pattern: "polling is not supported|cannot poll|you cannot poll"
+        context: "Polling IS supported via the Events API — do not claim otherwise"
+      - pattern: "webhooks?.*(are|is) mandatory|webhooks?.*(are|is) required"
+        context: "Webhooks are recommended, not mandatory — the Events API is a valid alternative"

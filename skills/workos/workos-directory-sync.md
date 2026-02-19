@@ -60,9 +60,21 @@ yarn list --pattern @workos-inc/node 2>/dev/null
 
 If missing, install per detected package manager. SDK must exist before Step 3.
 
-## Step 3: Webhook Endpoint Setup (MANDATORY)
+## Step 3: Event Delivery Setup
 
-**CRITICAL:** Directory Sync requires webhooks for event delivery. Polling is not supported.
+### Decision Tree: Event Delivery Method
+
+```
+How will you consume Directory Sync events?
+  |
+  +-- Real-time push (recommended) --> Webhooks (Step 3a/3b)
+  |
+  +-- Poll on-demand / batch sync  --> Events API (see workos-events skill)
+  |
+  +-- Both (recommended for resilience) --> Webhooks + Events API for reconciliation
+```
+
+**Webhooks** are the recommended approach for real-time sync. The **Events API** (`workos.events.listEvents()`) supports polling as an alternative — useful for batch processing, data reconciliation, or recovering missed events.
 
 ### Decision Tree: Webhook Strategy
 
@@ -266,8 +278,8 @@ async function handleDirectoryActivated(event) {
     updated_at: new Date(),
   });
 
-  // Initial sync: expect dsync.user.created for ALL existing users
-  // Do NOT fetch users via API - wait for webhook events
+  // Initial sync: expect dsync.user.created for ALL existing users via webhooks
+  // Alternatively, use Events API to poll for missed events (see workos-events skill)
 }
 ```
 

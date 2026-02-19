@@ -132,15 +132,16 @@ Each skill has a marker embedding a SHA-256 hash of its source doc content:
 Per-skill `.rules.yml` files encode factual constraints:
 
 ```yaml
-# skills/workos-directory-sync/.rules.yml
+# skills/workos/workos-directory-sync.rules.yml
 rules:
-  - id: dsync-webhooks-mandatory
+  - id: dsync-event-delivery
     severity: error
     promoted: true
     must_contain:
       - pattern: "webhook"
+      - pattern: "events api|polling|poll"
     must_not_contain:
-      - pattern: "poll(ing)? for.*(directory|sync).*event"
+      - pattern: "polling is not supported|cannot poll"
 ```
 
 Rules are checked during the quality gate and injected into the refiner prompt so the LLM knows constraints upfront. Promoted rules with `severity: error` block skills from shipping.

@@ -24,7 +24,7 @@ function getAttributionBlock(): string {
 - ONLY make factual claims that are directly supported by the source documentation provided in the scaffold.
 - Do NOT infer, extrapolate, or assume capabilities not explicitly stated in the docs.
 - When stating that something is "required", "mandatory", "optional", or "not supported", ensure the source docs explicitly say so.
-- For non-obvious claims (e.g., "webhooks are mandatory", "polling is not supported"), include the relevant doc URL as a reference.
+- For non-obvious claims (e.g., "feature X is required", "Y is not supported"), include the relevant doc URL as a reference.
 - If the source docs are ambiguous about a capability, say "Check the documentation" and provide the URL — do NOT guess.
 - NEVER introduce SDK method names, API endpoints, or configuration options that are not in the source docs.
 
