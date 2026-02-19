@@ -9,235 +9,179 @@
 - https://workos.com/docs/reference/events
 - https://workos.com/docs/reference/events/list
 
-Check fetched docs for exact request/response schemas, behavioral requirements, and rate limits.
-
 ## Prerequisites
 
 - A WorkOS account with API keys (`WORKOS_API_KEY` starting with `sk_`)
-- WorkOS SDK installed (or curl for REST API calls)
-- Environment variables configured
+- WorkOS SDK installed in your project
+- Webhook endpoint configured if consuming events via webhooks
 
 ## Available Endpoints
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/events` | List events with pagination and filtering |
-| GET | `/events/:id` | Retrieve a specific event by ID |
+| GET | `/events` | List all events with filtering and pagination |
 
-## Authentication
+## Authentication Setup
 
-All requests require the `Authorization` header:
-
-```bash
-Authorization: Bearer sk_your_api_key_here
-```
-
-Set your API key as an environment variable:
+All Events API requests require Bearer token authentication:
 
 ```bash
-export WORKOS_API_KEY="sk_your_api_key_here"
+Authorization: Bearer <WORKOS_API_KEY>
 ```
 
-## Event Types and Structure
-
-WorkOS events follow the naming convention: `{domain}.{resource}.{action}`
-
-Common event domains:
-- `authentication` — AuthKit events (session created, password reset, etc.)
-- `directory_sync` — Directory events (user created, group updated, etc.)
-- `sso` — SSO connection events
-- `organization` — Organization lifecycle events
-- `connection` — Connection state changes
-
-Check fetched docs for the complete event type catalog and payload schemas.
+The API key must start with `sk_` prefix. Verify in WorkOS Dashboard under API Keys.
 
 ## Operation Decision Tree
 
-**When to list events:**
-- Building an audit log viewer
-- Syncing events to external systems
-- Debugging integration issues
-- Monitoring specific event types
+### When to use the Events API
 
-**When to fetch a specific event:**
-- Verifying webhook delivery (match webhook event ID to API event)
-- Retrieving full event context after receiving notification
-- Investigating a specific incident by event ID
+**List historical events** → `GET /events`
+- Use case: audit logs, compliance reporting, debugging
+- Supports filtering by event type, resource, and time range
+- Check fetched docs for available filter parameters
 
-## Listing Events
+**Real-time event processing** → Webhooks (see Related Skills)
+- Use case: triggering automated workflows
+- Events API is for historical queries, NOT real-time triggers
 
-### Basic Pattern
+## Event Type Naming Convention
 
-```bash
-curl "https://api.workos.com/events" \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
+WorkOS events follow the pattern: `{domain}.{resource}.{action}`
+
+Examples:
+- `directory.user.created`
+- `directory.group.updated`
+- `dsync.activated`
+
+Check fetched docs for complete event catalog with payload schemas.
+
+## Pagination Handling
+
+The Events API uses cursor-based pagination:
+
 ```
-
-### Filtering by Event Type
-
-To monitor specific events, filter by event type:
-
-```bash
-curl "https://api.workos.com/events?events[]=authentication.session_created" \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
+GET /events?limit=10&after=<cursor>
 ```
-
-Pass multiple event types by repeating the `events[]` parameter.
-
-### Filtering by Organization
-
-To scope events to a specific organization:
-
-```bash
-curl "https://api.workos.com/events?organization_id=org_123" \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-```
-
-### Pagination
-
-Events are paginated. Check fetched docs for the exact pagination mechanism (cursor-based or offset-based) and response structure.
 
 **Pattern:**
-1. Make initial request
-2. Check response for pagination metadata
-3. Use next page token/cursor from response for subsequent requests
-4. Continue until no more pages
+1. Initial request: `GET /events?limit=10`
+2. Response includes `list_metadata.after` cursor if more pages exist
+3. Next request: `GET /events?limit=10&after=<cursor_from_step_2>`
+4. Repeat until `list_metadata.after` is null
 
-## Retrieving a Specific Event
+Check fetched docs for exact cursor field names and default limits.
 
+## Filtering Events
+
+**By event type:**
 ```bash
-curl "https://api.workos.com/events/event_123" \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
+GET /events?events[]=directory.user.created&events[]=directory.user.updated
 ```
 
-Use this to:
-- Verify webhook event delivery
-- Get full event payload after receiving abbreviated notification
-- Investigate specific event IDs from logs
-
-## Error Handling
-
-### HTTP 401 Unauthorized
-
-**Cause:** Invalid or missing API key
-
-**Fix:**
+**By time range:**
 ```bash
-# Verify key format
-echo $WORKOS_API_KEY  # Should start with sk_
-
-# Check key in WorkOS Dashboard → API Keys
-# Ensure key is active and not deleted
+GET /events?range_start=2024-01-01T00:00:00Z&range_end=2024-01-31T23:59:59Z
 ```
 
-### HTTP 404 Not Found
-
-**Cause:** Event ID does not exist or belongs to different environment
-
-**Fix:**
-- Verify event ID format (should start with `event_`)
-- Check you're using correct API key (test vs production)
-- Event may have been deleted or aged out (check retention policy)
-
-### HTTP 429 Too Many Requests
-
-**Cause:** Rate limit exceeded
-
-**Fix:**
-- Implement exponential backoff retry logic
-- Check fetched docs for current rate limits
-- Consider caching frequently accessed events
-
-### HTTP 500 Internal Server Error
-
-**Cause:** WorkOS service issue
-
-**Fix:**
-- Retry with exponential backoff (start at 1s, max 60s)
-- Check WorkOS status page
-- If persists, contact WorkOS support with request ID from response headers
-
-## Verification Commands
-
-### Test API Key
-
+**By organization:**
 ```bash
-curl -I "https://api.workos.com/events?limit=1" \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
+GET /events?organization_id=org_01H5K8P...
 ```
 
-Success: HTTP 200 response
+Check fetched docs for complete filter parameter reference.
 
-### Verify Event Type Filtering
+## Error Code Mapping
 
+| Status Code | Cause | Fix |
+|-------------|-------|-----|
+| 401 | Missing or invalid API key | Verify `WORKOS_API_KEY` starts with `sk_` and has not been rotated |
+| 403 | API key lacks Events API permission | Check Dashboard → API Keys → Key Permissions |
+| 422 | Invalid query parameters | Validate filter syntax (e.g., date format, event type names) |
+| 429 | Rate limit exceeded | Implement exponential backoff with jitter (see Rate Limits) |
+
+Check fetched docs for additional status codes and error response schemas.
+
+## Rate Limits
+
+The Events API enforces rate limits per API key. 
+
+**Strategy:**
+- Track rate limit headers in responses (`X-RateLimit-Remaining`, `X-RateLimit-Reset`)
+- Implement exponential backoff: 1s, 2s, 4s, 8s delays
+- Add jitter to backoff to prevent thundering herd
+
+Check fetched docs for exact rate limit values.
+
+## Runnable Verification
+
+**Test API connectivity:**
 ```bash
-curl "https://api.workos.com/events?events[]=authentication.session_created&limit=5" \
-  -H "Authorization: Bearer $WORKOS_API_KEY" | jq '.data[].event'
+curl -X GET https://api.workos.com/events \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Content-Type: application/json"
 ```
 
-All returned events should match the filtered type.
+Expected: 200 response with `data` array (may be empty if no events exist).
 
-### Fetch Specific Event by ID
-
+**Test filtering:**
 ```bash
-# Get an event ID from list response
-EVENT_ID=$(curl "https://api.workos.com/events?limit=1" \
-  -H "Authorization: Bearer $WORKOS_API_KEY" | jq -r '.data[0].id')
-
-# Fetch that specific event
-curl "https://api.workos.com/events/$EVENT_ID" \
-  -H "Authorization: Bearer $WORKOS_API_KEY" | jq '.'
+curl -X GET "https://api.workos.com/events?limit=5&events[]=directory.user.created" \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Content-Type: application/json"
 ```
 
-Should return the full event object.
+Expected: 200 response with filtered events.
 
-## SDK Usage Pattern
-
-If using the WorkOS SDK:
-
-```python
-# Python example pattern
-from workos import WorkOSClient
-
-client = WorkOSClient(api_key=os.environ['WORKOS_API_KEY'])
-
-# List events
-events = client.events.list_events(
-    events=['authentication.session_created'],
-    limit=10
-)
-
-# Get specific event
-event = client.events.get_event('event_123')
+**SDK verification (pseudocode):**
+```
+client = WorkOS(api_key=WORKOS_API_KEY)
+events = client.events.list(limit=10)
+print(events.data)
 ```
 
-Check fetched docs for exact SDK method signatures for your language.
+Check fetched docs for SDK method signatures in your language.
 
 ## Common Integration Patterns
 
-### Building an Audit Log
+### Pattern 1: Audit Log Query
+```
+1. Fetch events for specific organization
+2. Filter by time range (last 30 days)
+3. Filter by event types (user.created, user.updated, user.deleted)
+4. Paginate through all results
+5. Store in audit database
+```
 
-1. List events with appropriate filters (organization_id, event types)
-2. Implement pagination to retrieve all relevant events
-3. Store events in your database with indexed timestamps
-4. Display in UI with filtering and search
+### Pattern 2: Compliance Reporting
+```
+1. Schedule daily job
+2. Fetch previous day's events (range_start/range_end)
+3. Aggregate by event type
+4. Generate compliance report
+```
 
-### Event-Driven Automation
+### Pattern 3: Event Replay for Debugging
+```
+1. Identify timestamp of issue
+2. Fetch events around that time (±1 hour)
+3. Filter by affected resource (organization_id, connection_id, etc.)
+4. Reconstruct event sequence
+```
 
-1. Use webhooks (separate skill) for real-time notifications
-2. Fall back to polling `/events` endpoint if webhook delivery fails
-3. Store last processed event ID to avoid duplicates
-4. Implement idempotent event handlers
+## Traps and Gotchas
 
-### Debugging Integration Issues
+1. **Events API is NOT for real-time processing** — use webhooks for automation. Events API has built-in latency (up to 60 seconds) and is designed for historical queries.
 
-1. List recent events filtered by affected resource (organization, user)
-2. Compare event payloads to expected values
-3. Check event timestamps against application logs
-4. Verify event sequence (created → updated → deleted)
+2. **Event retention** — events are retained for a limited period. Check fetched docs for retention policy. Do not rely on Events API for long-term storage.
+
+3. **Cursor expiration** — pagination cursors may expire after a period of inactivity. If pagination fails with 422, restart from the beginning.
+
+4. **Event ordering** — events are ordered by creation time, but near-simultaneous events may appear out of order. Do NOT assume strict ordering for events within the same second.
+
+5. **Filter array syntax** — event type filters use `events[]` (plural with brackets), not `event` or `events`. Verify exact syntax in fetched docs.
 
 ## Related Skills
 
-- **workos-webhooks** — Real-time event delivery via webhooks (recommended over polling)
-- **workos-organizations** — Organization management (events reference org_id)
-- **workos-api-directory-sync** — Directory events are part of Events API
+- **workos-webhooks** — real-time event consumption (recommended for automation)
+- **workos-directory-sync** — generates directory.* events
+- **workos-organizations** — generates organization.* events

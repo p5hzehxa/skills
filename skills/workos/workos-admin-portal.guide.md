@@ -1,407 +1,298 @@
 <!-- refined:sha256:479288befe44 -->
 
-# WorkOS Admin Portal Integration
+# WorkOS Admin Portal
 
 ## Step 1: Fetch Documentation (BLOCKING)
 
 **STOP. Do not proceed until complete.**
 
 WebFetch:
-- https://workos.com/docs/admin-portal/index
-- https://workos.com/docs/admin-portal/example-apps
-- https://workos.com/docs/admin-portal/custom-branding
+- `https://workos.com/docs/admin-portal/index`
+- `https://workos.com/docs/admin-portal/example-apps`
+- `https://workos.com/docs/admin-portal/custom-branding`
 
-The docs are the source of truth. If this skill conflicts with docs, follow docs.
+These docs are the source of truth. If this skill conflicts with docs, follow docs.
 
-## Step 2: Integration Strategy (Decision Tree)
+## Step 2: Pre-Flight Validation
 
-```
-How will IT admins access Admin Portal?
-  |
-  +-- Dashboard links (email/Slack)
-  |     |
-  |     +-- Skip SDK setup
-  |     +-- Go to Step 3 (Dashboard workflow)
-  |
-  +-- In-app integration (seamless UX)
-        |
-        +-- Requires SDK
-        +-- Go to Step 4 (SDK workflow)
-```
+### WorkOS Credentials
 
-**Dashboard workflow:** Generate shareable links from WorkOS dashboard. No SDK required. IT admin clicks link from email/Slack. Use for pilot customers or low-touch setups.
+Check environment variables or secrets store:
 
-**SDK workflow:** Generate portal links programmatically. Redirect user from your app. Use for product-led growth or white-label UX.
+- `WORKOS_API_KEY` — starts with `sk_`
+- `WORKOS_CLIENT_ID` — starts with `client_`
 
-## Step 3: Dashboard Workflow (No SDK Required)
-
-### 3A: Create Organization
-
-WorkOS Dashboard → Organizations → Create new
-
-Provide:
-- Name (customer company name)
-- Domains (optional, for domain verification)
-
-**Verify:** Organization appears in dashboard list. Copy `org_` prefixed ID.
-
-### 3B: Generate Setup Link
-
-1. Click organization → "Invite admin"
-2. Select features: SSO, Directory Sync, Domain Verification, Log Streams
-3. Choose delivery:
-   - Email IT admin directly (WorkOS sends email), OR
-   - Copy link for manual sharing
-
-**Link expiration:** 5 minutes after creation. Do not store for later use.
-
-### 3C: Share Link
-
-If copied manually, include in message:
-- What the link does ("Configure SSO for your team")
-- How long it's valid ("5 minutes")
-- Who to contact for help
-
-**STOP HERE if using dashboard workflow.** Skip to Step 7 (Configure Redirects).
-
-## Step 4: Pre-Flight Validation (SDK Workflow)
-
-### Environment Variables
-
-Check for:
-- `WORKOS_API_KEY` - starts with `sk_`
-- `WORKOS_CLIENT_ID` - starts with `client_`
-
-**If missing:** Go to WorkOS Dashboard → API Keys → Copy values
+**Verify:** Both keys exist and are non-empty before continuing.
 
 ### SDK Installation
 
-Detect package manager (npm, yarn, pnpm, bun). WebFetch SDK docs for install command.
+Detect SDK package in dependency manifest (`package.json`, `requirements.txt`, etc.).
 
-**Verify:** SDK package appears in `node_modules` or equivalent before continuing.
+**Verify:** SDK package exists before importing.
 
-## Step 5: Organization Management (SDK Workflow)
-
-### 5A: When to Create Organizations
+## Step 3: Integration Pattern Decision (Decision Tree)
 
 ```
-Customer signup flow:
+Integration approach?
   |
-  +-- Free tier user?
-  |     |
-  |     +-- No organization needed yet
+  +-- Dashboard-only (no code)
+  |   |
+  |   +-- Use Case: One-off onboarding, manual invites
+  |   +-- Steps: Dashboard → Organizations → "Invite admin" button
+  |   +-- Result: WorkOS sends email with setup link
+  |   +-- SKIP Step 4-7, END here
   |
-  +-- Enterprise tier / SSO required?
-        |
-        +-- Create organization NOW
-        +-- Store org_id in customer record
+  +-- Application-integrated (SDK/API)
+      |
+      +-- Use Case: Programmatic access, embedded in app settings
+      +-- Steps: Continue to Step 4
+      +-- Result: Generate portal links on-demand in your code
 ```
 
-**Pattern:** One organization per customer company, NOT per user.
+**Critical:** Portal links expire 5 minutes after creation. Never email them. Generate immediately before redirect.
 
-### 5B: Create Organization
+## Step 4: Dashboard Configuration (REQUIRED for SDK integration)
 
-Use SDK method for creating organizations. Check fetched docs for exact signature.
+Navigate to WorkOS Dashboard → Admin Portal → Redirect Links tab.
 
-Required fields:
-- `name` - Customer company name
-- `domains` (optional) - Array of verified domains
+### Default Return URI
 
-**Verify:** API returns `org_` prefixed ID. Store this ID in your database alongside customer record.
+Set where users land when clicking "Return to [App]" button in portal.
 
-### 5C: Organization-Customer Mapping
+**Format:** `https://yourdomain.com/settings` (HTTPS required)
 
-```sql
--- Example schema pattern (adjust to your DB)
-ALTER TABLE customers ADD COLUMN workos_organization_id VARCHAR(255);
-CREATE INDEX idx_customers_org_id ON customers(workos_organization_id);
-```
+**CRITICAL:** If return URI is not configured, portal links will fail. Set this BEFORE generating any links.
 
-**Critical:** You MUST maintain this reference. Portal links require organization ID.
+### Success URIs (Optional)
 
-## Step 6: Portal Link Generation (SDK Workflow)
+Configure where users land after completing specific setup tasks:
 
-### 6A: Intent Selection (Decision Tree)
+- SSO success → e.g., `https://yourdomain.com/settings/sso/complete`
+- Directory Sync success → e.g., `https://yourdomain.com/settings/dsync/complete`
+- Log Streams success → e.g., `https://yourdomain.com/settings/logs/complete`
 
-```
-What does IT admin need to configure?
-  |
-  +-- SSO setup             --> intent: "sso"
-  |
-  +-- Directory Sync        --> intent: "dsync"
-  |
-  +-- Domain verification   --> intent: "domain_verification"
-  |
-  +-- Audit log streaming   --> intent: "log_streams"
-  |
-  +-- Certificate renewal   --> intent: "certificate_renewal"
-  |
-  +-- Multiple features     --> intent: "sso" (most common starting point)
-```
+**Pattern:** Success URIs override default return URI for successful completions only.
 
-**Note:** One intent per portal link. For multi-step setup, generate multiple links or start with "sso" (includes domain verification).
+## Step 5: Organization Management
 
-### 6B: Generate Portal Link
-
-Use SDK method for generating portal links. Check fetched docs for exact signature.
-
-Required parameters:
-- `organization` - The `org_` prefixed ID
-- `intent` - One of the intents from 6A
-
-Optional parameters:
-- `return_url` - Where user goes after clicking "Back to [App]" button
-
-**Link expiration:** 5 minutes. Generate immediately before redirect.
-
-**Critical:** This endpoint MUST be behind auth. Only IT admins should access it.
-
-### 6C: Redirect Pattern (Pseudocode)
+### Organization-Connection Mapping (CRITICAL)
 
 ```
-GET /settings/sso/configure
-  |
-  +-- Auth check: Is user an admin for this customer?
-  |     |
-  |     +-- No --> 403 Forbidden
-  |
-  +-- Lookup: Get workos_organization_id for customer
-  |
-  +-- Generate portal link:
-  |     - organization: workos_organization_id
-  |     - intent: "sso"
-  |     - return_url: "https://yourapp.com/settings/sso/complete"
-  |
-  +-- Redirect: 302 to portal link
+Constraint: 1 Organization = 1 Connection
+
+Your customer "Acme Corp"
+  ↓
+WorkOS Organization (org_123)
+  ↓
+ONE of: SSO Connection OR Directory OR Log Stream
+
+Multiple customers = Multiple organizations
 ```
 
-**Do NOT:**
-- Email portal links (they expire in 5 minutes)
-- Store portal links for reuse
-- Generate links without auth checks
+**Trap:** Do NOT create multiple organizations for the same customer. One org per customer.
 
-## Step 7: Configure Redirect URIs (REQUIRED)
+### When to Create Organizations
 
-WorkOS Dashboard → Redirects → Admin Portal Redirect Links
-
-### 7A: Default Return URI
-
-This is where "Back to [App]" button goes if no `return_url` is specified.
-
-Set to your app's main settings page: `https://yourapp.com/settings`
-
-**Must use HTTPS.** HTTP not allowed in production.
-
-### 7B: Success URIs (Optional but Recommended)
-
-Configure different redirect destinations after successful setup:
-
-- **SSO Success URI:** Where to redirect after SSO connection created
-- **Directory Sync Success URI:** After directory configured
-- **Log Streams Success URI:** After log stream configured
-
-Example pattern:
 ```
-SSO Success:    https://yourapp.com/settings/sso/success
-DSync Success:  https://yourapp.com/settings/directory/success
+Trigger                     → Action
+─────────────────────────── → ──────────────────────
+New enterprise customer     → Create organization
+Existing customer upgrades  → Create organization (if not exists)
+Free tier user             → DO NOT create (no Admin Portal access)
 ```
 
-**Why optional?** If not set, uses default return URI. Set these to show feature-specific success messages.
+Check fetched docs for SDK method to create organizations — include customer name and domain(s).
 
-### 7C: Verification
+**Store the organization ID** in your database. You need it to generate portal links.
 
-Visit redirect URIs in browser:
-- Should NOT 404
-- Should NOT require re-authentication (user already authed)
-- Should show appropriate "setup complete" messaging
+## Step 6: Generate Portal Links
 
-## Step 8: Webhook Setup (Optional but Recommended)
+### Intent Selection (Decision Tree)
 
-Admin Portal triggers events when IT admins complete setup. To react in real-time:
+```
+What is user configuring?
+  |
+  +-- SSO                    → intent: "sso"
+  +-- Directory Sync         → intent: "dsync"
+  +-- Audit Logs             → intent: "audit_logs"
+  +-- Log Streams            → intent: "log_streams"
+  +-- Domain Verification    → intent: "domain_verification"
+  +-- Certificate Renewal    → intent: "certificate_renewal"
+```
 
-1. Set up webhook endpoint in your app
-2. Configure webhook URL in WorkOS Dashboard → Webhooks
-3. Handle events:
-   - `connection.activated` - SSO connection ready
-   - `directory.activated` - Directory Sync ready
-   - `domain.verified` - Domain verification complete
+Use SDK method for generating portal links with:
 
-**Pattern:** Use events to update customer feature flags, send confirmation emails, trigger onboarding flows.
+- `organization` — the org ID from Step 5
+- `intent` — from decision tree above
+- `return_url` (optional) — overrides dashboard default for this session
 
-See related skill: `workos-webhooks` for webhook implementation details.
+**Critical Security Pattern:**
+
+1. User requests access to portal (e.g., clicks "Configure SSO" in your app)
+2. Verify user is authorized (IT admin for that customer)
+3. Generate portal link with 5-minute expiry
+4. **IMMEDIATELY** redirect user to link URL
+5. **NEVER** store link, email it, or delay redirect
+
+**Trap:** If you store the link or delay redirect, it will expire. Generate on-demand only.
+
+## Step 7: Return Flow Handling
+
+### Success vs. Cancel
+
+```
+User action in portal       → Redirect destination
+─────────────────────────── → ─────────────────────────
+Completes SSO setup         → Success URI (if set)
+                              OR Default Return URI
+Clicks "Return to [App]"    → Default Return URI
+                              (without completing setup)
+```
+
+**Pattern:** Success URIs are per-feature. Set them if you need to show feature-specific confirmation UI.
+
+Check fetched docs for webhook events if you need server-side notification of setup completion.
 
 ## Verification Checklist (ALL MUST PASS)
 
-### For Dashboard Workflow:
+Run these checks to confirm integration:
 
 ```bash
-# 1. Organization exists
-curl -X GET https://api.workos.com/organizations/org_XXXXX \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  | grep '"id"'
+# 1. Credentials exist
+env | grep WORKOS_API_KEY | grep -q "^WORKOS_API_KEY=sk_" && echo "PASS" || echo "FAIL: Invalid API key"
 
-# 2. Dashboard redirect URIs configured (manual check)
-# Visit: https://dashboard.workos.com/redirects
-# Verify: Default return URI is set and uses HTTPS
-```
+# 2. Dashboard redirect URI configured
+# Manual check: Visit https://dashboard.workos.com/redirects
+# Verify "Default Return URI" is set and uses HTTPS
 
-### For SDK Workflow:
+# 3. Test organization creation (requires working SDK)
+# Run SDK test command from fetched docs
 
-```bash
-# 1. SDK package installed
-npm list | grep workos || echo "SDK not found"
+# 4. Test portal link generation
+# Generate link with organization ID from step 3
+# Verify URL starts with https://workos.com/portal/
 
-# 2. Environment variables set
-env | grep WORKOS_API_KEY || echo "Missing API key"
-env | grep WORKOS_CLIENT_ID || echo "Missing client ID"
-
-# 3. Organization creation works (replace with your test script)
-node -e "const WorkOS = require('@workos-inc/node').WorkOS; \
-  const workos = new WorkOS(process.env.WORKOS_API_KEY); \
-  workos.organizations.createOrganization({name: 'Test Org'}) \
-    .then(() => console.log('✓ Org creation works')) \
-    .catch(e => console.error('✗ Org creation failed:', e.message))"
-
-# 4. Portal link generation works (replace org_id)
-node -e "const WorkOS = require('@workos-inc/node').WorkOS; \
-  const workos = new WorkOS(process.env.WORKOS_API_KEY); \
-  workos.portal.generateLink({organization: 'org_XXXXX', intent: 'sso'}) \
-    .then(link => console.log('✓ Portal link:', link)) \
-    .catch(e => console.error('✗ Link generation failed:', e.message))"
-
-# 5. Redirect endpoint is auth-protected (should return 401/403 without auth)
-curl -I https://yourapp.com/settings/sso/configure | grep -E "401|403"
+# 5. Test link expiry
+# Generate link, wait 6 minutes, try to access
+# Should show "Link expired" error
 ```
 
 ## Error Recovery
 
-### "Invalid API key" when generating portal links
+### "Portal link generation failed: organization not found"
 
-**Root cause:** API key incorrect, expired, or environment variable not loaded.
+**Root cause:** Organization ID doesn't exist or was deleted.
 
-**Fix:**
-1. Verify key starts with `sk_` (NOT `client_`)
-2. Check key in WorkOS Dashboard → API Keys matches your env var
-3. Restart app to reload environment variables
-4. Test key directly:
-   ```bash
-   curl -H "Authorization: Bearer $WORKOS_API_KEY" \
-     https://api.workos.com/organizations | jq
-   ```
+Fix:
+1. Query your database for stored organization ID
+2. Verify ID exists in WorkOS dashboard (Organizations tab)
+3. If missing, re-create organization and update database reference
 
-### "Organization not found" error
+### "Redirect URI not configured"
 
-**Root cause:** `org_` ID typo, or organization was deleted, or using test ID in production.
+**Root cause:** Dashboard default return URI not set.
 
-**Fix:**
-1. Verify organization exists in dashboard
-2. Check ID matches exactly (case-sensitive)
-3. Ensure using correct environment (test vs production keys)
-4. Confirm customer-organization mapping in your database
+Fix:
+1. Go to Dashboard → Admin Portal → Redirect Links
+2. Set "Default Return URI" to HTTPS URL in your app
+3. Save and retry portal link generation
 
-### Portal link expired
+### "Invalid intent"
 
-**Root cause:** Link generated more than 5 minutes ago.
+**Root cause:** Typo in intent string or unsupported intent.
 
-**Fix:**
-1. Generate link immediately before redirect (NOT during page load)
-2. Pattern:
-   ```
-   User clicks "Configure SSO" button
-     → Generate link (server-side)
-     → Immediate 302 redirect
-   ```
-3. Do NOT:
-   - Generate link on page load and store in hidden form field
-   - Email links to users
-   - Cache links for reuse
+Valid intents from docs: `sso`, `dsync`, `audit_logs`, `log_streams`, `domain_verification`, `certificate_renewal`
 
-### Redirect URI not allowed
+Fix:
+1. Check intent string matches exactly (case-sensitive)
+2. Consult fetched docs for newly added intents
 
-**Root cause:** Return URL not configured in WorkOS Dashboard → Redirects.
+### "SDK import failed"
 
-**Fix:**
-1. Add the exact URL to allowed list in dashboard
-2. Ensure using HTTPS in production
-3. Match scheme/host/path exactly (trailing slash matters)
-4. Example: `https://app.example.com/settings` ≠ `https://app.example.com/settings/`
+**Root cause:** SDK not installed or wrong package name.
 
-### User stuck in Admin Portal (no "Back" button)
+Fix:
+1. Check fetched docs for exact SDK package name
+2. Install SDK using package manager
+3. Verify `node_modules/` or equivalent contains SDK package
 
-**Root cause:** No return URL configured (neither default nor per-link).
+### "User sees expired link"
 
-**Fix:**
-1. Set default return URI in dashboard: WorkOS Dashboard → Redirects
-2. OR provide `return_url` parameter when generating portal link
-3. Verify redirect URI actually exists in your app (not 404)
+**Root cause:** Link generated too early or user delayed.
 
-### IT admin sees "No organization" error
+Fix:
+1. Move link generation to immediately before redirect
+2. Never pre-generate links for later use
+3. If user reports expired link, generate new one on their next attempt
 
-**Root cause:** Portal link generated with invalid or deleted organization ID.
+### "User stuck in portal after completion"
 
-**Fix:**
-1. Check organization exists before generating link:
-   ```
-   GET /organizations/{org_id} → returns 200 = org exists
-   ```
-2. Handle deleted organizations gracefully in your app
-3. Show error message: "Contact support to re-enable SSO setup"
+**Root cause:** Return URI misconfigured or success URI not working.
 
-### Connection not appearing in app after setup
+Fix:
+1. Check Dashboard → Redirect Links for valid HTTPS URLs
+2. Verify URLs resolve and don't 404
+3. Test success URI by completing setup flow manually
 
-**Root cause:** Not listening for `connection.activated` webhook, or webhook endpoint failing.
+### "Multiple connections for same organization"
 
-**Fix:**
-1. Set up webhook endpoint to receive WorkOS events
-2. Test webhook delivery: WorkOS Dashboard → Webhooks → Send test event
-3. Return 200 status from webhook endpoint
-4. Parse event payload for `connection.id` and store in your database
-5. Fallback: Poll WorkOS API for connections if webhook delivery is unreliable
+**Root cause:** Violating 1-org-1-connection constraint.
 
-## Advanced Patterns
+Fix:
+1. Check WorkOS dashboard for duplicate connections under organization
+2. Delete extra connections (keep most recent)
+3. Review application logic to prevent creating multiple intents per org
 
-### Multi-Organization Users
+## Integration Patterns
 
-If a single user belongs to multiple customer organizations (e.g., agencies, consultants):
+### Embedded Settings Page Pattern
 
 ```
-User auth → Select organization context
-  |
-  +-- For each organization:
-        |
-        +-- Generate separate portal link with that org's ID
-        +-- User can only manage SSO for currently-selected org
+Your app settings page (/settings)
+  ↓
+"Configure SSO" button
+  ↓
+Backend endpoint (auth-guarded)
+  1. Verify user is IT admin
+  2. Lookup organization ID for user's company
+  3. Generate portal link with intent="sso"
+  4. Return redirect response
+  ↓
+User lands in WorkOS Admin Portal
+  ↓
+After setup, returns to return_url
 ```
 
-**Do NOT:** Mix organization IDs in a single portal link. One link = one organization.
-
-### White-Label Return URL
-
-To customize "Back to [App]" button text and destination per customer:
+### Multi-Feature Settings Pattern
 
 ```
-Generate portal link with:
-  return_url: "https://customer-subdomain.yourapp.com/settings"
+Settings page with multiple sections:
+  - SSO Configuration button → intent="sso"
+  - Directory Sync button    → intent="dsync"
+  - Audit Logs button        → intent="audit_logs"
 
-WorkOS will show button as "Back to Customer Name"
+Each button hits same endpoint with different intent parameter.
 ```
 
-**Pattern:** Use customer's branded subdomain in return URL for consistent UX.
+### First-Time Onboarding Pattern
 
-### Certificate Renewal Flow
+```
+User signs contract for Enterprise plan
+  ↓
+Application provisions organization
+  ↓
+Welcome email with CTA: "Complete Setup"
+  ↓
+CTA links to authenticated route in your app
+  ↓
+Route generates portal link with intent="sso"
+  ↓
+Immediate redirect (not emailed link)
+```
 
-When SAML certificates expire, WorkOS sends `dsync.certificate_expiring_soon` event. To let IT admins renew:
-
-1. Detect event in webhook handler
-2. Email IT admin with link to: `https://yourapp.com/settings/sso/renew-cert`
-3. That endpoint generates portal link with `intent: "certificate_renewal"`
-4. Redirect immediately
-
-**Why not email portal link directly?** Links expire in 5 minutes. Email delivery is not instant.
+**Trap:** Do not email portal links directly. Email a CTA that links to your app, which then generates and redirects.
 
 ## Related Skills
 
-- **workos-webhooks**: Handle Admin Portal events (`connection.activated`, etc.)
-- **workos-sso-base**: Use SSO connections created via Admin Portal
-- **workos-directory-sync**: Use Directory Sync connections from Admin Portal
-- **workos-domain-verification**: Domain verification flow in Admin Portal
+- workos-authkit-nextjs — For end-user authentication after SSO is configured
+- workos-authkit-react — For client-side authentication UI

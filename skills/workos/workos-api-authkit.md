@@ -9,61 +9,34 @@ description: WorkOS AuthKit API endpoints — users, sessions, authentication, M
 
 ## When to Use
 
-Use this API when you need direct programmatic control over authentication flows without using pre-built UI components. Choose this over AuthKit SDK integrations when building custom authentication experiences, CLIs, mobile apps, or server-to-server integrations. For standard web authentication with pre-built UI, use an AuthKit SDK integration skill instead.
+Use the AuthKit API when building custom authentication flows that require direct API control beyond the hosted UI (e.g., headless authentication, CLI tools, or native mobile apps). This API provides endpoints for user management, session handling, MFA enrollment, and token operations. For standard web applications, prefer the AuthKit SDKs (`workos-authkit-react`, `workos-authkit-nextjs`) which wrap these APIs.
 
-## Key Concepts
+## Key Vocabulary
 
-**Authentication Flow Components**
-- **Authorization URL** — OAuth-style redirect URL that initiates authentication (`/authentication/get-authorization-url`)
-- **Code exchange** — trading authorization code for session tokens at `/authentication/code`
-- **PKCE** — Proof Key for Code Exchange, required for public clients (mobile/CLI)
-- **Redirect URI** — callback URL registered in WorkOS dashboard, must match exactly
+- User `user_` — identity record with email, authentication methods
+- Session `session_` — authenticated user session with access/refresh tokens
+- Organization Membership `om_` — links users to organizations with roles
+- Invitation `invitation_` — pending organization membership invitation
+- Magic Auth `magic_auth_` — passwordless email link authentication
+- Email Verification `email_verification_` — email ownership confirmation token
+- Password Reset `password_reset_` — password change request token
+- Authentication Factor `auth_factor_` — enrolled MFA method (TOTP, SMS)
+- Authentication Challenge `auth_challenge_` — MFA verification attempt
+- API Key `sk_` (secret), `pk_` (publishable) — client authentication credentials
 
-**Session Management**
-- **Access token** — short-lived JWT for API authorization (typically 5-15 min)
-- **Refresh token** — long-lived token for obtaining new access tokens
-- **Sealed session** — encrypted session data format for stateless storage
-- **Session cookie** — HTTP-only cookie containing sealed session data
+## Documentation
 
-**User Identity**
-- **User ID** — prefixed with `user_`, primary identifier
-- **Email verification** — separate flow at `/email-verification` endpoints
-- **Organization membership** — user-org relationship with role
-- **External ID** — your system's user identifier, retrievable via `/user/get-by-external-id`
-
-**Multi-Factor Authentication**
-- **Authentication factor** — enrolled MFA method (TOTP, SMS)
-- **Authentication challenge** — MFA verification step during sign-in
-- **Enroll auth factor** — add new MFA method at `/mfa/enroll-auth-factor`
-
-**Passwordless Authentication**
-- **Magic Auth** — email-based authentication at `/magic-auth/create`
-- **CLI Auth** — device flow for CLI tools: get device code at `/cli-auth/device-authorization`, poll at `/cli-auth/device-code`
-
-**Invitations and Access Control**
-- **Invitation token** — unique token for user signup/org access
-- **Organization selection** — when user belongs to multiple orgs
-- **SSO required** — enforced SSO policy blocks password auth
-
-**API Keys** (for programmatic access)
-- **Create for organization** — generate API keys scoped to org at `/api-keys/create-for-organization`
-- **Validate** — verify API key and retrieve metadata at `/api-keys/validate`
-
-**Session Helpers** (SDK utilities)
-- **authenticate** — validate and decode session tokens
-- **load sealed session** — decrypt sealed session data
-- **refresh** — obtain new access token using refresh token
-
-**Error Handling Patterns**
-- Check error codes at `/authentication/get-authorization-url/error-codes` and `/cli-auth/error-codes`
-- Handle specific error types: `email_verification_required`, `mfa_challenge`, `sso_required`, `organization_selection`
-- Return 401 for invalid tokens, 403 for authorization failures
-
-**Common Decision Points**
-- Use Magic Auth for passwordless flows, password endpoints for traditional auth
-- Use CLI Auth device flow for terminal applications, standard OAuth for web
-- Implement PKCE for mobile/CLI clients, regular code flow for confidential server apps
-- Use organization membership endpoints to manage user-org relationships and roles
+- https://workos.com/docs/reference/authkit
+- https://workos.com/docs/reference/authkit/authentication
+- https://workos.com/docs/reference/authkit/user
+- https://workos.com/docs/reference/authkit/session
+- https://workos.com/docs/reference/authkit/mfa
+- https://workos.com/docs/reference/authkit/organization-membership
+- https://workos.com/docs/reference/authkit/invitation
+- https://workos.com/docs/reference/authkit/magic-auth
+- https://workos.com/docs/reference/authkit/password-reset
+- https://workos.com/docs/reference/authkit/email-verification
+- https://workos.com/docs/reference/authkit/cli-auth
 
 ## Implementation Guide
 
@@ -73,7 +46,6 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-authkit-react
-- workos-authkit-nextjs
-- workos-authkit-vanilla-js
-- workos-authkit-base
+- `workos-authkit-react` — React SDK wrapping these APIs
+- `workos-authkit-nextjs` — Next.js SDK with server-side session handling
+- `workos-authkit-vanilla-js` — Vanilla JS SDK for browser-based flows

@@ -15,214 +15,186 @@
 - https://workos.com/docs/reference/directory-sync/directory-user/get
 - https://workos.com/docs/reference/directory-sync/directory-user/list
 
-_2 additional doc pages available at https://workos.com/docs_
+The docs above contain request schemas, response formats, query parameters, and error codes. Fetch them first.
 
-## Core Concepts
+## Authentication Setup
 
-Directory Sync syncs identity provider data (users, groups) to your app. Key concepts:
+All Directory Sync API requests require a WorkOS API key in the Authorization header:
 
-- **Directory** (`directory_*`) — connection to an identity provider (Okta, Azure AD, Google Workspace)
-- **Directory User** (`directory_user_*`) — synced user record with email, name, state (active/inactive)
-- **Directory Group** (`directory_group_*`) — synced group with members
-- **Organization** (`org_*`) — your customer; directories belong to organizations
-
-## Authentication
-
-Set API key in Authorization header:
-
-```bash
-Authorization: Bearer sk_live_1234567890
+```
+Authorization: Bearer sk_your_api_key_here
 ```
 
-Use `WORKOS_API_KEY` environment variable (starts with `sk_test_` or `sk_live_`).
+Retrieve your API key from the WorkOS Dashboard under API Keys. Keys starting with `sk_test_` are for testing, `sk_live_` for production.
 
 ## Endpoint Catalog
 
-### Directories
+Directory Sync provides these REST endpoints:
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/directories` | List all directories |
-| GET | `/directories/{id}` | Get single directory |
-| DELETE | `/directories/{id}` | Delete directory |
+| GET | `/directories` | List all directories for your organization |
+| GET | `/directories/{directory_id}` | Get a single directory by ID |
+| DELETE | `/directories/{directory_id}` | Delete a directory |
+| GET | `/directory_users` | List users from one or more directories |
+| GET | `/directory_users/{directory_user_id}` | Get a single directory user by ID |
+| GET | `/directory_groups` | List groups from one or more directories |
+| GET | `/directory_groups/{directory_group_id}` | Get a single directory group by ID |
 
-### Directory Users
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/directory_users` | List users across directories |
-| GET | `/directory_users/{id}` | Get single user |
-
-### Directory Groups
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/directory_groups` | List groups across directories |
-| GET | `/directory_groups/{id}` | Get single group |
+All IDs follow these prefixes:
+- Directories: `directory_`
+- Users: `directory_user_`
+- Groups: `directory_group_`
 
 ## Operation Decision Tree
 
-**Task: Sync user data from identity provider**
+**To read user/group data:**
+1. If you know the exact user/group ID → use GET `/directory_users/{id}` or GET `/directory_groups/{id}`
+2. If you need to search or list users/groups → use GET `/directory_users` or GET `/directory_groups` with query params
+3. If you need data from a specific directory → add `?directory={directory_id}` to list endpoints
 
-1. List users for a directory → `GET /directory_users?directory={directory_id}`
-2. Get specific user details → `GET /directory_users/{user_id}`
-3. Check user state → read `state` field (active/inactive/suspended)
+**To find which directory to query:**
+1. If you have an organization ID → use GET `/directories?organization={org_id}`
+2. If you need all directories → use GET `/directories` without filters
+3. Directory IDs are stable — cache them per organization to reduce API calls
 
-**Task: Sync group memberships**
+**Common patterns:**
+- Fetch directory ID once per org, then query users/groups by `directory` param
+- Use `limit` and pagination for large result sets (see Pagination Handling below)
+- Poll directory endpoints periodically OR use webhooks for real-time sync (see Related Skills)
 
-1. List groups for a directory → `GET /directory_groups?directory={directory_id}`
-2. Get group with members → `GET /directory_groups/{group_id}` (members included in response)
+## Pagination Handling
 
-**Task: Find which directory a user belongs to**
+List endpoints (`/directory_users`, `/directory_groups`, `/directories`) support cursor-based pagination:
 
-1. List users with filter → `GET /directory_users?user={email_or_id}`
-2. Read `directory_id` from response
+1. First request: GET `/directory_users?limit=100`
+2. Response includes `list_metadata.after` if more results exist
+3. Next request: GET `/directory_users?limit=100&after={cursor_value}`
+4. Repeat until `list_metadata.after` is null
 
-**Task: Handle real-time sync events**
+Pseudocode pattern:
+```
+cursor = null
+all_users = []
 
-→ Use webhooks instead (see workos-webhooks skill). API endpoints are for polling/bulk reads, not real-time updates.
+loop:
+  response = fetch("/directory_users?limit=100" + (cursor ? "&after=" + cursor : ""))
+  all_users.append(response.data)
+  cursor = response.list_metadata.after
+  if cursor is null: break
 
-## Pagination Pattern
-
-All list endpoints support cursor pagination:
-
-```bash
-# First page
-GET /directory_users?directory=directory_123&limit=100
-
-# Response includes `list_metadata.after` cursor
-# Next page
-GET /directory_users?directory=directory_123&limit=100&after=cursor_xyz
+return all_users
 ```
 
-Continue until `list_metadata.after` is null. Default limit is 10, max is 100.
-
-## Common Filtering Patterns
-
-### List users for a specific directory
-
-```bash
-GET /directory_users?directory=directory_01ABCD
-```
-
-### List groups for an organization
-
-```bash
-GET /directory_groups?organization=org_01EFGH
-```
-
-### Get user by email
-
-```bash
-GET /directory_users?user=alice@example.com
-```
-
-Check fetched docs for complete list of filter parameters.
+Check fetched docs for `list_metadata` schema and default limit values.
 
 ## Error Code Mapping
 
+Directory Sync API returns standard HTTP status codes. Common errors:
+
 | Status | Cause | Fix |
 |--------|-------|-----|
-| 401 | Invalid API key | Verify `WORKOS_API_KEY` starts with `sk_` and is active in dashboard |
-| 404 | Resource not found | Check ID format (`directory_*`, `directory_user_*`, `directory_group_*`) and that resource exists |
-| 422 | Invalid filter parameter | Check fetched docs for allowed filters on the endpoint |
-| 429 | Rate limit exceeded | Implement exponential backoff (start with 1s, double on each retry, max 32s) |
+| 401 Unauthorized | Missing or invalid API key | Verify `Authorization: Bearer sk_...` header is present and key is valid |
+| 404 Not Found | Directory/user/group ID doesn't exist | Confirm ID prefix matches resource type. IDs are immutable — if deleted, they won't return |
+| 422 Unprocessable Entity | Invalid query parameter (e.g., malformed `directory` param) | Check parameter names and formats in fetched docs. Common: wrong ID prefix or typo in param name |
+| 429 Too Many Requests | Rate limit exceeded | Implement exponential backoff. Start with 1s delay, double on each retry, max 32s |
+| 500 Internal Server Error | Transient WorkOS issue | Retry with exponential backoff. If persistent, check WorkOS status page |
 
-## SDK Usage Patterns
+The API does NOT return custom error codes — rely on HTTP status + response body `message` field for details.
 
-### List users for a directory (pseudocode)
+## Rate Limit Guidance
 
-```javascript
-// Fetch all users with pagination
-const users = await sdk.directorySync.listUsers({
-  directory: 'directory_01ABCD',
-  limit: 100
-});
+WorkOS enforces rate limits per API key. Limits are NOT published in docs — they scale with your plan tier.
 
-// Check fetched docs for exact method signature and response structure
-```
+**Retry strategy:**
+1. On 429 response, check `Retry-After` header (seconds to wait)
+2. If no header, use exponential backoff: 1s → 2s → 4s → 8s → 16s → 32s
+3. After 5 retries, fail and log for manual review
 
-### Get user details
-
-```javascript
-const user = await sdk.directorySync.getUser({
-  user: 'directory_user_01FGHIJ'
-});
-
-// user.state is 'active', 'inactive', or 'suspended'
-// user.emails[0].primary indicates primary email
-```
-
-### List groups with members
-
-```javascript
-const groups = await sdk.directorySync.listGroups({
-  directory: 'directory_01ABCD'
-});
-
-// Each group includes members array
-// group.id, group.name, group.directory_id
-```
-
-Check fetched docs for exact SDK method names and parameter signatures for your language.
+**Prevention:**
+- Cache directory IDs and metadata — they change infrequently
+- Batch user/group queries with `limit` param instead of individual GET requests
+- Use webhooks for real-time updates instead of polling (see `workos-directory-sync` feature skill)
 
 ## Runnable Verification
 
-Verify API access and directory exists:
+Test your Directory Sync integration with these curl commands:
 
+**1. List all directories:**
 ```bash
-curl -X GET https://api.workos.com/directories \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-
-# Should return 200 with list of directories
+curl -X GET "https://api.workos.com/directories" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Content-Type: application/json"
 ```
 
-Verify user listing for a directory:
+Expected: 200 OK with `data` array of directory objects. If 401, check API key format.
 
+**2. List users from a specific directory:**
 ```bash
-curl -X GET "https://api.workos.com/directory_users?directory=directory_01ABCD" \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-
-# Should return 200 with user list (may be empty if no users synced yet)
+# Replace directory_01H123ABC with your directory ID from step 1
+curl -X GET "https://api.workos.com/directory_users?directory=directory_01H123ABC&limit=10" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Content-Type: application/json"
 ```
 
-Test pagination:
+Expected: 200 OK with `data` array of user objects. Check `list_metadata.after` for pagination cursor.
 
+**3. Get a single user by ID:**
 ```bash
-curl -X GET "https://api.workos.com/directory_users?directory=directory_01ABCD&limit=2" \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-
-# Check response for list_metadata.after cursor
-# Use it in next request: &after=<cursor>
+# Replace with a directory_user_* ID from step 2
+curl -X GET "https://api.workos.com/directory_users/directory_user_01H456DEF" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Content-Type: application/json"
 ```
 
-## Rate Limits
+Expected: 200 OK with single user object. If 404, verify the user ID exists in your directory.
 
-WorkOS enforces rate limits per API key. Check response headers:
+## SDK Usage Pattern
 
-- `X-RateLimit-Limit` — requests allowed per window
-- `X-RateLimit-Remaining` — requests left in window
-- `X-RateLimit-Reset` — unix timestamp when limit resets
+If using the WorkOS SDK instead of REST API directly:
 
-On 429, implement exponential backoff with jitter.
+**Node.js pseudocode:**
+```javascript
+const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
-## Edge Cases and Traps
+// List directories
+const directories = await workos.directorySync.listDirectories();
 
-**Trap: Polling for updates**
-Directory Sync data changes via identity provider events. Polling `GET /directory_users` every N seconds is inefficient. Use webhooks (`dsync.user.created`, `dsync.user.updated`, `dsync.user.deleted`) instead.
+// List users from a directory
+const users = await workos.directorySync.listUsers({
+  directory: 'directory_01H123ABC',
+  limit: 100
+});
 
-**Trap: Assuming user emails are unique**
-Users can have multiple email addresses. Check `emails[].primary` to find the primary email. Don't assume `emails[0]` is primary.
+// Get single user
+const user = await workos.directorySync.getUser('directory_user_01H456DEF');
+```
 
-**Trap: Treating inactive users as deleted**
-`state: inactive` means deprovisioned in IdP, NOT deleted. Inactive users remain in WorkOS for audit/recovery. If you soft-delete users, map both `inactive` and `suspended` to your soft-delete state.
+Check fetched docs for exact method signatures in your SDK language (Python, Ruby, Go, etc.).
 
-**Trap: Missing directory ownership**
-A directory belongs to an organization (`directory.organization_id`). Always scope user/group queries by `directory` or `organization` to avoid cross-tenant data leaks.
+## Common Agent Traps
 
-**Trap: Not handling pagination**
-Without pagination, you'll only get first 10 results. Always check `list_metadata.after` and loop until null.
+**Trap 1: Confusing directory IDs with organization IDs**
+- Directories belong to organizations, but they're NOT the same ID
+- Use GET `/directories?organization={org_id}` to find directory IDs for an org
+
+**Trap 2: Polling too aggressively**
+- Directory data changes slowly (minutes/hours, not seconds)
+- Poll every 5-15 minutes OR use webhooks — NOT every request
+
+**Trap 3: Not handling pagination**
+- Large directories can have 10k+ users
+- Always check `list_metadata.after` and loop until null
+
+**Trap 4: Caching stale directory IDs**
+- If a directory is deleted, its ID becomes permanently invalid (404)
+- Refresh directory list if you get 404 on a cached ID
+
+**Trap 5: Assuming user emails are unique**
+- Directory providers may allow duplicate emails across groups
+- Use `directory_user_id` as the unique identifier, NOT email
 
 ## Related Skills
 
-- workos-directory-sync — feature overview and webhook setup (use for real-time sync)
+- `workos-directory-sync` — Feature overview and webhook handling for real-time directory updates
+- `workos-user-management` — Provisioning and managing users in WorkOS User Management via Directory Sync

@@ -1,12 +1,13 @@
 <!-- refined:sha256:96424db5567d -->
 
-# WorkOS Events — Implementation Guide
+# WorkOS Events
 
 ## Step 1: Fetch Documentation (BLOCKING)
 
 **STOP. Do not proceed until complete.**
 
 WebFetch these URLs — they are the source of truth:
+
 - https://workos.com/docs/events/index
 - https://workos.com/docs/events/observability/datadog
 - https://workos.com/docs/events/data-syncing/webhooks
@@ -14,412 +15,266 @@ WebFetch these URLs — they are the source of truth:
 - https://workos.com/docs/events/data-syncing/events-api
 - https://workos.com/docs/events/data-syncing/data-reconciliation
 
-If this skill conflicts with fetched docs, follow docs.
+If this skill conflicts with fetched docs, follow the docs.
 
 ## Step 2: Pre-Flight Validation
 
-### Environment Variables
-
-Check for:
-- `WORKOS_API_KEY` - starts with `sk_`
-- `WORKOS_CLIENT_ID` - starts with `client_`
-
-**Verify:** Both exist before proceeding.
-
-### Project Dependencies
-
-Confirm WorkOS SDK is installed:
+Check environment variables:
 
 ```bash
-# Check package.json or equivalent for SDK dependency
-grep -r "workos" package.json requirements.txt Gemfile go.mod # adjust for language
+# Verify API key exists and has correct prefix
+env | grep WORKOS_API_KEY | grep -q "sk_" || echo "FAIL: WORKOS_API_KEY missing or invalid"
 ```
 
-### Event Source Requirements
+**For event generation:** You need either an SSO connection or Directory Sync connection configured. Events don't exist in isolation — they represent activity from configured integrations.
 
-**CRITICAL:** Events require an active data source. Confirm one of these exists in WorkOS Dashboard:
-- SSO connection configured (any provider)
-- Directory Sync connection configured
+Check Dashboard for active connections before expecting events.
 
-**Without an event source, no events will generate.** Check Dashboard → Connections.
-
-## Step 3: Choose Integration Pattern (Decision Tree)
+## Step 3: Consumption Pattern (Decision Tree)
 
 ```
-Integration goal?
+What's your use case?
   |
-  +-- Real-time monitoring/alerting? ──> Use Datadog streaming (Step 4)
+  +-- Real-time processing (audit logs, alerts)
+  |     --> Use webhooks (Step 4)
   |
-  +-- Sync data to your database? ──────> Decision point:
-                                           |
-                                           +-- Need historical replay? ──> Events API (Step 5)
-                                           |
-                                           +-- Real-time only? ──────────> Webhooks (Step 6)
+  +-- Analytics/BI (Datadog, observability platforms)
+  |     --> Use streaming integration (Step 5)
+  |
+  +-- Batch reconciliation (nightly sync, data recovery)
+  |     --> Use Events API (Step 6)
+  |
+  +-- Hybrid (real-time + reconciliation)
+        --> Webhooks + Events API (Steps 4 + 6)
 ```
 
-**Can combine multiple patterns.** Datadog + webhooks is common for analytics + data sync.
+**Critical:** Webhooks are NOT guaranteed delivery — they retry for 3 days then drop. If you need guaranteed processing, combine webhooks (for speed) with Events API polling (for gaps).
 
-## Step 4: Datadog Streaming Setup (Optional)
+## Step 4: Webhook Integration
 
-If you chose Datadog integration:
+### A. Create Endpoint
 
-### 4.1: Obtain Datadog API Key
+**Pattern requirements:**
 
-From Datadog console:
-- Navigate to Organization Settings → API Keys
-- Create new API key or use existing
-- Copy key value (starts with a hex string)
+1. Return `HTTP 200 OK` IMMEDIATELY — do not wait for processing
+2. Queue payload for async processing
+3. Do NOT return errors for business logic failures (invalid data, etc.)
 
-### 4.2: Configure in WorkOS Dashboard
-
-1. Go to Dashboard → Events → Integrations
-2. Select Datadog
-3. Enter Datadog API key
-4. Select Datadog site region (e.g., `datadoghq.com`, `datadoghq.eu`)
-5. Save configuration
-
-### 4.3: Verify Streaming
-
-**Wait 5-10 minutes** for initial events to flow (WorkOS batches events).
-
-In Datadog, check for `workos.*` event namespace:
-- Navigate to Logs or Events Explorer
-- Filter by source:`workos`
-- Confirm events appear
-
-**If no events after 15 minutes:**
-- Check: API key is correct and has write permissions
-- Check: Site region matches your Datadog instance
-- Check: An event source exists (SSO/Directory connection)
-
-## Step 5: Events API Integration (Optional)
-
-If you chose Events API (historical replay, pagination, filtering):
-
-### 5.1: API Structure
-
-Check fetched docs for exact endpoint and parameters. Pattern:
+**Why:** WorkOS interprets non-200 as delivery failure and retries. If your processing logic fails, that's YOUR problem — WorkOS already delivered successfully.
 
 ```
-GET /events
-Query params: after (cursor), limit, event types filter
-Response: { data: [...events], list_metadata: { after: "cursor" } }
+Endpoint logic flow:
+  |
+  +-- Receive POST request
+  |
+  +-- Verify signature (Step 4B) --> If invalid, return 401
+  |
+  +-- Queue payload to message queue / database
+  |
+  +-- Return 200 OK (IMMEDIATELY)
+  |
+  +-- [Async worker] Process payload
 ```
 
-### 5.2: Pagination Pattern
+### B. Signature Verification (CRITICAL)
 
-Use cursor-based pagination:
+**NEVER process webhooks without signature verification.** Anyone can POST to your endpoint.
+
+#### Using SDK (Recommended)
+
+Check fetched docs for SDK method signature — typically:
 
 ```
-Pseudocode:
-  cursor = null
-  loop:
-    response = fetch_events(after=cursor, limit=100)
-    process(response.data)
-    cursor = response.list_metadata.after
-    if cursor is null: break
+verifyWebhook(
+  payload: raw_request_body,  // MUST be raw bytes, not parsed JSON
+  signature_header: request.headers['WorkOS-Signature'],
+  webhook_secret: env.WORKOS_WEBHOOK_SECRET
+)
 ```
 
-**Do NOT use offset-based pagination** — cursors ensure consistency during sync.
+**Critical:** Use raw request body, not parsed JSON. Parsing changes whitespace and breaks HMAC.
 
-### 5.3: Event Type Filtering
+**Tolerance parameter:** SDKs allow configuring timestamp tolerance (default 3-5 minutes). Tighten this for high-security endpoints.
 
-Check fetched docs for available event types. Format: `{domain}.{resource}.{action}`
+#### Manual Verification (If No SDK)
 
-Examples:
-- `dsync.user.created`
+Parse `WorkOS-Signature` header:
+
+```
+Format: t={issued_timestamp},v1={signature_hash}
+
+Example: t=1234567890000,v1=abc123def456...
+```
+
+1. Extract `issued_timestamp` and `signature_hash`
+2. Validate timestamp is within tolerance (e.g., ±5 minutes from current time)
+3. Construct expected signature: `HMAC_SHA256(webhook_secret, "{issued_timestamp}.{raw_body}")`
+4. Compare expected signature to `signature_hash` (constant-time comparison to prevent timing attacks)
+
+Check fetched webhook docs for exact signature construction format.
+
+### C. Register Endpoint
+
+Dashboard path: Settings → Webhooks → Create Endpoint
+
+**Configuration:**
+
+- URL: Your publicly accessible endpoint (HTTPS required for production)
+- Secret: Generated by WorkOS — store as `WORKOS_WEBHOOK_SECRET` env var
+- Event types: Select specific events or "all events"
+
+**IP Allowlist (Recommended):**
+
+Restrict firewall to WorkOS IPs. Check fetched docs for current IP list — it's small and rarely changes.
+
+### D. Event Processing Patterns
+
+**Event type naming:** `{domain}.{resource}.{action}`
+
+Examples from common domains:
+
+- `dsync.user.created` / `dsync.user.updated` / `dsync.user.deleted`
 - `authentication.email_verification_succeeded`
-- `connection.activated`
+- `connection.activated` / `connection.deactivated`
 
-Filter by passing `events[]` query param (check docs for exact syntax).
+Check fetched docs for complete event catalog.
 
-### 5.4: Deduplication Strategy
-
-Events have unique `id` field. Use upsert pattern:
+**Idempotency:** Events can be delivered multiple times (retries, network issues). Use `event.id` to deduplicate:
 
 ```
-Pseudocode:
-  for event in response.data:
-    upsert_to_db(key=event.id, data=event)
+Processing pattern:
+  |
+  +-- Check if event.id already processed (database lookup)
+  |
+  +-- If yes --> Skip (already handled)
+  |
+  +-- If no  --> Process event + store event.id
 ```
 
-**CRITICAL:** The `id` field is immutable and globally unique. Use it as primary key.
+**Event ordering:** Events are NOT guaranteed to arrive in order. Use event timestamps to resolve conflicts:
 
-## Step 6: Webhook Integration (Optional)
+```
+Conflict resolution:
+  |
+  +-- Receive dsync.user.updated (t=100)
+  |
+  +-- Already processed dsync.user.updated (t=200) for same user
+  |
+  +-- Discard t=100 event (stale)
+```
 
-If you chose webhooks (real-time push):
+## Step 5: Datadog Streaming Integration
 
-### 6.1: Create Endpoint
+Dashboard path: Integrations → Datadog → Connect
 
-Create HTTP endpoint at your chosen path (e.g., `/webhooks/workos`).
+**What streams:**
 
-**Endpoint requirements:**
-- Accept POST requests
-- Parse JSON request body
-- Return HTTP 200 immediately (do not wait for processing)
-- Process event asynchronously after responding
+- Authentication events (sign-ins, verifications, failures)
+- Directory sync events (user/group CRUD)
+- Connection lifecycle events (activated, deactivated)
+
+Check fetched Datadog docs for complete event list and metric examples.
+
+**Use case:** Observability, alerting, trend analysis. NOT for data syncing — use webhooks/Events API for that.
+
+## Step 6: Events API (Batch / Reconciliation)
+
+**Use for:**
+
+- Backfilling missed webhooks
+- Nightly reconciliation jobs
+- Data recovery after outages
 
 **Pattern:**
 
-```
-Pseudocode:
-  POST /webhooks/workos:
-    1. Validate signature (Step 6.3)
-    2. Respond HTTP 200 immediately
-    3. Queue event for async processing
-    4. Return
-```
+1. List events with filters (event type, date range, cursor for pagination)
+2. Process events in batches
+3. Use cursor from response for next page
 
-**Why respond immediately:** WorkOS retries failed deliveries. If you process synchronously and it takes >30s, you'll get duplicate events.
+Check fetched Events API docs for SDK method signatures and filter parameters.
 
-### 6.2: Register Endpoint in Dashboard
-
-1. Go to Dashboard → Webhooks
-2. Click "Add Endpoint"
-3. Enter your endpoint URL (must be HTTPS in production)
-4. Select event types to receive (or "all events")
-5. Save and copy the webhook secret (shown once)
-
-**Store webhook secret securely** as environment variable: `WORKOS_WEBHOOK_SECRET`
-
-### 6.3: Signature Validation
-
-**CRITICAL:** Validate signature before processing. Prevents replay attacks and unauthorized requests.
-
-#### Option A: Use SDK Method
-
-Check fetched docs for exact SDK method signature. Pattern:
-
-```
-Pseudocode (varies by language):
-  raw_body = request.get_raw_body()  # NOT parsed JSON
-  signature_header = request.headers['WorkOS-Signature']
-  
-  sdk.webhooks.verify_signature(
-    payload=raw_body,
-    signature=signature_header,
-    secret=WORKOS_WEBHOOK_SECRET,
-    tolerance=300  # 5 minutes
-  )
-```
-
-**If validation fails:** Reject with HTTP 400. Do NOT process event.
-
-**Common mistake:** Parsing body as JSON before validation. SDK needs raw bytes.
-
-#### Option B: Manual Validation
-
-If implementing yourself:
-
-1. Parse `WorkOS-Signature` header:
-   - Format: `t=<timestamp>,v1=<signature>`
-   - Extract timestamp (milliseconds since epoch)
-   - Extract signature hash
-
-2. Validate timestamp freshness:
-   ```
-   current_time = now_in_milliseconds()
-   if abs(current_time - timestamp) > 300000:  # 5 min tolerance
-     reject_request()
-   ```
-
-3. Compute expected signature:
-   ```
-   message = timestamp + "." + raw_body
-   expected = hmac_sha256(WORKOS_WEBHOOK_SECRET, message)
-   ```
-
-4. Compare signatures (constant-time comparison):
-   ```
-   if not constant_time_compare(expected, signature):
-     reject_request()
-   ```
-
-**Use constant-time comparison** to prevent timing attacks.
-
-### 6.4: IP Allowlist (Recommended)
-
-Restrict endpoint to WorkOS IPs:
-
-```
-WorkOS IP addresses:
-  3.217.146.166
-  44.209.16.206
-  54.205.205.43
-```
-
-Add firewall rules or application-level checks to reject requests from other IPs.
-
-### 6.5: Retry Behavior
-
-**WorkOS retry policy:**
-- Failed deliveries (non-200 response) retry up to 6 times
-- Exponential backoff over 3 days
-- Events are not deduplicated during retries
-
-**Implication:** Your handler MUST be idempotent. Check event `id` exists before creating database records.
-
-### 6.6: Event Processing Pattern
-
-**Recommended architecture:**
-
-```
-Webhook endpoint:
-  1. Validate signature
-  2. Respond HTTP 200
-  3. Enqueue event to job queue (Redis, SQS, etc.)
-  
-Background worker:
-  1. Dequeue event
-  2. Check if event.id already processed (idempotency)
-  3. Process event (update database, trigger actions)
-  4. Mark event.id as processed
-```
-
-**Why async processing:** Prevents timeouts, handles spikes, enables retries on your side.
-
-## Step 7: Event Structure
-
-All events share common fields. Check fetched docs for complete schema. Key fields:
-
-- `id` - Unique event identifier (use for deduplication)
-- `event` - Event type string (`{domain}.{resource}.{action}`)
-- `created_at` - ISO8601 timestamp
-- `data` - Event payload (varies by event type)
-
-**Event type namespaces:**
-- `authentication.*` - Sign-in, verification, password events
-- `connection.*` - SSO connection lifecycle
-- `dsync.*` - Directory sync events (user/group CRUD)
-- `organization.*` - Organization changes
-- `session.*` - Session lifecycle events
-
-**Check fetched docs** for complete event type catalog and payload schemas.
-
-## Step 8: Data Reconciliation
-
-**Why reconciliation matters:** Webhooks can be missed (endpoint downtime, network issues). Reconcile periodically.
-
-### Reconciliation Strategy
-
-Hybrid approach combining webhooks + Events API:
-
-```
-Pseudocode:
-  # Real-time: Process webhooks as they arrive
-  
-  # Periodic reconciliation (every 6-24 hours):
-  last_sync_cursor = load_from_db()
-  cursor = last_sync_cursor
-  
-  loop:
-    response = fetch_events_api(after=cursor)
-    for event in response.data:
-      if not exists_in_db(event.id):
-        process_event(event)  # Missed by webhook
-    cursor = response.list_metadata.after
-    save_cursor_to_db(cursor)
-    if cursor is null: break
-```
-
-**Store cursor persistently** (database, not in-memory). Enables resume after crashes.
+**Critical:** Events API has retention limits (check docs). Do not rely on it for long-term storage.
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these checks to confirm integration:
-
 ```bash
-# 1. Check environment variables exist
-env | grep -E 'WORKOS_(API_KEY|CLIENT_ID|WEBHOOK_SECRET)'
+# 1. Check webhook secret is configured
+env | grep -q "WORKOS_WEBHOOK_SECRET" || echo "FAIL: Webhook secret missing"
 
-# 2. Verify SDK is installed
-# (adjust for your language/package manager)
-npm list @workos-inc/node || pip show workos || gem list workos
+# 2. Test signature verification (create test payload)
+# Use SDK method or manual verification — signature must validate
 
-# 3. For Datadog: Check events appear in Datadog
-# (manual check in Datadog console after 15 min)
-
-# 4. For webhooks: Test endpoint signature validation
-curl -X POST http://localhost:3000/webhooks/workos \
+# 3. Test endpoint returns 200 OK immediately (timing check)
+time curl -X POST https://your-endpoint.com/webhooks \
   -H "Content-Type: application/json" \
-  -H "WorkOS-Signature: t=invalid,v1=invalid" \
-  -d '{"event":"test"}' \
-# Expected: HTTP 400 or 401 (signature validation failed)
+  -d '{"test": true}' | grep -q "200"
+# Should complete in <100ms — if slower, processing is blocking response
 
-# 5. For webhooks: Check endpoint responds quickly
-time curl -X POST http://localhost:3000/webhooks/workos \
-  -H "Content-Type: application/json" \
-  -H "WorkOS-Signature: t=$(date +%s)000,v1=test" \
-  -d '{"event":"test"}'
-# Expected: Response in <1 second (proves you return 200 immediately)
+# 4. Check idempotency (send same event.id twice)
+# Second delivery should be skipped in your logs
 
-# 6. For Events API: Fetch events successfully
-# (use your SDK or curl with API key)
-curl "https://api.workos.com/events?limit=1" \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-# Expected: HTTP 200 with event array
+# 5. Verify IP allowlist (if configured)
+# Test webhook delivery from WorkOS Dashboard → should succeed
+# Test from random IP → should fail (403/401)
 ```
-
-**All checks must pass** before marking integration complete.
 
 ## Error Recovery
 
-### "No events appearing in Datadog/webhook"
+### "Webhook signature verification failed"
 
-**Root cause:** No event source exists.
+**Causes:**
 
-Fix:
-1. Go to WorkOS Dashboard → Connections
-2. Confirm at least one SSO or Directory Sync connection is active
-3. Trigger an event (e.g., sign in via SSO)
-4. Wait 5-10 minutes for event to flow
+1. Using parsed JSON body instead of raw bytes
+   - Fix: Access raw request body before framework parses it
+   - Framework-specific: Express use `body-parser.raw()`, not `json()`
 
-### "Webhook signature validation fails"
+2. Wrong secret (common after rotating keys)
+   - Fix: Check Dashboard → Webhooks → [Your endpoint] for current secret
+   - Update `WORKOS_WEBHOOK_SECRET` env var
 
-**Root causes:**
-1. **Wrong secret** - Using API key instead of webhook secret
-   - Fix: Use secret from Dashboard → Webhooks → [your endpoint] → Secret
-2. **Body already parsed** - SDK received parsed JSON instead of raw bytes
-   - Fix: Get raw request body before parsing, pass to SDK
-3. **Clock skew** - Server time differs from WorkOS by >5 minutes
-   - Fix: Sync server clock with NTP
+3. Timestamp outside tolerance window
+   - Fix: Check server clock sync (NTP issues)
+   - Fix: Increase tolerance parameter if deploying to regions with high latency
 
-### "Events API returns 401 Unauthorized"
+### "Webhook retries exhausted / events dropped"
 
-**Root cause:** Invalid or missing API key.
+**Cause:** Endpoint not returning 200 OK, or returning it too slowly (timeout).
 
-Fix:
-- Check `WORKOS_API_KEY` starts with `sk_`
-- Verify key exists in Dashboard → API Keys
-- Confirm key has not been deleted/rotated
+**Fixes:**
 
-### "Webhook receiving duplicate events"
+1. Return 200 BEFORE processing payload (queue it)
+2. Increase endpoint timeout limit (load balancer, API gateway)
+3. Scale endpoint to handle traffic spikes (WorkOS retries can create bursts)
 
-**Root cause:** Endpoint not responding with HTTP 200, triggering retries.
+**Recovery:** Use Events API to backfill missed events. Filter by date range when retries failed.
 
-Fix:
-1. Check endpoint logs for errors/timeouts
-2. Ensure HTTP 200 returned BEFORE processing (Step 6.4 pattern)
-3. Add idempotency checks using event `id` field
+### "Duplicate events processed"
+
+**Cause:** No idempotency check.
+
+**Fix:** Store processed `event.id` values in database/cache before processing. Check on each delivery.
+
+### "Events arriving out of order"
+
+**Expected behavior.** Use event timestamps to resolve conflicts — newer events win.
 
 ### "Events API pagination cursor expired"
 
-**Root cause:** Cursor held for >7 days (cursors expire).
+**Cause:** Cursors have TTL (check docs for duration).
 
-Fix:
-- Restart pagination from beginning (no cursor)
-- Implement reconciliation more frequently (<7 days)
+**Fix:** Restart pagination from beginning with new date range filter. Do not store cursors long-term.
 
-### "Missing events during reconciliation"
+### "Missing events in Datadog"
 
-**Root cause:** Not all event types selected in webhook configuration.
+**Causes:**
 
-Fix:
-1. Go to Dashboard → Webhooks → [your endpoint]
-2. Select "All events" or add missing event types
-3. Run reconciliation to catch missed events
+1. Datadog integration not enabled (check Dashboard → Integrations)
+2. Event type not configured to stream (check integration settings)
+3. Datadog API key issues (check Datadog logs for ingestion errors)
+
+**Not a bug:** Events API and webhooks have different event catalogs than Datadog streaming. Check fetched docs for what each integration supports.
 
 ## Related Skills
 
-- workos-authkit-nextjs - For handling authentication events in Next.js apps
-- workos-authkit-react - For client-side authentication state that generates events
+- workos-authkit-nextjs — generates `authentication.*` events
+- workos-authkit-react — generates `authentication.*` events

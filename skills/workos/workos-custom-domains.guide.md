@@ -6,7 +6,7 @@
 
 **STOP. Do not proceed until complete.**
 
-WebFetch these docs — they are the source of truth for DNS record requirements and verification steps:
+WebFetch these URLs for latest DNS requirements and verification steps:
 
 - https://workos.com/docs/custom-domains/index
 - https://workos.com/docs/custom-domains/email
@@ -14,337 +14,276 @@ WebFetch these docs — they are the source of truth for DNS record requirements
 - https://workos.com/docs/custom-domains/auth-api
 - https://workos.com/docs/custom-domains/admin-portal
 
-If this skill conflicts with fetched docs, follow docs.
+The fetched docs are the source of truth. If this skill conflicts with docs, follow docs.
 
 ## Step 2: Pre-Flight Validation
 
-### Account Requirements
+### Environment Check
 
-- Confirm WorkOS production environment access (staging does NOT support custom domains)
-- Confirm custom domains feature is enabled for account (paid feature — check pricing page)
-- Have DNS provider credentials ready (Cloudflare, Route53, etc.)
+```bash
+# Confirm production environment access
+echo $WORKOS_API_KEY | grep -q "^sk_" && echo "PASS: API key format valid" || echo "FAIL: Invalid API key"
 
-### Environment Variables
+# Verify WorkOS Dashboard access
+curl -s -H "Authorization: Bearer $WORKOS_API_KEY" https://api.workos.com/environments | grep -q "production"
+```
 
-Check `.env` or `.env.local` for:
+### Domain Ownership Requirements
 
-- `WORKOS_API_KEY` - starts with `sk_`
-- `WORKOS_CLIENT_ID` - starts with `client_`
+**CRITICAL:** You must have DNS control over the domain you're configuring. Verify:
 
-**Critical:** Custom domains only apply to production environment. Staging always uses WorkOS-provided domains (`workos.dev` for email, `*.authkit.app` for AuthKit).
+- Domain is registered and active
+- DNS provider allows CNAME record creation
+- You have credentials to modify DNS records
 
-## Step 3: Domain Type Decision Tree
+**Trap:** Some DNS providers (e.g., some shared hosting) don't allow CNAME records at root domains. Plan to use subdomains (`auth.example.com`, not `example.com`) if this applies.
+
+## Step 3: Custom Domain Selection (Decision Tree)
 
 ```
-What are you customizing?
+What are you configuring?
   |
   +-- Email (Magic Auth, password resets, invites)
-  |     --> Section 4A: Email Domain Setup
+  |     |
+  |     +-- Use: mail.example.com or example.com
+  |     +-- Result: Emails sent from no-reply@your-domain.com
+  |     +-- CNAME count: 3 records required
   |
   +-- AuthKit (hosted auth UI)
-  |     --> Section 4B: AuthKit Domain Setup
+  |     |
+  |     +-- Use: auth.example.com or login.example.com
+  |     +-- Result: AuthKit UI served from your domain
+  |     +-- CNAME count: 1 record required
+  |     +-- Cloudflare users: MUST disable proxy (DNS-only mode)
   |
-  +-- Admin Portal
-        --> Check fetched docs for Admin Portal DNS requirements
+  +-- Admin Portal (organization admin UI)
+        |
+        +-- Use: admin.example.com or portal.example.com
+        +-- Result: Admin Portal served from your domain
+        +-- Check fetched docs for CNAME requirements
 ```
 
-**Note:** You can configure multiple domain types. Complete each section independently.
+**Decision factors:**
 
-## Section 4A: Email Domain Setup
+- **Email domain:** Should match your product's "from" address expectations
+- **AuthKit domain:** Should feel secure to users (e.g., `auth.` prefix common)
+- **Admin Portal domain:** Should clearly indicate administrative context
 
-### Step 1: Navigate to Dashboard
+**Cannot use same domain for multiple services** — each needs distinct subdomain.
 
-1. Open WorkOS Dashboard: `https://dashboard.workos.com/`
-2. Switch to **Production** environment (top-right selector)
-3. Navigate to **Domains** section (left sidebar)
+## Step 4: Dashboard Configuration
 
-**Verify:** URL shows `/domains` path and "Production" badge is visible.
+### Navigate to Domains Section
 
-### Step 2: Initiate Email Domain
+1. Log into [WorkOS Dashboard](https://dashboard.workos.com/)
+2. **CRITICAL:** Switch to **Production environment** (staging always uses WorkOS domains)
+3. Navigate to **Domains** section (check fetched docs for exact navigation path)
 
-1. Click **Add Domain** button
-2. Enter your sending domain (e.g., `example.com`)
-   - This will be used as: `no-reply@example.com`
-   - Do NOT include protocol (`https://`) or subdomain unless intended
-3. Select **Email** as domain type
-4. Click **Add**
+### Add Domain (Service-Specific Steps)
 
-**Critical:** Domain must be one you control and can modify DNS records for.
+For **Email Domain:**
 
-### Step 3: DNS Record Configuration
+- Click "Add Domain"
+- Enter domain (e.g., `mail.example.com`)
+- Dashboard will generate 3 CNAME records
 
-Dashboard will display 3 CNAME records. For each record:
+For **AuthKit Domain:**
 
-```
-Record structure from WorkOS:
-  Name: [subdomain].example.com
-  Type: CNAME
-  Value: [workos-provided-value].workos.dev
-  TTL: 3600 (or your DNS provider's default)
-```
+- Click "Configure AuthKit domain"
+- Enter domain (e.g., `auth.example.com`)
+- Dashboard will generate 1 CNAME record
 
-**Action required:**
+**Trap:** Dashboard shows records immediately, but they're NOT active until DNS verification completes (Step 5).
 
-1. Log into your DNS provider
-2. Create all 3 CNAME records exactly as shown
-3. Do NOT modify the values — copy-paste from dashboard
+## Step 5: DNS Record Creation (CRITICAL)
 
-**DNS Provider-Specific Notes:**
+### Copy CNAME Records from Dashboard
 
-- **Cloudflare:** CNAME records MUST be "DNS only" (gray cloud), NOT proxied (orange cloud)
-- **Route53:** Use simple routing policy
-- **Namecheap/GoDaddy:** May show "Host" field instead of "Name" — enter the subdomain part only
-
-### Step 4: Trigger Verification
-
-1. After creating all 3 DNS records, return to WorkOS Dashboard
-2. Click **Verify now** button
-
-**Expected outcomes:**
+Dashboard displays records in this format:
 
 ```
-Immediate success
-  --> Domain status: "Verified" (green)
-  --> Section complete
-
-Verification pending
-  --> Domain status: "Pending verification"
-  --> WorkOS will auto-retry for 72 hours
-  --> Check DNS propagation: dig [record-name] CNAME
-  --> Wait 5-15 minutes, check dashboard again
-
-Verification failed after 72 hours
-  --> Check DNS records match dashboard exactly
-  --> Run: dig [record-name] CNAME +short
-  --> Ensure TTL has passed since record creation
-  --> Correct records, click "Verify now" again
+Type    Host                    Value
+CNAME   <subdomain>             <target>.workos.com
 ```
 
-### Step 5: Verify Email Sending
+**CRITICAL:** Copy values EXACTLY. Typos will cause verification failure.
 
-Test that emails now come from your domain:
+### Create Records with DNS Provider
+
+**General pattern:**
+
+1. Log into your DNS provider (Cloudflare, Route53, etc.)
+2. Navigate to DNS management for your domain
+3. Add each CNAME record with values from dashboard
+
+**Cloudflare-specific requirement (AuthKit ONLY):**
+
+- Set CNAME to **DNS-only mode** (gray cloud icon)
+- **NEVER** enable proxy mode (orange cloud) — WorkOS uses Cloudflare and cannot proxy across accounts
+- Verification will FAIL if proxying is enabled
+
+### DNS Provider Variations (Common Traps)
+
+| Provider | Trap | Fix |
+|----------|------|-----|
+| Cloudflare | Proxy mode enabled by default | Click cloud icon to disable proxy |
+| Route53 | Requires trailing dot in target | Add `.` to end of CNAME value |
+| GoDaddy | Auto-appends domain to host | Enter ONLY subdomain prefix (not FQDN) |
+| Namecheap | Slow propagation (6+ hours) | Create records early, be patient |
+
+### Verification Timeline
+
+DNS propagation is NOT instant:
+
+- **Typical:** 15 minutes to 2 hours
+- **Maximum:** 72 hours (WorkOS retries automatically)
+
+**During this window:**
+
+- Dashboard shows "Pending verification"
+- WorkOS checks DNS every few minutes
+- Emails still send from `workos.dev` (email domain)
+- AuthKit still uses `*.authkit.app` domain
+
+**You do NOT need to stay on dashboard page** — verification happens automatically in background.
+
+## Step 6: Verify Configuration
+
+### Check DNS Propagation
 
 ```bash
-# Trigger a test email (password reset, magic auth, etc.)
-# Check email headers for:
-From: no-reply@[your-domain.com]
-Return-Path: [verification-value]@workos.dev
+# Check email domain CNAMEs (replace with your actual values)
+dig +short CNAME <host1-from-dashboard>
+dig +short CNAME <host2-from-dashboard>
+dig +short CNAME <host3-from-dashboard>
 
-# If still seeing @workos.dev in From field:
-# - Check domain status in dashboard (must be "Verified")
-# - Check production environment is active
-# - Wait 5 minutes for configuration propagation
+# Check AuthKit domain CNAME
+dig +short CNAME auth.example.com
 ```
 
-## Section 4B: AuthKit Domain Setup
+**Expected output:** Each command should return a `*.workos.com` or `*.cloudflare.com` target.
 
-### Step 1: Navigate to Dashboard
+**If empty:** DNS records not yet propagated. Wait and retry.
 
-1. Open WorkOS Dashboard: `https://dashboard.workos.com/`
-2. Switch to **Production** environment
-3. Navigate to **Domains** section
-
-### Step 2: Initiate AuthKit Domain
-
-1. Click **Configure AuthKit domain** button
-2. Enter your auth subdomain (e.g., `auth.example.com`)
-   - Common patterns: `auth.`, `login.`, `accounts.`
-   - This will be the URL users see for AuthKit UI
-3. Click **Configure**
-
-**Critical:** Choose a subdomain, not your root domain. AuthKit requires CNAME, which conflicts with root domain A/AAAA records.
-
-### Step 3: DNS Record Configuration
-
-Dashboard will display 1 CNAME record:
-
-```
-Record from WorkOS:
-  Name: auth.example.com
-  Type: CNAME
-  Value: [workos-provided].authkit.app
-  TTL: 3600
-```
-
-**Action required:**
-
-1. Log into your DNS provider
-2. Create the CNAME record exactly as shown
-
-**Cloudflare CRITICAL WARNING:**
-
-If using Cloudflare as DNS provider:
-
-- MUST set proxy status to **DNS only** (gray cloud icon)
-- DO NOT use **Proxied** (orange cloud)
-- Reason: WorkOS uses Cloudflare for custom domains; Cloudflare prohibits cross-account proxying
-
-**Verification command:**
+### Check Dashboard Verification Status
 
 ```bash
-# Check CNAME resolution
-dig auth.example.com CNAME +short
-# Should return: [something].authkit.app
-
-# If returns nothing or wrong value:
-# - DNS records not propagated yet (wait 5-15 min)
-# - Record created incorrectly (double-check dashboard values)
+# Dashboard API check (if available in fetched docs)
+# Otherwise manually check dashboard UI
 ```
 
-### Step 4: Trigger Verification
+### Test Email Domain (After Verification)
 
-1. Click **Verify now** in dashboard
-2. Wait for "Verified" status (same retry logic as email domain)
+Trigger an authentication email (password reset, magic link) and verify:
 
-### Step 5: Update Application Configuration
+- Sender shows `no-reply@your-domain.com`
+- Email deliverability is good (check spam folder)
+- SPF/DKIM headers reference your domain
 
-**CRITICAL:** After domain verification, update your app's AuthKit configuration:
+### Test AuthKit Domain (After Verification)
 
-```
-Old redirect URI: https://youthful-ginger-43.authkit.app/callback
-New redirect URI: https://auth.example.com/callback
+Visit AuthKit URL and verify:
 
-Action required:
-1. Update WORKOS_REDIRECT_URI env var
-2. Update redirect URI in WorkOS Dashboard (Redirects section)
-3. Redeploy application
-```
-
-**Verification:**
-
-```bash
-# Test auth flow redirects to custom domain
-curl -I https://auth.example.com
-# Should return 200 or redirect, NOT 404
-
-# Check SSL certificate
-echo | openssl s_client -connect auth.example.com:443 2>/dev/null | grep subject
-# Should show valid cert for your domain
-```
-
-## Section 5: Admin Portal Custom Domain (Optional)
-
-If you need to customize Admin Portal domain (not common):
-
-1. Check fetched docs for Admin Portal DNS requirements
-2. Follow similar CNAME pattern as AuthKit
-3. Update Admin Portal configuration in dashboard
-
-**Pattern will be:**
-
-- Subdomain like `admin.example.com` or `portal.example.com`
-- Single CNAME record pointing to WorkOS infrastructure
-- Update Admin Portal URL in your application's SSO setup code
+- Browser shows your custom domain in address bar
+- SSL certificate is valid (no warnings)
+- AuthKit UI loads correctly
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these checks to confirm setup:
-
 ```bash
-# 1. Email domain DNS records (if configured)
-for record in [record1] [record2] [record3]; do
-  dig $record CNAME +short | grep -q workos && echo "✓ $record" || echo "✗ $record MISSING"
-done
+# 1. Environment is production
+echo $WORKOS_API_KEY | grep -q "^sk_live" && echo "PASS" || echo "FAIL"
 
-# 2. AuthKit domain DNS record (if configured)
-dig auth.example.com CNAME +short | grep -q authkit.app && echo "✓ AuthKit CNAME" || echo "✗ AuthKit CNAME MISSING"
+# 2. DNS records exist and propagated
+dig +short CNAME your-email-domain.com | grep -q "workos" && echo "PASS" || echo "FAIL"
 
-# 3. Dashboard verification status
-# Manual check: All domains show "Verified" in dashboard (no command for this)
+# 3. Dashboard shows "Verified" status
+# (Manual check - no API endpoint for this)
 
-# 4. Email test (if email domain configured)
-# Trigger password reset or magic auth
-# Confirm From: header shows your domain
-
-# 5. AuthKit test (if AuthKit domain configured)
-curl -I https://auth.example.com | grep -q "200\|302" && echo "✓ AuthKit responding" || echo "✗ AuthKit not responding"
-
-# 6. Environment check
-echo $WORKOS_API_KEY | grep -q "^sk_" && echo "✓ API key format" || echo "✗ API key invalid"
+# 4. Custom domain works in production
+# (Trigger auth flow and check domain in browser)
 ```
 
 ## Error Recovery
 
-### "Domain verification failed"
+### "Domain verification failed" (Dashboard)
 
-**Root cause tree:**
+**Root causes:**
 
-```
-DNS records incorrect
-  --> Run: dig [record-name] CNAME +short
-  --> Compare output to dashboard values
-  --> If mismatch: delete DNS record, recreate exactly as shown
-  --> If timeout: wait 15 minutes for propagation
+1. **CNAME records not created** → Check DNS provider dashboard
+2. **CNAME values don't match dashboard exactly** → Copy/paste values again
+3. **DNS not yet propagated** → Wait, WorkOS retries for 72 hours
+4. **Cloudflare proxy enabled** (AuthKit only) → Disable proxy mode
 
-Cloudflare proxy enabled (AuthKit only)
-  --> Log into Cloudflare
-  --> Find CNAME record
-  --> Click orange cloud to change to gray (DNS only)
-  --> Wait 5 minutes, retry verification
-
-TTL not passed
-  --> Check original TTL value when record was created
-  --> Wait full TTL duration (often 3600 seconds = 1 hour)
-  --> Retry verification after TTL expires
-```
-
-### "Emails still coming from @workos.dev"
-
-**Fix:**
-
-1. Check WorkOS Dashboard shows domain as "Verified" (not "Pending")
-2. Confirm you are in Production environment (check top-right badge)
-3. Wait 5 minutes for configuration propagation
-4. Ensure all 3 CNAME records are still present (check DNS)
-5. Check DNS records haven't expired or been auto-deleted by provider
-
-### "AuthKit shows SSL certificate error"
-
-**Root cause:** DNS not yet propagated or CNAME misconfigured.
-
-**Fix:**
+**Fix pattern:**
 
 ```bash
-# Check CNAME resolution
-dig auth.example.com CNAME +short
-# Should return *.authkit.app value
+# 1. Verify records exist
+dig +short CNAME <your-host>
 
-# If returns empty:
-# - CNAME not created or wrong name
-# - DNS provider hasn't propagated yet
+# 2. Compare output to dashboard target
+# If mismatch: delete and recreate DNS records
 
-# If returns wrong value:
-# - Delete CNAME, recreate from dashboard values
+# 3. If match but still failing: wait for propagation
+# WorkOS will auto-verify when DNS resolves
 ```
 
-WorkOS automatically provisions SSL certificates once CNAME is verified. If CNAME is correct, wait 10-15 minutes for SSL provisioning.
+### "CNAME already exists" (DNS provider)
 
-### "Dashboard says 'CNAME already in use'"
-
-**Root cause:** Domain is claimed by another WorkOS account or has conflicting DNS.
+**Cause:** Subdomain has existing record (often an A record).
 
 **Fix:**
 
-1. Verify you own the domain (check registrar)
-2. Check for existing CNAME records that might conflict:
-   ```bash
-   dig auth.example.com CNAME +short
-   ```
-3. If record points to different service, you must choose different subdomain
-4. If record points to WorkOS but you don't see it in dashboard: contact WorkOS support (possible orphaned domain)
+1. Check existing records: `dig ANY your-subdomain.example.com`
+2. Delete conflicting A/AAAA/CNAME records
+3. Add WorkOS CNAME records
+4. If you need that subdomain for something else, choose a different subdomain for WorkOS
 
-### "Staging environment not working with custom domain"
+### Emails still coming from workos.dev (after verification)
 
-**Expected behavior:** Custom domains are production-only feature.
+**Causes:**
 
-**Fix:** None needed. Staging always uses:
+1. **Email domain not verified yet** → Check dashboard status
+2. **Wrong environment** → Confirm production API key in use
+3. **DNS propagation incomplete** → Check with `dig` command
 
-- Email: `@workos.dev`
-- AuthKit: `[random-phrase].authkit.app`
+**Not a caching issue** — WorkOS checks DNS on every email send.
 
-This is by design. Test custom domain integration in production only.
+### AuthKit shows "invalid domain" error
+
+**Causes:**
+
+1. **Cloudflare proxy enabled** → Must be DNS-only mode
+2. **CNAME pointing to wrong target** → Must match dashboard exactly
+3. **Domain not verified in dashboard** → Complete verification first
+
+**Fix priority:**
+
+1. Check Cloudflare proxy setting FIRST (most common)
+2. Verify CNAME target with `dig`
+3. Check dashboard verification status
+
+### DNS changes not taking effect after 24 hours
+
+**Rare causes:**
+
+1. **TTL on old record too high** → Wait for TTL expiry (check old record's TTL value)
+2. **DNSSEC enabled with stale signatures** → Update DNSSEC records or temporarily disable
+3. **DNS provider API lag** → Try creating records via provider's web UI instead of API
+
+**Nuclear option:** If stuck after 72 hours, delete domain from WorkOS dashboard and start over with fresh CNAME records.
+
+### Certificate warnings when visiting AuthKit domain
+
+**Causes:**
+
+1. **Domain not verified yet** → Complete verification first
+2. **Very recent verification** → Certificate provisioning can take 5-10 minutes after DNS verification
+3. **Cloudflare proxy interference** → Ensure DNS-only mode
+
+**Expected behavior:** WorkOS auto-provisions SSL certificates AFTER DNS verification succeeds. No manual certificate upload needed.
 
 ## Related Skills
 
-- workos-authkit-nextjs (update redirect URIs after AuthKit domain configured)
-- workos-authkit-react (update redirect URIs after AuthKit domain configured)
+- workos-authkit-nextjs — For implementing AuthKit with custom domain
+- workos-authkit-react — For implementing AuthKit with custom domain

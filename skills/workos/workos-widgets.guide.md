@@ -1,13 +1,12 @@
 <!-- refined:sha256:883decb5b1de -->
 
-# WorkOS Widgets — Implementation Guide
+# WorkOS Widgets
 
 ## Step 1: Fetch Documentation (BLOCKING)
 
 **STOP. Do not proceed until complete.**
 
-WebFetch these docs for latest implementation details:
-
+WebFetch these URLs:
 - https://workos.com/docs/widgets/user-sessions
 - https://workos.com/docs/widgets/user-security
 - https://workos.com/docs/widgets/user-profile
@@ -17,289 +16,273 @@ WebFetch these docs for latest implementation details:
 - https://workos.com/docs/widgets/pipes
 - https://workos.com/docs/widgets/organization-switcher
 
-These docs are the source of truth. If this skill conflicts with fetched docs, follow the docs.
+The docs are the source of truth. If this skill conflicts with docs, follow docs.
 
 ## Step 2: Pre-Flight Validation
 
 ### Environment Variables
 
-Check `.env` or `.env.local` for:
-
+Check for:
 - `WORKOS_API_KEY` - starts with `sk_`
 - `WORKOS_CLIENT_ID` - starts with `client_`
 
-### Dashboard Configuration
+### Project Type Detection
 
-Access WorkOS Dashboard → Roles page:
+Determine integration approach based on project structure:
 
 ```
-Required setup
+Project type?
   |
-  +-- Create or verify "Admin" role exists
+  +-- Using AuthKit (authkit-js/authkit-react) --> Use access token from AuthKit
   |
-  +-- Assign widget permissions to role:
-      - widgets:users-table:manage (for UsersManagement)
-      - Check fetched docs for other widget-specific permissions
+  +-- Backend SDK available --> Generate widget tokens via SDK
+  |
+  +-- Neither --> FAIL: Widget tokens require AuthKit OR backend SDK
 ```
 
-**Critical:** Widget tokens require user to have a role with appropriate permissions. New accounts have an "Admin" role pre-configured. Existing accounts must assign permissions manually.
+**Critical:** Widgets require authorization tokens. You cannot use raw API keys directly in frontend code.
 
-## Step 3: Install Dependencies
+## Step 3: Install Widgets Package
 
-Detect package manager from lockfile, then install:
+Install required packages:
 
 ```bash
-# Required packages
 npm install @workos-inc/widgets @radix-ui/themes @tanstack/react-query
 ```
 
 **Why peer dependencies:**
-- `@radix-ui/themes` - UI components and styling
+- `@radix-ui/themes` - UI component primitives and theming
 - `@tanstack/react-query` - Data fetching and caching
-- These are peer deps to avoid version conflicts and bundle duplication
+
+These are peer deps (not bundled) to avoid version conflicts if your app already uses them.
 
 **Verify:** All three packages exist in node_modules before continuing.
 
-## Step 4: Framework Detection (Decision Tree)
+## Step 4: Widget Selection (Decision Tree)
 
-Read `package.json` to determine React framework:
-
-```
-Framework?
-  |
-  +-- Next.js (App Router) --> Check for app/ directory
-  |                           --> Provider setup in layout.tsx
-  |
-  +-- Next.js (Pages) --> Check for pages/ directory
-  |                      --> Provider setup in _app.tsx
-  |
-  +-- Create React App --> Provider setup in index.tsx or App.tsx
-  |
-  +-- Vite --> Check vite.config - Provider setup in main.tsx
-  |
-  +-- Remix --> Check remix.config - Provider setup in root.tsx
-```
-
-See https://github.com/workos/widgets-examples for framework-specific patterns.
-
-## Step 5: Provider Setup (REQUIRED)
-
-Wrap your app root with required providers. **ALL THREE are mandatory:**
-
-```tsx
-// Pseudocode pattern - check fetched docs for exact imports
-import { Theme } from '@radix-ui/themes';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-
-// Create QueryClient instance
-const queryClient = new QueryClient();
-
-// Wrap app root
-<QueryClientProvider client={queryClient}>
-  <Theme>
-    {/* Your app content */}
-  </Theme>
-</QueryClientProvider>
-```
-
-**Provider order matters:**
-1. QueryClientProvider (outermost)
-2. Theme
-3. Your app components
-
-**Common locations by framework:**
-- Next.js App Router: `app/layout.tsx`
-- Next.js Pages: `pages/_app.tsx`
-- CRA/Vite: `src/App.tsx` or `src/main.tsx`
-- Remix: `app/root.tsx`
-
-## Step 6: Token Generation Strategy (Decision Tree)
-
-Choose token acquisition method based on your auth setup:
+Choose widgets based on required permissions:
 
 ```
-Using AuthKit?
+What does user need to do?
   |
-  +-- YES (authkit-js or authkit-react)
-  |   --> Use provided access token directly
-  |   --> No additional token request needed
+  +-- View/manage their own sessions --> <UserSessions />
+  |                                      Permission: (none required)
   |
-  +-- NO (backend SDK only)
-      --> Use SDK "get token" method
-      --> Request token with widget-specific scope
-      --> Token expires after 1 hour
+  +-- Change password or MFA --> <UserSecurity />
+  |                              Permission: (none required)
+  |
+  +-- Edit their display name --> <UserProfile />
+  |                               Permission: (none required)
+  |
+  +-- Manage org members (invite/remove/roles) --> <UsersManagement />
+  |                                                 Permission: widgets:users-table:manage
+  |
+  +-- Manage Pipes connections --> <Pipes />
+  |                                Permission: (check fetched docs)
+  |
+  +-- Switch between orgs --> <OrganizationSwitcher />
+                              Permission: (check fetched docs)
 ```
 
-**For backend SDK pattern:**
+**Permission trap:** Most widgets need no special permissions. `<UsersManagement />` is the exception — user's role MUST have `widgets:users-table:manage` or widget will fail to load.
+
+## Step 5: Token Generation Strategy
+
+### If Using AuthKit (Recommended)
+
+AuthKit libraries (`authkit-js`, `authkit-react`) provide access tokens automatically. Pass token directly to widget:
 
 ```typescript
-// Pseudocode - check SDK docs for exact method name
-const token = await workos.getUserManagementToken({
-  userId: currentUserId,
-  organizationId: currentOrgId,
-  scope: 'widgets:users-table:manage' // Widget-specific scope
-});
+import { useAuth } from '@workos-inc/authkit-react';
+import { UserSessions } from '@workos-inc/widgets';
+
+function MyComponent() {
+  const { accessToken } = useAuth();
+  return <UserSessions token={accessToken} />;
+}
 ```
 
-**Token expiry handling:** Tokens expire after 1 hour. Implement refresh logic or regenerate on widget mount.
+**Verify:** `accessToken` is not null before rendering widget.
+
+### If Using Backend SDK
+
+Generate widget-scoped tokens via SDK "get token" method. Check fetched docs for exact method name per language.
+
+**Token characteristics:**
+- Expires after 1 hour
+- Scoped to specific widget operations
+- Cannot be reused across different widget types (check docs)
+
+**Pattern:**
+1. Backend endpoint receives widget request
+2. SDK method generates token with appropriate scope
+3. Return token to frontend
+4. Frontend passes token to widget component
+
+**Do NOT:**
+- Generate tokens on page load (wasteful, tokens expire)
+- Cache tokens beyond expiration window
+- Use same token for multiple widget types (may not work)
+
+## Step 6: Role and Permission Setup
+
+**New WorkOS accounts:** Default "Admin" role has all widget permissions.
+
+**Existing accounts:** Assign permissions via Dashboard → Roles page.
+
+**Critical permission:** `widgets:users-table:manage` required for `<UsersManagement />`.
+
+Check fetched docs for complete permission list per widget.
+
+### Permission Failure Symptoms
+
+- Widget loads blank/empty state
+- Console error about insufficient permissions
+- User sees "contact admin" message
+
+**Fix:** Go to Dashboard → Roles → [user's role] → add missing permission.
 
 ## Step 7: Widget Integration
 
-### Available Widgets
+Wrap widgets in required providers. Check fetched docs for exact provider setup — typically requires:
 
-Check fetched docs for current widget list. As of documentation fetch, these widgets exist:
+- `QueryClientProvider` from `@tanstack/react-query`
+- `Theme` from `@radix-ui/themes`
 
-- `<UserSessions />` - Manage active sessions across devices
-- `<UserSecurity />` - Password and MFA configuration
-- `<UserProfile />` - View and edit display name
-- `<UsersManagement />` - Organization admin user management (requires `widgets:users-table:manage` permission)
-- `<Pipes />` - Manage third-party connections
-- `<OrganizationSwitcher />` - Switch between organizations (check fetched docs for details)
+**Pattern:**
 
-### Integration Pattern
+```typescript
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Theme } from '@radix-ui/themes';
+import '@radix-ui/themes/styles.css'; // REQUIRED
 
-```tsx
-// Pseudocode - check fetched docs for exact import paths
-import { UsersManagement } from '@workos-inc/widgets';
+const queryClient = new QueryClient();
 
-function MyComponent() {
-  const token = getWidgetToken(); // Your token acquisition logic
-  
+function App() {
   return (
-    <UsersManagement
-      token={token}
-      // Check fetched docs for other props
-    />
+    <QueryClientProvider client={queryClient}>
+      <Theme>
+        {/* Widgets go here */}
+      </Theme>
+    </QueryClientProvider>
   );
 }
 ```
 
-### Permission Requirements
+**Import trap:** Missing `@radix-ui/themes/styles.css` causes unstyled widgets.
 
-```
-Widget Permission Matrix
-  |
-  +-- UserSessions --> No special permissions
-  +-- UserSecurity --> No special permissions
-  +-- UserProfile --> No special permissions
-  +-- UsersManagement --> Requires widgets:users-table:manage
-  +-- Pipes --> Check fetched docs
-  +-- OrganizationSwitcher --> Check fetched docs
-```
+## Step 8: Widget-Specific Setup
 
-**Critical:** If user lacks required permission, widget will not render or will show permission error. Verify role assignments in Dashboard before debugging widget rendering issues.
+### UserSessions
 
-## Step 8: Styling Customization (Optional)
+Lists active sessions, allows user to sign out remotely.
 
-Widgets use Radix Themes for styling. To customize:
+**No permissions required.** Any authenticated user can use.
 
-1. Import Radix Themes CSS in your app root
-2. Use Theme component props for global customization
-3. Check https://www.radix-ui.com/themes/docs for theme tokens
+### UserSecurity
 
-**Common customization pattern:**
+Password changes, MFA configuration.
 
-```tsx
-<Theme accentColor="blue" grayColor="slate" radius="medium">
-  {/* Widgets inherit theme */}
-</Theme>
-```
+**No permissions required.** Any authenticated user can use.
+
+### UserProfile
+
+Display name editing, basic profile info.
+
+**No permissions required.** Any authenticated user can use.
+
+### UsersManagement
+
+Invite/remove org members, change roles.
+
+**Permission required:** `widgets:users-table:manage`
+
+**Admin trap:** Even org admins need explicit permission. Being an "admin" in your app logic ≠ having the WorkOS permission. Check user's role in Dashboard.
+
+### Pipes
+
+Manage third-party integrations.
+
+**Check fetched docs for:** Required permissions, supported integrations.
+
+### OrganizationSwitcher
+
+Switch between user's orgs.
+
+**Check fetched docs for:** Required permissions, multi-org setup requirements.
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these commands to confirm integration:
-
 ```bash
-# 1. Check peer dependencies installed
-npm list @radix-ui/themes @tanstack/react-query @workos-inc/widgets
+# 1. Verify packages installed
+npm list @workos-inc/widgets @radix-ui/themes @tanstack/react-query
 
-# 2. Check provider imports exist (adapt path to your framework)
-grep -r "QueryClientProvider\|Theme" src/
+# 2. Check Radix styles imported (grep your entry point)
+grep "@radix-ui/themes/styles.css" src/**/*.{ts,tsx,js,jsx}
 
-# 3. Check widget imports exist
-grep -r "@workos-inc/widgets" src/
+# 3. Verify env vars set
+echo $WORKOS_API_KEY | grep "^sk_" || echo "FAIL: Invalid API key format"
 
 # 4. Build succeeds
 npm run build
-
-# 5. Check role permissions in Dashboard (manual check)
-# Navigate to Dashboard → Roles → Verify admin role has widget permissions
 ```
-
-**If check #1 fails:** Re-run install command from Step 3.
-
-**If check #2 fails:** Go back to Step 5 and add providers.
-
-**If check #4 fails:** Check error output for missing provider or import issues.
 
 ## Error Recovery
 
-### "Widget not rendering" or blank screen
+### "Widget displays blank/empty"
 
-**Root cause check sequence:**
+**Root causes:**
+1. Missing permission for that widget
+   - Fix: Dashboard → Roles → add permission
+   - Verify: Check user's assigned role has the permission
+2. Token expired (>1 hour old)
+   - Fix: Regenerate token, do not cache long-term
+3. Token generated without correct scope
+   - Fix: Check SDK method call includes widget-specific scope
 
-1. **Providers missing:** Verify QueryClientProvider and Theme wrap the component
-2. **Token issue:** Check token is not null/undefined and hasn't expired (1 hour limit)
-3. **Permission issue:** Verify user role has required widget permission in Dashboard
-4. **Import path wrong:** Check fetched docs for correct import path (may have changed)
+### "Cannot read properties of undefined (reading 'token')"
 
-**Fix priority:** Check providers → token → permissions → import path
+**Root cause:** Trying to render widget before token available.
 
-### "Permission denied" in widget
+**Fix:** Conditional rendering:
 
-**Root cause:** User's role lacks the required permission.
-
-**Fix steps:**
-1. Go to WorkOS Dashboard → Roles
-2. Find user's assigned role
-3. Add missing widget permission (e.g., `widgets:users-table:manage` for UsersManagement)
-4. Wait ~30 seconds for permission propagation
-5. Regenerate widget token with new permissions
-
-**Note:** New accounts have pre-configured Admin role. Existing accounts must manually assign.
-
-### "Token expired" or widget stops working after 1 hour
-
-**Root cause:** Widget tokens expire after 1 hour.
-
-**Fix pattern:**
 ```typescript
-// Implement token refresh on mount or error boundary
-useEffect(() => {
-  const refreshToken = async () => {
-    const newToken = await fetchWidgetToken();
-    setToken(newToken);
-  };
-  
-  const interval = setInterval(refreshToken, 50 * 60 * 1000); // Refresh at 50min
-  return () => clearInterval(interval);
-}, []);
+{accessToken && <UserSessions token={accessToken} />}
 ```
 
-### "Peer dependency warning" during install
+### "Module not found: @radix-ui/themes/styles.css"
 
-**Root cause:** Version mismatch or missing peer dependency.
+**Root cause:** Peer dependency not installed.
 
-**Fix:** Install exact peer dependencies listed in Step 3. Do not ignore peer dependency warnings — they will cause runtime errors.
+**Fix:** `npm install @radix-ui/themes`
 
-### "Cannot find module '@radix-ui/themes'" at runtime
+### "QueryClient not provided"
 
-**Root cause:** Radix Themes CSS not imported or peer dependency not installed.
+**Root cause:** Widget rendered outside `QueryClientProvider`.
 
-**Fix steps:**
-1. Verify `npm list @radix-ui/themes` shows installed package
-2. Add CSS import to app root: `import '@radix-ui/themes/styles.css';`
-3. Rebuild application
+**Fix:** Wrap widget tree in provider (see Step 7).
 
-### Build fails with "React not found"
+### "User sees 'contact admin' in widget"
 
-**Root cause:** React version incompatibility or missing React peer dependency.
+**Root cause:** User's role lacks required permission.
 
-**Check:** Widgets require React 16.8+ (hooks support). Verify React version in package.json.
+**Fix process:**
+1. Identify which widget → check permission name in Step 4
+2. Dashboard → Users → find user → check assigned role
+3. Dashboard → Roles → [that role] → add missing permission
+4. User may need to sign out/in for permission to take effect
+
+### Build fails with "Duplicate dependency" error
+
+**Root cause:** Both your app and widgets bundle same peer dependency.
+
+**Fix:** Ensure peer deps installed at root level, not nested:
+
+```bash
+npm dedupe @radix-ui/themes @tanstack/react-query
+```
 
 ## Related Skills
 
-For authentication and token generation patterns:
-- workos-authkit-react - Use for client-side token acquisition
-- workos-authkit-nextjs - Use for Next.js server-side token generation
-- workos-authkit-vanilla-js - Use for non-React implementations
+- workos-authkit-react - For token generation via `useAuth()` hook
+- workos-authkit-nextjs - For Next.js App Router integration

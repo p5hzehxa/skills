@@ -9,65 +9,35 @@ description: WorkOS Audit Logs API endpoints — create events, manage schemas, 
 
 ## When to Use
 
-Use this API when you need to emit tamper-proof audit events for compliance (SOC 2, HIPAA, GDPR) or surface a searchable audit trail in your product. Audit Logs provides structured event ingestion, schema validation, configurable retention, and CSV export — without building your own event storage infrastructure.
+Use the Audit Logs API to programmatically emit audit events from your application, configure event schemas, and manage data exports. This is a direct API alternative to WorkOS SDKs when you need raw HTTP control or are building custom integrations for compliance logging.
 
-Reach for this when you need to answer "who did what, when" for security reviews, customer support, or regulatory audits.
+## Key Vocabulary
 
-## Key Concepts
+- **Audit Event** — a logged action with actor, target, context, and timestamp
+- **Event Schema** — defines action types and their display metadata
+- **Export** — CSV download of filtered audit log data
+- **Retention Policy** — how long audit events are stored (30-3650 days)
+- Event ID prefix: `audit_log_event_`
+- Export ID prefix: `audit_log_export_`
+- Actor ID prefix: `user_` (your system's user identifier)
+- Target ID prefix: application-defined (e.g., `project_`, `document_`)
+- Organization ID prefix: `org_` (WorkOS organization identifier)
 
-**Event Structure**
-- Event type naming: `{group}.{action}` (e.g., `user.created`, `document.deleted`)
-- Actor: who performed the action (user, API key, or system)
-- Target: what was affected (resource ID + type)
-- Context: IP address, user agent, location metadata
-- Occurred at: ISO 8601 timestamp (defaults to ingestion time if omitted)
+## Documentation
 
-**Schema Management**
-- Schemas define valid actions for a group (e.g., `user` group with `created`, `updated`, `deleted` actions)
-- Create schemas before emitting events — events failing schema validation are rejected
-- List all schemas to see available event types
-- List actions per group to validate event type strings before emission
-
-**Export & Retention**
-- Exports: async CSV generation for date ranges (poll export status, then download signed URL)
-- Retention: configure per-organization how long events are stored (default varies, check dashboard)
-- Set retention via API or dashboard — impacts export availability and compliance posture
-
-**ID Prefixes & Auth**
-- Organization ID: `org_` prefix (scope exports and retention to an org)
-- Export ID: `audit_log_export_` prefix (use to poll export status)
-- Auth: `WORKOS_API_KEY` (server-side only — never expose in client code)
-
-**Dashboard Navigation**
-- View events: Dashboard → Audit Logs → Events
-- Manage schemas: Dashboard → Audit Logs → Schemas
-- Configure retention: Dashboard → Audit Logs → Settings
-
-**Architectural Decisions**
-- Emit events asynchronously: return 200 immediately, don't block user flows on audit ingestion
-- Use idempotency keys if retrying failed event creation (prevents duplicate events)
-- Batch event creation if emitting high volumes (check fetched docs for batch endpoint availability)
-- For compliance: verify retention meets your regulatory requirements before go-live
-
-**Verification Commands**
-```bash
-# Confirm event was created (replace IDs and timestamps)
-curl -X GET "https://api.workos.com/audit-logs?organization_id=org_123&occurred_at_gte=2024-01-01T00:00:00Z" \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}"
-
-# Check schema exists before emitting events
-curl -X GET "https://api.workos.com/audit-logs/schema/list?organization_id=org_123" \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}"
-```
-
-**Common Traps**
-- Emitting events before creating schemas → 400 validation error
-- Using client-side API keys → security risk (audit logs are server-side only)
-- Blocking user flows on event creation → degrades UX (emit async instead)
-- Not setting retention → events may expire before you need them for audits
+- https://workos.com/docs/reference/audit-logs
+- https://workos.com/docs/reference/audit-logs/configuration
+- https://workos.com/docs/reference/audit-logs/event
+- https://workos.com/docs/reference/audit-logs/event/create
+- https://workos.com/docs/reference/audit-logs/export
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-api-audit-logs.guide.md`
+
+## Related Skills
+
+- `workos-audit-logs` — SDK-based audit log implementation (higher-level)
+- `workos-events` — consuming audit log webhooks

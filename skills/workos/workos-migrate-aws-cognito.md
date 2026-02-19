@@ -9,63 +9,31 @@ description: Migrate to WorkOS from AWS Cognito.
 
 ## When to Use
 
-Use this when migrating an existing AWS Cognito user base to WorkOS authentication. This covers both JIT (just-in-time) migration during user login and bulk user import via CSV. Choose JIT migration when you want to preserve user passwords without re-authentication; choose bulk import when passwords cannot be migrated (Cognito does not export password hashes) or for a one-time transfer.
+Migrate existing user accounts from AWS Cognito User Pools to WorkOS Authentication. Use this when deprecating Cognito infrastructure or consolidating identity providers. Migration preserves user identities without forcing password resets (where Cognito exports support it).
 
-## Key Concepts
+## Key Vocabulary
 
-**Migration Strategies**
-- **JIT Migration** — migrate users on first login by validating credentials against Cognito, then creating WorkOS user
-- **Bulk Import** — export users to CSV, import to WorkOS, require password reset (Cognito limitation: no password hash export)
+- **User Pool** — Cognito's user directory container; maps to a WorkOS Organization
+- **Organization `org_`** — WorkOS container for migrated users
+- **Connection `conn_`** — WorkOS authentication method linking to the Organization
+- **Password Hash Migration** — limited by Cognito's export capabilities (Cognito does not export password hashes)
+- **JIT (Just-In-Time) Migration** — migrating users on first login attempt via custom authentication flow
+- **Bulk Migration** — pre-migrating user records via CSV export/import
+- **User Attributes** — Cognito user metadata (email, phone, custom attributes); map to WorkOS user profile fields
+- **MFA Settings** — Cognito's multi-factor authentication state; requires re-enrollment in WorkOS
+- **Lambda Triggers** — Cognito's custom authentication hooks; replacement patterns differ in WorkOS
 
-**Cognito Identifiers**
-- User Pool ID format: `us-east-1_aBcDeFgHi`
-- Region: required for API calls (e.g., `us-east-1`)
-- App Client ID: OAuth client ID for authenticating users
+## Documentation
 
-**WorkOS Concepts**
-- Organization: maps to a Cognito User Pool or tenant boundary
-- Connection: not used for password-based migration (no SSO handoff)
-- Email verification: WorkOS re-verifies emails by default unless `email_verified: true` in CSV
-
-**Migration Webhooks**
-- Event type: `authentication.email_verification_succeeded` — listen to trigger JIT lookup
-- Webhook signature verification: use `workos.webhooks.verifyEvent()` to confirm authenticity
-- Return 200 immediately, defer long-running Cognito API calls to background jobs
-
-**CSV Import Format**
-- Required columns: `email`, `email_verified`, `first_name`, `last_name`
-- Optional: custom attributes map to WorkOS profile metadata
-- Password column: omit (Cognito does not export hashes)
-
-**Cognito API Operations**
-- `AdminGetUser` — fetch user details during JIT migration
-- `AdminInitiateAuth` — validate username/password (returns tokens on success)
-- AWS SDK required: `@aws-sdk/client-cognito-identity-provider`
-
-**Common Traps**
-- Cognito does NOT export password hashes — bulk import always requires password reset
-- Do NOT confuse Cognito's lack of hash export with WorkOS's ability to import hashes (WorkOS supports bcrypt/scrypt if the source provides them)
-- JIT migration must validate passwords against Cognito in real-time — no offline fallback
-- Cognito rate limits: 25 requests/second per user pool — implement exponential backoff
-
-**Decision Tree: JIT vs Bulk**
-- Use JIT if: passwords must survive migration, user base is active, you can defer full migration
-- Use Bulk if: one-time cutover required, user re-authentication acceptable, Cognito deprecation deadline is near
-
-**Verification Commands**
-```bash
-# Verify Cognito credentials
-aws cognito-idp admin-get-user --user-pool-id <pool_id> --username <email> --region <region>
-
-# Test WorkOS user creation
-curl -X POST https://api.workos.com/user_management/users \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","email_verified":true}'
-```
+- https://workos.com/docs/migrate/aws-cognito
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-migrate-aws-cognito.guide.md`
+
+## Related Skills
+
+- workos-authkit-nextjs — for post-migration authentication UI
+- workos-user-management — for managing migrated user accounts

@@ -1,10 +1,10 @@
 <!-- refined:sha256:7daeec70196c -->
 
-# WorkOS Roles & Permissions API Reference
+# WorkOS Roles & Permissions API Reference — Implementation Guide
 
 ## Step 1: Fetch Documentation
 
-**STOP. WebFetch the latest API docs before proceeding.**
+**STOP. WebFetch the relevant docs for latest implementation details before proceeding.**
 
 - https://workos.com/docs/reference/roles
 - https://workos.com/docs/reference/roles/organization-role
@@ -17,181 +17,226 @@
 
 ## Authentication Setup
 
+All API calls require your WorkOS API key in the Authorization header:
+
+```bash
+Authorization: Bearer sk_your_api_key
+```
+
 Set your API key as an environment variable:
 
 ```bash
-export WORKOS_API_KEY=sk_live_...
+export WORKOS_API_KEY=sk_your_api_key
 ```
 
-All requests require the `Authorization: Bearer <api_key>` header. SDKs handle this automatically when you initialize with your API key.
-
-## Endpoint Catalog
+## Available Endpoints
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/roles` | Create a new role |
-| GET | `/roles/:id` | Retrieve a specific role |
-| GET | `/roles` | List all roles for an organization |
-| DELETE | `/roles/:id` | Delete a role |
-| POST | `/roles/:id/permissions` | Add a permission to a role |
-| DELETE | `/roles/:id/permissions/:permission_id` | Remove a permission from a role |
-
-All role operations are scoped to an organization. Supply `organization_id` as a query parameter or in the request body per the fetched docs.
+| POST | `/organization_roles` | Create a new role |
+| GET | `/organization_roles/:id` | Retrieve a specific role |
+| GET | `/organization_roles` | List all roles in an organization |
+| DELETE | `/organization_roles/:id` | Delete a role |
+| POST | `/organization_roles/:id/permissions` | Add a permission to a role |
+| DELETE | `/organization_roles/:id/permissions/:permission_id` | Remove a permission from a role |
 
 ## Operation Decision Tree
 
-**Creating roles:**
-- Use `POST /roles` to define a new role with a slug and name
-- Assign permissions during creation OR add them afterward with `POST /roles/:id/permissions`
+### When to use which endpoint:
 
-**Updating roles:**
-- WorkOS roles are additive — add/remove individual permissions rather than replacing the entire role
-- To rename or change slug: check fetched docs for update endpoint availability
-- To restructure: delete and recreate (permissions are tied to role ID)
+**Creating vs Updating Roles:**
+- **First time defining a role** → POST `/organization_roles`
+- **Adding permissions to existing role** → POST `/organization_roles/:id/permissions`
+- **Removing permissions from role** → DELETE `/organization_roles/:id/permissions/:permission_id`
+- **Replacing a role entirely** → DELETE old role, then POST new role (no PATCH/PUT endpoint exists)
 
-**Listing roles:**
-- Use `GET /roles` with `organization_id` query parameter
-- Check fetched docs for pagination parameters (likely `before`/`after` cursor-based)
+**Listing vs Getting:**
+- **Need one specific role by ID** → GET `/organization_roles/:id`
+- **Need all roles in organization** → GET `/organization_roles?organization_id=org_xxx`
+- **Searching by role slug** → GET `/organization_roles?organization_id=org_xxx` then filter client-side
 
-**Deleting roles:**
-- Use `DELETE /roles/:id`
-- Organization memberships referencing the role will lose that role assignment
-- Cannot delete if role is the last admin role — check error response for this scenario
+**Deleting Roles:**
+- Check fetched docs for cascade behavior when deleting roles with active assignments
+- Cannot delete roles that are still assigned to users (check docs for exact constraint)
 
-**Managing permissions:**
-- Add: `POST /roles/:id/permissions` with `permission_id` in body
-- Remove: `DELETE /roles/:id/permissions/:permission_id`
-- Permissions are scoped to resources — define resources first in Dashboard or via Resources API
+## Core Patterns
 
-## Common Patterns
-
-### Creating a role with permissions
-
-```pseudocode
-# Step 1: Create the role
-role = create_role(
-  organization_id: "org_123",
-  slug: "editor",
-  name: "Editor"
-)
-
-# Step 2: Add permissions
-for permission_id in required_permissions:
-  add_permission_to_role(
-    role_id: role.id,
-    permission_id: permission_id
-  )
-```
-
-### Checking if a user has a specific permission
-
-Roles assign permissions, but you check authorization via the User Management API. Cross-reference with `workos-api-user-management` for authorization checks.
-
-### Listing roles for an organization
+### Creating a Role
 
 ```bash
-curl "https://api.workos.com/roles?organization_id=org_123" \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}"
-```
-
-Check fetched docs for `limit`, `before`, `after` pagination params.
-
-## Error Code Mapping
-
-| Status | Cause | Fix |
-|--------|-------|-----|
-| 400 | Invalid `organization_id` or `slug` format | Verify `organization_id` starts with `org_` and slug is alphanumeric with underscores/hyphens only |
-| 401 | Missing or invalid API key | Check `WORKOS_API_KEY` starts with `sk_` and has Roles permission enabled in Dashboard |
-| 404 | Role or permission not found | Verify role ID exists and permission ID is defined for the organization |
-| 409 | Duplicate role slug | Role slugs must be unique per organization — choose a different slug or update existing role |
-| 422 | Invalid permission assignment | Permission may not be compatible with role type — check fetched docs for permission scope rules |
-
-Check fetched docs for complete error response schema including `code` and `message` fields.
-
-## Pagination Handling
-
-WorkOS list endpoints use cursor-based pagination. Pattern:
-
-```pseudocode
-roles = []
-cursor = null
-
-loop:
-  response = list_roles(
-    organization_id: "org_123",
-    after: cursor,
-    limit: 100  # check fetched docs for max
-  )
-  roles.extend(response.data)
-  
-  if not response.list_metadata.after:
-    break
-  cursor = response.list_metadata.after
-```
-
-Check fetched docs for exact pagination metadata field names.
-
-## Rate Limiting
-
-WorkOS enforces rate limits per API key. If you receive `429 Too Many Requests`:
-
-- Implement exponential backoff with jitter
-- Start with 1s delay, double on each retry, cap at 60s
-- Check `Retry-After` header if present
-
-For high-volume operations (bulk permission assignments), batch requests and add delays between batches.
-
-## Verification Commands
-
-**Test API key:**
-```bash
-curl https://api.workos.com/roles?organization_id=org_YOUR_ORG_ID \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}"
-```
-
-Expected: 200 response with `data` array (may be empty).
-
-**Create a test role:**
-```bash
-curl -X POST https://api.workos.com/roles \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+curl -X POST https://api.workos.com/organization_roles \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "organization_id": "org_YOUR_ORG_ID",
-    "slug": "test_role",
-    "name": "Test Role"
+    "organization_id": "org_xxx",
+    "name": "Engineering Manager",
+    "slug": "engineering-manager"
   }'
 ```
 
-Expected: 201 response with role object including `id`, `slug`, `name`.
+**Pattern:**
+1. Provide organization_id (where this role exists)
+2. Provide name (display label)
+3. Provide slug (unique identifier within organization)
+4. Check fetched docs for optional fields (description, etc.)
 
-**Verify role exists:**
+### Adding Permissions to a Role
+
 ```bash
-curl https://api.workos.com/roles/role_RETURNED_ID \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}"
+curl -X POST https://api.workos.com/organization_roles/role_xxx/permissions \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "permission_id": "perm_xxx"
+  }'
 ```
 
-Expected: 200 response with role object.
+**Pattern:**
+1. Use role ID (not slug) in URL path
+2. Reference permission by its ID
+3. Operation is idempotent (adding same permission twice is safe)
 
-## Integration Traps
+### Listing Roles in an Organization
 
-**Trap: Assuming roles auto-assign to users**
-Roles must be explicitly assigned to organization memberships via the User Management API. Creating a role does NOT automatically grant it to anyone.
+```bash
+curl -X GET "https://api.workos.com/organization_roles?organization_id=org_xxx" \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
+```
 
-**Trap: Treating slug as mutable**
-Role slugs are typically immutable identifiers. To "rename" a role, delete and recreate it — this will break existing membership assignments. Check fetched docs for update capabilities.
+**Pagination Pattern:**
+- Check fetched docs for pagination parameters (likely `limit` and cursor-based)
+- Default page size may be capped (check docs)
+- Response includes cursor for next page if more results exist
 
-**Trap: Deleting roles without checking dependencies**
-If a role is assigned to users, deleting it removes their permissions immediately. Fetch memberships with that role first, reassign them, then delete.
+### Removing a Permission from a Role
 
-**Trap: Permissions without resources**
-Permissions are meaningless without resources. Define resources in the Dashboard (Projects, Documents, etc.) before assigning permissions. Resources are organization-scoped.
+```bash
+curl -X DELETE https://api.workos.com/organization_roles/role_xxx/permissions/perm_xxx \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
+```
 
-**Trap: Confusing Roles API with RBAC product feature**
-This API manages role definitions. To check "does user X have permission Y", use the Authorization API (check `workos-api-authorization` for permission checking patterns).
+**Pattern:**
+1. Both role_id and permission_id required in URL path
+2. Operation is idempotent (removing non-existent permission returns success)
+
+## Error Code Mapping
+
+### 401 Unauthorized
+**Cause:** Invalid or missing API key  
+**Fix:** Verify `WORKOS_API_KEY` starts with `sk_` and is set correctly
+
+### 404 Not Found
+**Causes:**
+- Role ID does not exist
+- Permission ID does not exist
+- Organization ID is invalid
+
+**Fix:** Verify IDs by listing resources first. Role IDs start with `role_`, permission IDs with `perm_`, organization IDs with `org_`
+
+### 409 Conflict
+**Causes:**
+- Role slug already exists in organization (slugs must be unique per organization)
+- Attempting to delete role that has active user assignments
+
+**Fix:** For slug conflicts, choose a different slug or delete existing role. For deletion conflicts, check fetched docs for how to handle role reassignment.
+
+### 422 Unprocessable Entity
+**Causes:**
+- Missing required fields (organization_id, name, slug)
+- Invalid field formats (slug must be lowercase, hyphenated)
+- Organization does not exist
+
+**Fix:** Check fetched docs for field validation rules. Slugs typically follow pattern: `[a-z0-9-]+`
+
+### 429 Too Many Requests
+**Cause:** Rate limit exceeded  
+**Fix:** Implement exponential backoff. Check fetched docs for rate limit values and reset timing.
+
+## Verification Commands
+
+### Verify API Key Setup
+
+```bash
+curl -X GET "https://api.workos.com/organization_roles?organization_id=org_xxx&limit=1" \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
+```
+
+Expected: 200 response with roles array (may be empty)
+
+### Verify Role Creation
+
+```bash
+# Create a test role
+ROLE_RESPONSE=$(curl -s -X POST https://api.workos.com/organization_roles \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_xxx",
+    "name": "Test Role",
+    "slug": "test-role-'$(date +%s)'"
+  }')
+
+# Extract role ID from response
+ROLE_ID=$(echo $ROLE_RESPONSE | jq -r '.id')
+
+# Verify retrieval
+curl -X GET "https://api.workos.com/organization_roles/$ROLE_ID" \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
+```
+
+Expected: 200 response with role details matching creation request
+
+### Verify Permission Management
+
+```bash
+# Add permission
+curl -X POST https://api.workos.com/organization_roles/$ROLE_ID/permissions \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"permission_id": "perm_xxx"}'
+
+# Remove permission
+curl -X DELETE https://api.workos.com/organization_roles/$ROLE_ID/permissions/perm_xxx \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
+```
+
+Expected: 200 response for both operations
+
+## Common Traps
+
+### Trap: Using slug instead of ID in API calls
+Most endpoints require role ID (`role_xxx`), not slug. Only creation accepts slug as input.
+
+### Trap: Assuming roles are global
+Roles are scoped to organizations. Same slug can exist in different organizations.
+
+### Trap: Not handling permission assignment conflicts
+Check fetched docs for behavior when adding permission to role that already has it (likely idempotent but verify).
+
+### Trap: Deleting roles without reassigning users
+Deleting a role may fail if users still have that role assigned. Check fetched docs for cascade behavior or required cleanup steps.
+
+### Trap: Case-sensitive slug comparison
+Slugs are typically stored lowercase. Normalize slugs before comparison or creation.
+
+## Rate Limits
+
+Check fetched docs for current rate limits and quota details. Implement retry logic with exponential backoff:
+
+```
+Pseudocode pattern:
+max_retries = 3
+for attempt in 1..max_retries:
+  response = make_api_call()
+  if response.status == 429:
+    wait_seconds = 2^attempt + random_jitter
+    sleep(wait_seconds)
+    continue
+  break
+```
 
 ## Related Skills
 
-- `workos-api-user-management` — Assign roles to organization memberships
-- `workos-api-authorization` — Check user permissions at runtime
-- `workos-api-organizations` — Manage organizations that scope roles
+- workos-user-management (for assigning roles to users)
+- workos-organizations (for managing organization context)
+- workos-authkit-react (for enforcing role-based access in UI)

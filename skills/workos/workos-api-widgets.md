@@ -9,42 +9,21 @@ description: WorkOS Widgets API endpoints — generate widget tokens and manage 
 
 ## When to Use
 
-Use this API when you need to generate a secure, expiring token for embedding WorkOS UI components (organization settings, directory sync configuration, audit log viewers) directly into your application. The Widgets API provides a single `/get-token` endpoint that returns a time-limited token your frontend can use to initialize embedded widgets without exposing your API key.
+Use this skill when you need to generate short-lived access tokens for WorkOS-hosted UI widgets (e.g., User Management, Organization Settings). The Widgets API is a thin authentication layer — it only handles token generation, not widget configuration or lifecycle. Reach for this when you need to embed WorkOS UI components in your application.
 
-## Key Concepts
+## Key Vocabulary
 
-**Token Generation Pattern**
-- Single endpoint: `POST /widgets/get-token` — creates a short-lived token for widget initialization
-- Token scope: bound to a specific user session and widget type
-- Token lifespan: expires after a short TTL (check fetched docs for exact duration)
-- Frontend usage: token passed to widget initialization script, not stored server-side
+- **Widget** — a WorkOS-hosted UI component (User Management, Organization Settings, etc.)
+- **Widget Token** — short-lived access token scoped to a specific widget and user/organization
+- `WORKOS_API_KEY` — server-side credential for token generation
+- `/get-token` — the single endpoint for generating widget tokens
+- `organization_id` — the WorkOS organization ID for scoping widget access
+- `user_id` — the user ID for scoping widget access
 
-**Widget Types and Context**
-- Each widget type requires different context parameters in the token request
-- Organization widgets: require `organization_id` to scope the UI
-- User widgets: require `user_id` to scope the UI
-- Check fetched docs for complete list of widget types and their required parameters
+## Documentation
 
-**Security Model**
-- API key (`WORKOS_API_KEY`) stays server-side — NEVER exposed to frontend
-- Generated token is safe to send to frontend (time-limited, scoped)
-- Pattern: backend generates token on-demand → frontend initializes widget with token
-
-**ID Prefixes**
-- Widget tokens: `widget_token_*`
-- Organization IDs: `org_*`
-- User IDs: `user_*`
-
-**Common Integration Pattern**
-```
-1. User navigates to page requiring embedded widget
-2. Backend calls /get-token with user/org context
-3. Backend returns token to frontend (JSON response or template variable)
-4. Frontend passes token to WorkOS widget initialization script
-5. Widget loads and displays UI scoped to that user/org
-```
-
-**Trap Warning**: Do not cache widget tokens across sessions or users — generate a fresh token for each page load to maintain proper scoping and security.
+- https://workos.com/docs/reference/widgets
+- https://workos.com/docs/reference/widgets/get-token
 
 ## Implementation Guide
 
