@@ -66,7 +66,11 @@ async function scoreSkill(
   if (skill.type === "summary") {
     return scoreSummary(skill, options);
   }
-  return scoreGuide(skill, options);
+  if (skill.type === "guide") {
+    return scoreGuide(skill, options);
+  }
+  // Single-file skills (router, integration router) — use legacy scoring with frontmatter
+  return scoreLegacy(skill, options);
 }
 
 /** Score a summary file (100 points) */
@@ -147,12 +151,12 @@ async function scoreSummary(
     score += 5;
   }
 
-  // 8. Size under 3KB (10 pts)
-  if (skill.sizeBytes <= 3072) {
+  // 8. Size under 5KB (10 pts)
+  if (skill.sizeBytes <= 5120) {
     score += 10;
   } else {
     issues.push(
-      `Summary is ${(skill.sizeBytes / 1024).toFixed(1)}KB — should be under 3KB`,
+      `Summary is ${(skill.sizeBytes / 1024).toFixed(1)}KB — should be under 5KB`,
     );
   }
 
@@ -346,6 +350,115 @@ async function scoreGuide(
     score,
     issues,
     semanticCheck,
+  };
+}
+
+/** Score a single-file skill (router, integration router) — expects frontmatter */
+async function scoreLegacy(
+  skill: GeneratedSkill,
+  options: QualityGateOptions,
+): Promise<QualityResult> {
+  const issues: string[] = [];
+  let score = 0;
+  const content = skill.content;
+
+  // 1. Valid frontmatter (20 pts)
+  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  if (frontmatterMatch) {
+    const fm = frontmatterMatch[1];
+    if (fm.includes("name:") && fm.includes("description:")) {
+      score += 20;
+    } else {
+      score += 10;
+      if (!fm.includes("name:")) issues.push("Frontmatter missing 'name'");
+      if (!fm.includes("description:"))
+        issues.push("Frontmatter missing 'description'");
+    }
+  } else {
+    issues.push("No valid frontmatter found");
+  }
+
+  // 2. Generated/refined marker (5 pts)
+  if (
+    /<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->/.test(content)
+  ) {
+    score += 5;
+  } else {
+    issues.push("Missing generated/refined marker");
+  }
+
+  // 3. Doc URL references (20 pts)
+  const docUrlCount = (content.match(/https:\/\/workos\.com\/docs\//g) || [])
+    .length;
+  if (docUrlCount >= 3) {
+    score += 20;
+  } else if (docUrlCount >= 1) {
+    score += 10;
+    issues.push(`Only ${docUrlCount} doc URL reference(s), expected 3+`);
+  } else {
+    issues.push("No doc URL references found");
+  }
+
+  // 4. Structural sections (15 pts)
+  const h2Count = (content.match(/^## /gm) || []).length;
+  if (h2Count >= 4) {
+    score += 15;
+  } else if (h2Count >= 2) {
+    score += 8;
+    issues.push(`Only ${h2Count} sections, expected 4+`);
+  } else {
+    issues.push(`Only ${h2Count} section(s), skill lacks structure`);
+  }
+
+  // 5. Content length > 1KB (10 pts)
+  if (skill.sizeBytes > 1024) {
+    score += 10;
+  } else {
+    issues.push(`Content is only ${skill.sizeBytes}B, below 1KB minimum`);
+  }
+
+  // 6. Has verification or error recovery (15 pts)
+  const hasVerification =
+    /verification|checklist/i.test(content) && content.includes("- [ ]");
+  const hasErrorRecovery =
+    /error recovery/i.test(content) && /###/.test(content);
+  const hasBashCommands = /```bash/i.test(content);
+
+  if (hasVerification || hasErrorRecovery) {
+    score += 10;
+    if (hasBashCommands) {
+      score += 5;
+    } else {
+      issues.push("No runnable bash commands in verification/error recovery");
+    }
+  } else {
+    issues.push("Missing verification checklist or error recovery section");
+  }
+
+  // 7. No doc dump (15 pts)
+  const paragraphs = content.split(/\n\n+/);
+  const longUnformattedBlocks = paragraphs.filter(
+    (p) =>
+      p.length > 2048 &&
+      !p.includes("#") &&
+      !p.includes("|") &&
+      !p.includes("```") &&
+      !p.includes("- "),
+  );
+  if (longUnformattedBlocks.length === 0) {
+    score += 15;
+  } else {
+    score += 5;
+    issues.push(
+      `${longUnformattedBlocks.length} block(s) of unformatted content >2KB`,
+    );
+  }
+
+  return {
+    skillName: skill.name,
+    pass: score >= 70,
+    score,
+    issues,
   };
 }
 

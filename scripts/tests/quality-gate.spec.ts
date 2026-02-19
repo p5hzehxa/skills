@@ -325,7 +325,7 @@ Some concepts.
     ).toBe(true);
   });
 
-  it("flags summary over 3KB", async () => {
+  it("flags summary over 5KB", async () => {
     const content =
       `---
 name: workos-test
@@ -346,13 +346,13 @@ Concepts here.
 
 → Read \`skills/workos/workos-test.guide.md\`
 
-` + "x".repeat(3100);
+` + "x".repeat(5200);
     const summary = makeSummary({
       content,
       sizeBytes: Buffer.byteLength(content),
     });
     const report = await runQualityGate([summary]);
-    expect(report.results[0].issues.some((i) => i.includes("under 3KB"))).toBe(
+    expect(report.results[0].issues.some((i) => i.includes("under 5KB"))).toBe(
       true,
     );
   });
