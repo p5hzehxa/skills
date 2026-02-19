@@ -69,7 +69,7 @@ export const SECTION_CONFIG: Record<string, SectionConfig> = {
 /** Summary file validation thresholds */
 export const SUMMARY_VALIDATION = {
   minSize: 200,
-  maxSize: 5120, // 5KB
+  maxSize: 2048, // 2KB
 } as const;
 
 /** Validation thresholds */

@@ -60,10 +60,6 @@ description: Test skill for quality gate
 
 Use this skill when you need to test the quality gate scoring.
 
-## Documentation
-
-- https://workos.com/docs/test
-
 ## Key Vocabulary
 
 Key structural vocabulary for the test domain including identifiers and patterns.
@@ -246,6 +242,48 @@ echo "ok"
   });
 });
 
+describe("code example bonus", () => {
+  it("gives bonus for guide with code block >=5 lines", async () => {
+    const codeBlock = "```typescript\n" + "const x = 1;\n".repeat(8) + "```";
+    const content = `<!-- generated:sha256:abc123def456 -->
+
+## Step 1: Fetch Documentation
+
+- https://workos.com/docs/test
+- https://workos.com/docs/test/setup
+- https://workos.com/docs/test/api
+
+## Implementation Guide
+
+${codeBlock}
+
+## Verification Checklist
+
+- [ ] Check setup
+
+\`\`\`bash
+echo "ok"
+\`\`\`
+
+## Error Recovery
+
+### Issues
+`;
+    const withCode = makeSkill({
+      content,
+      sizeBytes: Buffer.byteLength(content),
+    });
+    const withCodeReport = await runQualityGate([withCode]);
+
+    const noCode = makeSkill(); // default has no code blocks >=5 lines
+    const noCodeReport = await runQualityGate([noCode]);
+
+    expect(withCodeReport.results[0].score).toBeGreaterThan(
+      noCodeReport.results[0].score,
+    );
+  });
+});
+
 describe("removed check docs penalty", () => {
   it("does not penalize excessive doc deferrals", async () => {
     const content = `---
@@ -325,7 +363,7 @@ Some concepts.
     ).toBe(true);
   });
 
-  it("flags summary over 5KB", async () => {
+  it("flags summary over 1KB", async () => {
     const content =
       `---
 name: workos-test
@@ -346,13 +384,13 @@ Concepts here.
 
 → Read \`skills/workos/workos-test.guide.md\`
 
-` + "x".repeat(5200);
+` + "x".repeat(2200);
     const summary = makeSummary({
       content,
       sizeBytes: Buffer.byteLength(content),
     });
     const report = await runQualityGate([summary]);
-    expect(report.results[0].issues.some((i) => i.includes("under 5KB"))).toBe(
+    expect(report.results[0].issues.some((i) => i.includes("under 1KB"))).toBe(
       true,
     );
   });
@@ -401,6 +439,63 @@ echo ok
       report.results[0].issues.some((i) =>
         i.includes("should not have frontmatter"),
       ),
+    ).toBe(true);
+  });
+});
+
+describe("API ref stub scoring", () => {
+  it("passes a well-formed API ref stub", async () => {
+    const content = `<!-- generated:sha256:abc123def456 -->
+
+# WorkOS SSO API Reference — Quick Reference
+
+## Step 1: Fetch Documentation
+
+- https://workos.com/docs/reference/sso
+
+## Endpoints
+
+| Endpoint | Description |
+| -------- | ----------- |
+| \`/sso/authorize\` | Generate auth URL |
+
+## Implementation
+
+> Read \`skills/workos/workos-sso.guide.md\`
+`;
+    const stub = makeSkill({
+      name: "workos-api-sso",
+      content,
+      sizeBytes: Buffer.byteLength(content),
+    });
+    const report = await runQualityGate([stub]);
+    expect(report.passed).toBe(1);
+    expect(report.results[0].score).toBeGreaterThanOrEqual(70);
+  });
+
+  it("fails stub missing feature guide pointer", async () => {
+    const content = `<!-- generated:sha256:abc123def456 -->
+
+# WorkOS SSO API Reference — Quick Reference
+
+## Step 1: Fetch Documentation
+
+- https://workos.com/docs/reference/sso
+
+## Endpoints
+
+| Endpoint | Description |
+| -------- | ----------- |
+| \`/sso/authorize\` | Generate auth URL |
+`;
+    const stub = makeSkill({
+      name: "workos-api-sso",
+      content,
+      sizeBytes: Buffer.byteLength(content),
+    });
+    const report = await runQualityGate([stub]);
+    expect(
+      report.results[0].issues.some((i) => i.includes("feature guide pointer")),
     ).toBe(true);
   });
 });

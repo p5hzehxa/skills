@@ -39,7 +39,7 @@ Your output MUST follow this taxonomy. Violations will be caught by the quality 
 - Complete request/response schemas
 - Error code tables and rate limits
 - Complete code implementations
-  → Instead provide pseudocode showing the PATTERN, not exact code
+  → Include ONE language-agnostic SDK example (10-25 lines) for the primary pattern; pseudocode for variations
 - Any claim with "always", "never", "only", "must" about API behavior
 
 ### The test: "Would this sentence become wrong if the docs changed?"
@@ -155,26 +155,25 @@ function buildSummaryRefinePrompt(
 
   const system = `You are a skill refinement agent specializing in SUMMARY skills. A summary is a ROUTING DOCUMENT — it helps an agent decide whether to load the full implementation guide. It is NOT a mini-guide.
 
-## Summary structure (5 sections, strict)
+## Summary structure (4 sections, strict)
 
 1. **"When to Use"** — 2-3 sentences. What problem does this feature solve? When should an agent reach for this skill vs another?
 
-2. **"Documentation"** — the doc URL list. PRESERVE EXACTLY as-is. Do not add or remove URLs.
-
-3. **"Key Vocabulary"** — a SHORT bullet list of structural terms UNIQUE TO THIS FEATURE. ONLY these are allowed:
+2. **"Key Vocabulary"** — a SHORT bullet list of structural terms UNIQUE TO THIS FEATURE. ONLY these are allowed:
    - Entity names with ID prefixes (e.g., "Organization \`org_\`", "Connection \`conn_\`")
    - Feature-specific event type patterns (e.g., \`dsync.user.created\`)
-   - Maximum 10 bullet points. No sub-lists.
+   - Maximum 5 bullet points. No sub-lists.
    - Do NOT include: \`WORKOS_API_KEY\`, \`WORKOS_CLIENT_ID\`, or other env vars shared across all WorkOS skills
    - Do NOT include: generic protocol concepts (OAuth state, redirect_uri, CNAME records)
    - Do NOT include: behavioral claims about what features do or how they work
 
-4. **"Implementation Guide"** — the guide pointer. PRESERVE EXACTLY as-is. Do not add content around it.
+3. **"Implementation Guide"** — the guide pointer. PRESERVE EXACTLY as-is. Do not add content around it.
 
-5. **"Related Skills"** — PRESERVE EXACTLY as-is.
+4. **"Related Skills"** — PRESERVE EXACTLY as-is.
 
 ## HARD RULES
 
+- **NO Documentation section** — doc URLs live in the guide
 - **NO verification commands, bash blocks, or curl examples** — those belong in the guide
 - **NO SDK method names** — those change by language/version
 - **NO behavioral claims** ("X is required", "Y is mandatory", "Z is not supported")
@@ -182,12 +181,12 @@ function buildSummaryRefinePrompt(
 - **NO decision trees** — the guide has those
 - **NO security instructions** ("Do NOT store...", "Always verify...")
 - **NO "Common Traps" or "Trap Warnings" sections** — those belong in the guide
-- **Target size: 500-1000 bytes** after frontmatter. If your output exceeds 1.5KB, you wrote too much.
+- **Target size: 400-600 bytes** after frontmatter. If your output exceeds 800B, you wrote too much.
 
-The summary's job is DONE when an agent can answer: "Is this the right skill for my task?" and "What doc URLs should I fetch?"
+The summary's job is DONE when an agent can answer: "Is this the right skill for my task?"
 ${getAttributionBlock()}${feedbackContext}`;
 
-  const user = `Refine this summary for "${skillName}". Write a tight "When to Use" (2-3 sentences) and a "Key Vocabulary" list (max 10 bullets of entity names and ID prefixes only). PRESERVE the "Documentation", "Implementation Guide", and "Related Skills" sections EXACTLY — do not remove or modify them.
+  const user = `Refine this summary for "${skillName}". Write a tight "When to Use" (2-3 sentences) and a "Key Vocabulary" list (max 5 bullets of entity names and ID prefixes only). PRESERVE the "Implementation Guide" and "Related Skills" sections EXACTLY — do not remove or modify them. Do NOT include a "Documentation" section — doc URLs live in the guide.
 
 <scaffold>
 ${body}
@@ -341,6 +340,7 @@ Key patterns:
 8. NO SDK method names — they vary by language. Use "SDK method for [operation]" instead.
 9. NO behavioral claims ("X is required", "Y is mandatory") — defer to fetched docs.
 10. Aim for 80-150 lines. If you're over 200 lines, you're restating docs.
+11. Include ONE primary code example (10-25 lines) in the Implementation Guide section. Use language-agnostic SDK syntax: workos.{domain}.{method}() with generic variable names. Show the most common integration pattern — what every developer does first. Do NOT use TypeScript/Python/Ruby-specific syntax (no const, no type annotations, no imports). For alternative patterns, use pseudocode.
 ${getContentTaxonomyBlock()}
 ${getAttributionBlock()}${feedbackContext}`;
 

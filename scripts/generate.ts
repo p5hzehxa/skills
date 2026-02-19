@@ -187,7 +187,13 @@ async function main() {
 
     const toRefine = flags.refineOnly
       ? generatedSkills.filter((s) => s.name === flags.refineOnly)
-      : generatedSkills.filter((s) => !SKIP_REFINE.has(s.name));
+      : generatedSkills.filter((s) => {
+          if (SKIP_REFINE.has(s.name)) return false;
+          // API ref guides are deterministic stubs — no refinement needed
+          if (s.name.startsWith("workos-api-") && s.type === "guide")
+            return false;
+          return true;
+        });
 
     if (toRefine.length === 0) {
       console.warn("  No skills matched for refinement");

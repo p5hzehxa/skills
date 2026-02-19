@@ -23,7 +23,6 @@ export function renderSummary(spec: SkillSpec, sourceHash?: string): string {
   parts.push(`# ${spec.title}`);
   parts.push("");
   parts.push(renderWhenToUse(spec));
-  parts.push(renderDocumentation(spec.docUrls));
   parts.push(renderKeyVocabularyPlaceholder(spec));
   parts.push(renderGuidePointer(spec.name));
   parts.push(renderRelatedSkills(spec));
@@ -83,6 +82,46 @@ For step-by-step implementation, verification commands, and error recovery:
 → Read \`skills/workos/${skillName}.guide.md\`
 
 `;
+}
+
+/** Deterministic stub for API reference guides — endpoint table + doc pointer */
+export function renderApiRefStub(spec: SkillSpec, sourceHash?: string): string {
+  const parts: string[] = [];
+  parts.push(
+    sourceHash
+      ? `<!-- generated:sha256:${sourceHash} -->`
+      : "<!-- generated -->",
+  );
+  parts.push("");
+  parts.push(`# ${spec.title} — Quick Reference`);
+  parts.push("");
+  parts.push("## Step 1: Fetch Documentation");
+  parts.push("");
+  parts.push("**WebFetch the API reference before making calls.**");
+  parts.push("");
+  for (const url of spec.docUrls.slice(0, 5)) {
+    parts.push(`- ${url}`);
+  }
+  parts.push("");
+  // Extract endpoint table if present
+  const tableMatch = spec.content.match(
+    /\|[^\n]*(?:Endpoint|Method|Path)[^\n]*\|[\s\S]*?(?=\n\n|\n[^|]|$)/i,
+  );
+  if (tableMatch) {
+    parts.push("## Endpoints");
+    parts.push("");
+    parts.push(tableMatch[0].trim());
+    parts.push("");
+  }
+  // Pointer to feature guide
+  const featureName = spec.name.replace("workos-api-", "workos-");
+  parts.push("## Implementation");
+  parts.push("");
+  parts.push("For integration patterns, error recovery, and verification:");
+  parts.push("");
+  parts.push(`> Read \`skills/workos/${featureName}.guide.md\``);
+  parts.push("");
+  return parts.join("\n");
 }
 
 /** Step 1: Fetch Documentation section with doc URLs */

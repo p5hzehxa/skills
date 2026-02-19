@@ -149,6 +149,52 @@ describe("generateRouter", () => {
   });
 });
 
+describe("generateSkill with API ref spec", () => {
+  it("generates stub guide for workos-api-* specs", () => {
+    const spec = makeSpec({
+      name: "workos-api-sso",
+      title: "WorkOS SSO API Reference",
+      anchor: "reference",
+      content:
+        "| Endpoint | Description |\n| -------- | ----------- |\n| `/sso/authorize` | Generate auth URL |",
+      docUrls: ["https://workos.com/docs/reference/sso"],
+    });
+    const [summary, guide] = generateSkill(spec);
+    expect(summary.type).toBe("summary");
+    expect(guide.type).toBe("guide");
+    expect(guide.sizeBytes).toBeLessThan(2048);
+    expect(guide.content).toContain("Quick Reference");
+    expect(guide.content).toContain("WebFetch");
+    expect(guide.content).not.toContain("## Prerequisites");
+    expect(guide.content).not.toContain("## Error Recovery");
+  });
+
+  it("stub points to feature guide", () => {
+    const spec = makeSpec({
+      name: "workos-api-sso",
+      title: "WorkOS SSO API Reference",
+      anchor: "reference",
+      docUrls: ["https://workos.com/docs/reference/sso"],
+    });
+    const [, guide] = generateSkill(spec);
+    expect(guide.content).toContain("workos-sso.guide.md");
+  });
+
+  it("stub includes endpoint table from content", () => {
+    const spec = makeSpec({
+      name: "workos-api-sso",
+      title: "WorkOS SSO API Reference",
+      anchor: "reference",
+      content:
+        "| Endpoint | Description |\n| -------- | ----------- |\n| `/sso/authorize` | Generate auth URL |",
+      docUrls: ["https://workos.com/docs/reference/sso"],
+    });
+    const [, guide] = generateSkill(spec);
+    expect(guide.content).toContain("## Endpoints");
+    expect(guide.content).toContain("/sso/authorize");
+  });
+});
+
 describe("generateIntegrationRouter", () => {
   const integrationsSection: Section = {
     name: "Integrations",

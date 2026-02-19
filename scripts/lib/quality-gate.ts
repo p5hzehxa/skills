@@ -67,6 +67,10 @@ async function scoreSkill(
     return scoreSummary(skill, options);
   }
   if (skill.type === "guide") {
+    // API ref guides are lightweight stubs — use relaxed scoring
+    if (skill.name.startsWith("workos-api-")) {
+      return scoreApiRefStub(skill);
+    }
     return scoreGuide(skill, options);
   }
   // Single-file skills (router, integration router) — use legacy scoring with frontmatter
@@ -114,16 +118,16 @@ async function scoreSummary(
     issues.push("Missing 'When to Use' section");
   }
 
-  // 4. Key Vocabulary section with content (15 pts)
+  // 4. Key Vocabulary section with content (20 pts)
   if (/^## Key Vocabulary/m.test(content)) {
     const conceptsMatch = content.match(
       /## Key Vocabulary\n([\s\S]*?)(?=\n## |$)/,
     );
     const conceptsBody = conceptsMatch?.[1]?.trim() ?? "";
     if (conceptsBody.length > 50) {
-      score += 15;
+      score += 20;
     } else {
-      score += 5;
+      score += 8;
       issues.push("Key Vocabulary section has minimal content");
     }
   } else {
@@ -137,26 +141,19 @@ async function scoreSummary(
     issues.push("Missing guide pointer (Read skills/workos/*.guide.md)");
   }
 
-  // 6. Doc URL references (15 pts)
-  const docUrlCount = (content.match(/https:\/\/workos\.com\/docs\//g) || [])
-    .length;
-  if (docUrlCount >= 1) {
-    score += 15;
-  } else {
-    issues.push("No doc URL references found");
-  }
-
-  // 7. Related Skills section (5 pts)
+  // 6. Related Skills section (5 pts)
   if (/^## Related Skills/m.test(content)) {
     score += 5;
   }
 
-  // 8. Size under 5KB (10 pts)
-  if (skill.sizeBytes <= 5120) {
-    score += 10;
+  // 7. Size (20 pts, tiered)
+  if (skill.sizeBytes <= 1024) {
+    score += 20;
+  } else if (skill.sizeBytes <= 2048) {
+    score += 15;
   } else {
     issues.push(
-      `Summary is ${(skill.sizeBytes / 1024).toFixed(1)}KB — should be under 5KB`,
+      `Summary is ${(skill.sizeBytes / 1024).toFixed(1)}KB — should be under 1KB`,
     );
   }
 
@@ -294,9 +291,9 @@ async function scoreGuide(
     largeExamples.length === 0 &&
     longUnformattedBlocks.length === 0
   ) {
-    score += 15;
+    score += 10;
   } else {
-    score += 5;
+    score += 3;
     if (longCodeBlocks.length > 0) {
       issues.push(
         `${longCodeBlocks.length} code block(s) >40 lines (prefer pseudocode patterns)`,
@@ -312,6 +309,19 @@ async function scoreGuide(
         `${longUnformattedBlocks.length} block(s) of unformatted content >2KB (possible doc dump)`,
       );
     }
+  }
+
+  // 8. Has at least one code example (5 pts)
+  const meaningfulCodeBlocks = codeBlocks.filter((block) => {
+    const lines = block.split("\n").length - 2; // exclude fence lines
+    return lines >= 5;
+  });
+  if (meaningfulCodeBlocks.length > 0) {
+    score += 5;
+  } else {
+    issues.push(
+      "No code example found (guides should have one 10-25 line SDK pattern)",
+    );
   }
 
   // --- Behavioral claim check (penalty: -10 pts) ---
@@ -354,6 +364,69 @@ async function scoreGuide(
     score,
     issues,
     semanticCheck,
+  };
+}
+
+/** Score an API reference guide stub (100 points) */
+async function scoreApiRefStub(skill: GeneratedSkill): Promise<QualityResult> {
+  const issues: string[] = [];
+  let score = 0;
+  const content = skill.content;
+
+  // 1. Marker (20 pts)
+  if (
+    /<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->/.test(content)
+  ) {
+    score += 20;
+  } else {
+    issues.push("Missing generated/refined marker");
+  }
+
+  // 2. No frontmatter (10 pts)
+  if (!content.match(/^---\n([\s\S]*?)\n---/)) {
+    score += 10;
+  } else {
+    issues.push("Stub should not have frontmatter");
+  }
+
+  // 3. Doc URLs (20 pts)
+  if ((content.match(/https:\/\/workos\.com\/docs\//g) || []).length >= 1) {
+    score += 20;
+  } else {
+    issues.push("No doc URL references found");
+  }
+
+  // 4. Endpoint table or structured content (20 pts)
+  if (
+    /\|\s*(?:Endpoint|Method|Path)/i.test(content) ||
+    /\|\s*`?\//.test(content)
+  ) {
+    score += 20;
+  } else {
+    issues.push("Missing endpoint table");
+  }
+
+  // 5. Feature guide pointer (20 pts)
+  if (/Read\s+`?skills\/workos\/.*\.guide\.md`?/.test(content)) {
+    score += 20;
+  } else {
+    issues.push("Missing feature guide pointer");
+  }
+
+  // 6. Size <2KB (10 pts)
+  if (skill.sizeBytes <= 2048) {
+    score += 10;
+  } else {
+    issues.push(
+      `Stub is ${(skill.sizeBytes / 1024).toFixed(1)}KB — should be under 2KB`,
+    );
+  }
+
+  return {
+    skillName: `${skill.name} (api-ref-stub)`,
+    pass: score >= 70,
+    score,
+    issues,
   };
 }
 

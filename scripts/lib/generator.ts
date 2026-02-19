@@ -1,6 +1,10 @@
 import type { Section, SkillSpec, GeneratedSkill } from "./types.ts";
 import { HAND_CRAFTED_SKILLS } from "./config.ts";
-import { renderSummary, renderGuide } from "./skill-template.ts";
+import {
+  renderSummary,
+  renderGuide,
+  renderApiRefStub,
+} from "./skill-template.ts";
 import { computeSourceHash } from "./hasher.ts";
 
 /**
@@ -13,7 +17,10 @@ export function generateSkill(
   const sourceHash = computeSourceHash(spec.content);
 
   const summaryContent = renderSummary(spec, sourceHash);
-  const guideContent = renderGuide(spec, sourceHash);
+  const isApiRef = spec.name.startsWith("workos-api-");
+  const guideContent = isApiRef
+    ? renderApiRefStub(spec, sourceHash)
+    : renderGuide(spec, sourceHash);
 
   const summary: GeneratedSkill = {
     name: spec.name,
