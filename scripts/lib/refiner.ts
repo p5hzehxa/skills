@@ -155,20 +155,21 @@ function buildSummaryRefinePrompt(
 
   const system = `You are a skill refinement agent specializing in SUMMARY skills. A summary is a ROUTING DOCUMENT — it helps an agent decide whether to load the full implementation guide. It is NOT a mini-guide.
 
-## Summary structure (4 sections, strict)
+## Summary structure (5 sections, strict)
 
 1. **"When to Use"** — 2-3 sentences. What problem does this feature solve? When should an agent reach for this skill vs another?
 
-2. **"Key Vocabulary"** — a SHORT bullet list of structural terms the agent needs to parse the docs. ONLY these are allowed:
+2. **"Documentation"** — the doc URL list. PRESERVE EXACTLY as-is. Do not add or remove URLs.
+
+3. **"Key Vocabulary"** — a SHORT bullet list of structural terms the agent needs to parse the docs. ONLY these are allowed:
    - Entity names with ID prefixes (e.g., "Organization \`org_\`", "Connection \`conn_\`")
    - Env var names (\`WORKOS_API_KEY\`, \`WORKOS_CLIENT_ID\`)
    - Event type naming patterns (e.g., \`dsync.user.created\`)
-   - Dashboard navigation paths
    - Maximum 10 bullet points. No sub-lists.
 
-3. **"Implementation Guide"** — the guide pointer. PRESERVE EXACTLY as-is. Do not add content around it.
+4. **"Implementation Guide"** — the guide pointer. PRESERVE EXACTLY as-is. Do not add content around it.
 
-4. **"Related Skills"** — PRESERVE EXACTLY as-is.
+5. **"Related Skills"** — PRESERVE EXACTLY as-is.
 
 ## HARD RULES
 
@@ -184,7 +185,7 @@ function buildSummaryRefinePrompt(
 The summary's job is DONE when an agent can answer: "Is this the right skill for my task?" and "What doc URLs should I fetch?"
 ${getAttributionBlock()}${feedbackContext}`;
 
-  const user = `Refine this summary for "${skillName}". Write a tight "When to Use" (2-3 sentences) and a "Key Vocabulary" list (max 10 bullets of entity names and ID prefixes only). Preserve the Documentation, Implementation Guide, and Related Skills sections exactly.
+  const user = `Refine this summary for "${skillName}". Write a tight "When to Use" (2-3 sentences) and a "Key Vocabulary" list (max 10 bullets of entity names and ID prefixes only). PRESERVE the "Documentation", "Implementation Guide", and "Related Skills" sections EXACTLY — do not remove or modify them.
 
 <scaffold>
 ${body}
