@@ -161,11 +161,13 @@ function buildSummaryRefinePrompt(
 
 2. **"Documentation"** — the doc URL list. PRESERVE EXACTLY as-is. Do not add or remove URLs.
 
-3. **"Key Vocabulary"** — a SHORT bullet list of structural terms the agent needs to parse the docs. ONLY these are allowed:
+3. **"Key Vocabulary"** — a SHORT bullet list of structural terms UNIQUE TO THIS FEATURE. ONLY these are allowed:
    - Entity names with ID prefixes (e.g., "Organization \`org_\`", "Connection \`conn_\`")
-   - Env var names (\`WORKOS_API_KEY\`, \`WORKOS_CLIENT_ID\`)
-   - Event type naming patterns (e.g., \`dsync.user.created\`)
+   - Feature-specific event type patterns (e.g., \`dsync.user.created\`)
    - Maximum 10 bullet points. No sub-lists.
+   - Do NOT include: \`WORKOS_API_KEY\`, \`WORKOS_CLIENT_ID\`, or other env vars shared across all WorkOS skills
+   - Do NOT include: generic protocol concepts (OAuth state, redirect_uri, CNAME records)
+   - Do NOT include: behavioral claims about what features do or how they work
 
 4. **"Implementation Guide"** — the guide pointer. PRESERVE EXACTLY as-is. Do not add content around it.
 

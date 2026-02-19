@@ -218,11 +218,14 @@ async function scoreGuide(
     issues.push("Guide should not have frontmatter");
   }
 
-  // 2. WebFetch doc references (20 pts)
+  // 2. WebFetch doc references (20 pts, tiered for thin APIs)
   const docUrlCount = (content.match(/https:\/\/workos\.com\/docs\//g) || [])
     .length;
   if (docUrlCount >= 3) {
     score += 20;
+  } else if (docUrlCount >= 2) {
+    score += 15;
+    issues.push(`Only ${docUrlCount} doc URL reference(s), expected 3+`);
   } else if (docUrlCount >= 1) {
     score += 10;
     issues.push(`Only ${docUrlCount} doc URL reference(s), expected 3+`);
@@ -249,11 +252,12 @@ async function scoreGuide(
   }
 
   // 6. Has verification or error recovery (15 pts)
+  const hasBashCommands = /```bash/i.test(content);
   const hasVerification =
-    /verification|checklist/i.test(content) && content.includes("- [ ]");
+    /verification|checklist/i.test(content) &&
+    (content.includes("- [ ]") || hasBashCommands);
   const hasErrorRecovery =
     /error recovery/i.test(content) && /###/.test(content);
-  const hasBashCommands = /```bash/i.test(content);
 
   if (hasVerification || hasErrorRecovery) {
     score += 10;
@@ -418,11 +422,12 @@ async function scoreLegacy(
   }
 
   // 6. Has verification or error recovery (15 pts)
+  const hasBashCommands = /```bash/i.test(content);
   const hasVerification =
-    /verification|checklist/i.test(content) && content.includes("- [ ]");
+    /verification|checklist/i.test(content) &&
+    (content.includes("- [ ]") || hasBashCommands);
   const hasErrorRecovery =
     /error recovery/i.test(content) && /###/.test(content);
-  const hasBashCommands = /```bash/i.test(content);
 
   if (hasVerification || hasErrorRecovery) {
     score += 10;
@@ -520,7 +525,12 @@ Return ONLY valid JSON in this format:
 
 Check for:
 1. Each correction in the feedback — is it respected? Does the skill contradict it?
-2. Behavioral claims — does the skill assert "is required", "is mandatory", etc. without deferring to docs?
+2. Behavioral claims — does the skill assert "is required", "is mandatory", etc. about API behavior without deferring to docs?
+
+IMPORTANT — do NOT flag these as violations:
+- Agent-directed procedural instructions ("STOP", "BLOCKING", "Do not proceed", "ALL MUST PASS") are workflow directives, not behavioral claims about the API.
+- When feedback emphasis says to PRESERVE specific SDK methods or content, the skill should include them. Do not penalize content that feedback explicitly requested.
+- Feedback takes precedence over the generic content taxonomy. If feedback says "preserve X" and the taxonomy says "defer X to docs", feedback wins.
 
 Score guide:
 - 90-100: All feedback respected, no behavioral claims baked in
