@@ -14,374 +14,215 @@ description: WorkOS Events/Webhooks API endpoints — list events, manage webhoo
 - https://workos.com/docs/reference/events
 - https://workos.com/docs/reference/events/list
 
-## Overview
+## Endpoint Catalog
 
-The WorkOS Events API provides a read-only interface for querying audit trail events. Use this API to:
-
-- Retrieve events for compliance auditing
-- Build custom event dashboards
-- Export event data for analysis
-- Monitor user activity across your application
-
-Events are immutable records of actions that occurred in your WorkOS organization.
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/events` | Retrieve a single event by ID |
+| GET | `/events` | List events with optional filters |
 
 ## Authentication
 
-All Events API requests require authentication via API key in the Authorization header:
+All Events API calls require an API key in the `Authorization` header:
 
 ```bash
-Authorization: Bearer sk_test_1234567890
+Authorization: Bearer sk_live_...
 ```
 
-Use your **secret API key** (starts with `sk_`). Find it in the WorkOS Dashboard under API Keys.
-
-## Available Endpoints
-
-| Method | Endpoint  | Purpose                                   |
-| ------ | --------- | ----------------------------------------- |
-| GET    | `/events` | List events with filtering and pagination |
-
-## Operation: List Events
-
-### When to Use
-
-Call `GET /events` when you need to:
-
-- Retrieve audit logs for a specific time range
-- Filter events by organization, user, or action
-- Export event data for compliance reporting
-- Build event timelines or activity feeds
-
-### Request Pattern
+Set your API key as an environment variable:
 
 ```bash
-curl -X GET 'https://api.workos.com/events?limit=10&order=desc' \
-  -H 'Authorization: Bearer sk_test_1234567890'
+export WORKOS_API_KEY="sk_live_..."
 ```
 
-### Query Parameters
+## Operation Decision Tree
 
-| Parameter         | Type     | Required | Description                                                     |
-| ----------------- | -------- | -------- | --------------------------------------------------------------- |
-| `limit`           | integer  | No       | Number of events to return (default: 10, max: 100)              |
-| `before`          | string   | No       | Cursor for pagination (previous page)                           |
-| `after`           | string   | No       | Cursor for pagination (next page)                               |
-| `order`           | string   | No       | Sort order: `asc` or `desc` (default: `desc`)                   |
-| `events`          | array    | No       | Filter by event types (e.g., `user.created`, `session.created`) |
-| `organization_id` | string   | No       | Filter events for a specific organization                       |
-| `range_start`     | ISO 8601 | No       | Start of time range filter                                      |
-| `range_end`       | ISO 8601 | No       | End of time range filter                                        |
+**When to use each endpoint:**
 
-### Response Pattern
+1. **Fetch a specific event by ID** → `GET /events/{event_id}`
+   - You have an event ID from a webhook payload
+   - You need to retrieve details of a past event
+   - You're debugging a specific event
 
-```json
-{
-  "data": [
-    {
-      "id": "event_01H7ZGXFM5QN9X1B2C3D4E5F6G",
-      "event": "user.created",
-      "created_at": "2024-01-15T10:30:00.000Z",
-      "object": "event",
-      "actor": {
-        "id": "user_01H7ZGXFM5QN9X1B2C3D4E5F6H",
-        "type": "user",
-        "name": "Jane Doe",
-        "email": "jane@example.com"
-      },
-      "context": {
-        "location": "192.168.1.1",
-        "user_agent": "Mozilla/5.0..."
-      },
-      "metadata": {
-        "organization_id": "org_01H7ZGXFM5QN9X1B2C3D4E5F6I"
-      }
-    }
-  ],
-  "list_metadata": {
-    "before": "event_01H7ZGXFM5QN9X1B2C3D4E5F6J",
-    "after": "event_01H7ZGXFM5QN9X1B2C3D4E5F6K"
-  }
-}
-```
+2. **List events (with filters)** → `GET /events?...`
+   - You need to audit recent activity
+   - You're building an event log viewer
+   - You need to find events matching criteria (date range, event type, resource)
+
+**Event type naming convention:**
+
+All WorkOS events follow the pattern: `{domain}.{resource}.{action}`
+
+Examples:
+- `authentication.email_verification_succeeded`
+- `dsync.group.created`
+- `user.created`
+
+Check fetched docs for the complete list of event types.
 
 ## Pagination Pattern
 
-The Events API uses cursor-based pagination. Use the `before` and `after` cursors from `list_metadata` to navigate pages:
+The Events API uses cursor-based pagination:
 
-**First page:**
-
-```bash
-curl 'https://api.workos.com/events?limit=10&order=desc' \
-  -H 'Authorization: Bearer sk_test_1234567890'
+```
+GET /events?limit=10&after=cursor_xyz
 ```
 
-**Next page:**
+- `limit`: Number of events per page (check docs for max)
+- `after`: Cursor for next page (returned in response)
+- `before`: Cursor for previous page
 
-```bash
-curl 'https://api.workos.com/events?limit=10&order=desc&after=event_01H7ZGXFM5QN9X1B2C3D4E5F6K' \
-  -H 'Authorization: Bearer sk_test_1234567890'
+**Pagination pseudocode:**
+
 ```
-
-**Previous page:**
-
-```bash
-curl 'https://api.workos.com/events?limit=10&order=desc&before=event_01H7ZGXFM5QN9X1B2C3D4E5F6J' \
-  -H 'Authorization: Bearer sk_test_1234567890'
-```
-
-Continue paginating until `list_metadata.after` is `null` (no more pages).
-
-## Filtering Events
-
-### By Event Type
-
-Filter to specific event types (e.g., only authentication events):
-
-```bash
-curl 'https://api.workos.com/events?events[]=session.created&events[]=session.ended' \
-  -H 'Authorization: Bearer sk_test_1234567890'
-```
-
-### By Organization
-
-Retrieve events for a single organization:
-
-```bash
-curl 'https://api.workos.com/events?organization_id=org_01H7ZGXFM5QN9X1B2C3D4E5F6I' \
-  -H 'Authorization: Bearer sk_test_1234567890'
-```
-
-### By Time Range
-
-Get events within a specific date range:
-
-```bash
-curl 'https://api.workos.com/events?range_start=2024-01-01T00:00:00Z&range_end=2024-01-31T23:59:59Z' \
-  -H 'Authorization: Bearer sk_test_1234567890'
-```
-
-## SDK Usage
-
-### Node.js
-
-```javascript
-import { WorkOS } from "@workos-inc/node";
-
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
-
-// List recent events
-const { data: events } = await workos.events.listEvents({
-  limit: 20,
-  order: "desc",
-});
-
-// Filter by organization
-const { data: orgEvents } = await workos.events.listEvents({
-  organizationId: "org_01H7ZGXFM5QN9X1B2C3D4E5F6I",
-  limit: 50,
-});
-
-// Paginate through all events
-let allEvents = [];
-let after = null;
-
-do {
-  const response = await workos.events.listEvents({
-    limit: 100,
-    after,
-  });
-  allEvents = allEvents.concat(response.data);
-  after = response.listMetadata.after;
-} while (after);
-```
-
-### Python
-
-```python
-from workos import WorkOSClient
-
-workos = WorkOSClient(api_key=os.getenv('WORKOS_API_KEY'))
-
-# List recent events
-events = workos.events.list_events(
-    limit=20,
-    order='desc'
-)
-
-# Filter by event type and organization
-filtered_events = workos.events.list_events(
-    events=['user.created', 'user.updated'],
-    organization_id='org_01H7ZGXFM5QN9X1B2C3D4E5F6I'
-)
-
-# Paginate through all events
+cursor = null
 all_events = []
-after = None
 
-while True:
-    response = workos.events.list_events(limit=100, after=after)
-    all_events.extend(response['data'])
-    after = response['list_metadata'].get('after')
-    if not after:
-        break
+loop:
+  response = fetch_events(after=cursor, limit=100)
+  all_events.append(response.data)
+  
+  if response.list_metadata.after is null:
+    break
+  
+  cursor = response.list_metadata.after
 ```
 
-## Error Handling
+## Common Filtering Patterns
 
-### HTTP Status Codes
+**Filter by event type:**
 
-| Status | Cause                                            | Fix                                                               |
-| ------ | ------------------------------------------------ | ----------------------------------------------------------------- |
-| 400    | Invalid query parameter (e.g., `limit > 100`)    | Check parameter values match API constraints                      |
-| 401    | Missing or invalid API key                       | Verify `Authorization: Bearer sk_...` header is present and valid |
-| 403    | API key lacks Events API permissions             | Check API key scope in WorkOS Dashboard                           |
-| 404    | Invalid cursor (expired or non-existent)         | Start pagination from beginning (omit `before`/`after`)           |
-| 422    | Invalid date format in `range_start`/`range_end` | Use ISO 8601 format: `2024-01-15T10:30:00Z`                       |
-| 429    | Rate limit exceeded                              | Implement exponential backoff (see Rate Limits below)             |
-| 500    | WorkOS server error                              | Retry with exponential backoff                                    |
-
-### Example: Error Response
-
-```json
-{
-  "error": "invalid_request",
-  "error_description": "limit must be between 1 and 100"
-}
+```bash
+GET /events?events[]=dsync.user.created&events[]=dsync.user.updated
 ```
 
-## Rate Limits
+**Filter by date range:**
 
-The Events API has rate limits to prevent abuse:
+```bash
+GET /events?range_start=2024-01-01T00:00:00Z&range_end=2024-01-31T23:59:59Z
+```
 
-- **Default limit:** 100 requests per minute per API key
-- **Status code:** 429 Too Many Requests
+**Filter by organization:**
 
-**Retry strategy:**
+```bash
+GET /events?organization_id=org_123
+```
 
-1. Wait for `Retry-After` header value (seconds)
-2. If no header, use exponential backoff: 1s, 2s, 4s, 8s, 16s
-3. Maximum 5 retries before failing
+Check fetched docs for the complete list of supported filter parameters.
 
-**Example retry logic:**
+## Error Code Mapping
 
-```javascript
-async function listEventsWithRetry(params, maxRetries = 5) {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await workos.events.listEvents(params);
-    } catch (error) {
-      if (error.status === 429) {
-        const delay = error.headers["retry-after"]
-          ? parseInt(error.headers["retry-after"]) * 1000
-          : Math.pow(2, i) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw new Error("Max retries exceeded");
-}
+| Status | Cause | Fix |
+|--------|-------|-----|
+| 401 | API key missing or malformed | Verify `Authorization: Bearer sk_...` header is present |
+| 401 | API key invalid or expired | Regenerate API key in WorkOS Dashboard → API Keys |
+| 404 | Event ID not found | Verify event ID format (`event_...`) and that event exists |
+| 422 | Invalid filter parameters | Check fetched docs for valid parameter names and formats |
+| 429 | Rate limit exceeded | Implement exponential backoff (start with 1s, double on each retry) |
+| 500 | WorkOS service error | Retry with exponential backoff; check WorkOS status page |
+
+**Rate limit guidance:**
+
+Check fetched docs for current rate limits. Implement retry logic with exponential backoff for 429 responses:
+
+```
+retry_delay = 1  # seconds
+max_retries = 5
+
+for attempt in range(max_retries):
+  response = call_api()
+  if response.status != 429:
+    break
+  
+  sleep(retry_delay)
+  retry_delay *= 2
 ```
 
 ## Verification Commands
 
-### Test 1: List Recent Events
+**1. Test authentication and fetch latest event:**
 
 ```bash
-curl -X GET 'https://api.workos.com/events?limit=5&order=desc' \
-  -H 'Authorization: Bearer sk_test_1234567890' \
-  | jq '.'
+curl -X GET https://api.workos.com/events?limit=1 \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Content-Type: application/json"
 ```
 
-**Expected output:** JSON response with `data` array containing up to 5 events.
+Expected: 200 response with one event object.
 
-### Test 2: Filter by Organization
+**2. Verify event filtering works:**
 
 ```bash
-curl -X GET 'https://api.workos.com/events?organization_id=org_01H7ZGXFM5QN9X1B2C3D4E5F6I&limit=10' \
-  -H 'Authorization: Bearer sk_test_1234567890' \
-  | jq '.data[].metadata.organization_id'
+curl -X GET "https://api.workos.com/events?events[]=user.created&limit=5" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Content-Type: application/json"
 ```
 
-**Expected output:** All returned events should have the specified `organization_id`.
+Expected: 200 response with events matching the specified type.
 
-### Test 3: Pagination
+**3. Test pagination:**
 
 ```bash
-# Get first page
-RESPONSE=$(curl -s 'https://api.workos.com/events?limit=2&order=desc' \
-  -H 'Authorization: Bearer sk_test_1234567890')
+# First page
+curl -X GET "https://api.workos.com/events?limit=2" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Content-Type: application/json"
 
-# Extract 'after' cursor
-AFTER=$(echo $RESPONSE | jq -r '.list_metadata.after')
-
-# Get next page
-curl "https://api.workos.com/events?limit=2&order=desc&after=$AFTER" \
-  -H 'Authorization: Bearer sk_test_1234567890' \
-  | jq '.data[].id'
+# Extract 'after' cursor from response, then:
+curl -X GET "https://api.workos.com/events?limit=2&after=CURSOR_FROM_PREVIOUS_RESPONSE" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Content-Type: application/json"
 ```
 
-**Expected output:** Second page returns different event IDs than first page.
+Expected: Second request returns different events.
 
-### Test 4: Invalid API Key
+## SDK Usage Pattern
 
-```bash
-curl -X GET 'https://api.workos.com/events?limit=5' \
-  -H 'Authorization: Bearer invalid_key' \
-  -w '\nHTTP Status: %{http_code}\n'
+Use the SDK method for listing events — check fetched docs for exact method signature for your language.
+
+**Pseudocode pattern:**
+
+```
+workos = initialize_client(api_key=WORKOS_API_KEY)
+
+# List events with filters
+events = workos.events.list(
+  events=['user.created', 'user.updated'],
+  limit=50,
+  after=cursor  # optional, for pagination
+)
+
+# Access results
+for event in events.data:
+  process_event(event.event_type, event.data)
+
+# Get next page cursor
+next_cursor = events.list_metadata.after
 ```
 
-**Expected output:** HTTP Status 401 with error message.
+## Event Structure Overview
 
-## Common Use Cases
+Every event contains these top-level fields:
 
-### Export Events for Compliance
+- `id`: Event identifier (`event_...`)
+- `event`: Event type string (`domain.resource.action`)
+- `data`: Event payload (structure varies by event type)
+- `created_at`: ISO 8601 timestamp
 
-Retrieve all events for a date range and save to file:
+Check fetched docs for event-specific payload schemas.
 
-```bash
-curl 'https://api.workos.com/events?range_start=2024-01-01T00:00:00Z&range_end=2024-01-31T23:59:59Z&limit=100' \
-  -H 'Authorization: Bearer sk_live_1234567890' \
-  | jq '.data' > events_january_2024.json
-```
+## Trap Warnings
 
-### Monitor Authentication Activity
+1. **Event retention**: WorkOS retains events for a limited time. Check fetched docs for current retention period. Don't rely on old events being available.
 
-Get recent login/logout events:
+2. **Event ordering**: Events are returned in reverse chronological order (newest first). Do NOT assume events are delivered in strict order.
 
-```bash
-curl 'https://api.workos.com/events?events[]=session.created&events[]=session.ended&limit=50&order=desc' \
-  -H 'Authorization: Bearer sk_test_1234567890'
-```
+3. **Idempotency**: The same event will always have the same ID. Use event IDs to deduplicate if you're processing events from both webhooks and polling.
 
-### Build Real-Time Event Stream
+4. **Filter array syntax**: Event type filters use array notation: `events[]=type1&events[]=type2`. Single filters still need brackets: `events[]=type1`.
 
-Poll for new events every 60 seconds:
-
-```javascript
-let lastEventId = null;
-
-setInterval(async () => {
-  const params = {
-    limit: 100,
-    order: "desc",
-  };
-
-  if (lastEventId) {
-    params.after = lastEventId;
-  }
-
-  const { data: events } = await workos.events.listEvents(params);
-
-  if (events.length > 0) {
-    lastEventId = events[0].id;
-    processNewEvents(events);
-  }
-}, 60000);
-```
+5. **Cursor expiration**: Pagination cursors expire. If you get a 422 on an `after` parameter, restart pagination from the beginning.
 
 ## Related Skills
 
-- workos-api-webhooks — Set up real-time event notifications instead of polling
-- workos-api-audit-logs — Configure audit log exports and retention
+- workos-webhooks (for event delivery via webhooks instead of polling)

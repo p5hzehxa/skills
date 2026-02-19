@@ -20,445 +20,278 @@ description: WorkOS Directory Sync API endpoints — directories, users, groups,
 - https://workos.com/docs/reference/directory-sync/directory-user/get
 - https://workos.com/docs/reference/directory-sync/directory-user/list
 
-## Authentication Setup
-
-All Directory Sync API calls require authentication via API key in the Authorization header:
-
-```bash
-Authorization: Bearer sk_example_123456789
-```
-
-Set your API key as an environment variable:
-
-```bash
-export WORKOS_API_KEY="sk_example_123456789"
-```
-
 ## Endpoint Catalog
 
-| Method | Path                    | Purpose                        |
-| ------ | ----------------------- | ------------------------------ |
-| GET    | `/directories`          | List all directories           |
-| GET    | `/directories/:id`      | Get single directory by ID     |
-| DELETE | `/directories/:id`      | Delete a directory             |
-| GET    | `/directory_users`      | List users across directories  |
-| GET    | `/directory_users/:id`  | Get single user by ID          |
-| GET    | `/directory_groups`     | List groups across directories |
-| GET    | `/directory_groups/:id` | Get single group by ID         |
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| GET | `/directories` | List all directories for an organization |
+| GET | `/directories/{id}` | Retrieve a specific directory |
+| DELETE | `/directories/{id}` | Remove a directory connection |
+| GET | `/directory_users` | List users from directory providers |
+| GET | `/directory_users/{id}` | Retrieve a specific directory user |
+| GET | `/directory_groups` | List groups from directory providers |
+| GET | `/directory_groups/{id}` | Retrieve a specific directory group |
 
-Base URL: `https://api.workos.com`
+## Authentication Setup
+
+All API requests require Bearer token authentication with your WorkOS API key.
+
+**Header format:**
+```
+Authorization: Bearer sk_live_...
+```
+
+**Environment variable:**
+```bash
+export WORKOS_API_KEY="sk_live_..."
+```
+
+**Verification command:**
+```bash
+curl https://api.workos.com/directories \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Content-Type: application/json"
+```
+
+Expected: 200 response with directory list or empty array.
 
 ## Operation Decision Tree
 
-### When to use which endpoint
+### Listing Resources
 
-**Listing all directories for an organization:**
+**Use case: Fetch all users from a directory**
+→ GET `/directory_users?directory={directory_id}`
 
-- Use `GET /directories` with `organization_id` parameter
+**Use case: Fetch all groups from a directory**
+→ GET `/directory_groups?directory={directory_id}`
 
-**Getting directory details:**
+**Use case: Find which directories exist for an organization**
+→ GET `/directories?organization={organization_id}`
 
-- Use `GET /directories/:id` when you have the directory ID
+### Retrieving Single Resources
 
-**Syncing users:**
+**Use case: Get user details by ID**
+→ GET `/directory_users/{user_id}`
 
-- Use `GET /directory_users` to list users
-- Filter by `directory_id` to get users from a specific directory
-- Use `GET /directory_users/:id` to get individual user details
+**Use case: Get group details by ID**
+→ GET `/directory_groups/{group_id}`
 
-**Syncing groups:**
+**Use case: Get directory metadata**
+→ GET `/directories/{directory_id}`
 
-- Use `GET /directory_groups` to list groups
-- Filter by `directory_id` to get groups from a specific directory
-- Use `GET /directory_groups/:id` to get individual group details
+### Filtering and Search
 
-**Cleanup operations:**
+**By organization:**
+Add `?organization={org_id}` to list endpoints
 
-- Use `DELETE /directories/:id` to remove a directory connection
+**By directory:**
+Add `?directory={directory_id}` to user/group list endpoints
 
-## Request/Response Patterns
+**By group membership:**
+Add `?group={group_id}` to user list endpoint
 
-### List Directories
+Check fetched docs for complete filter parameter list.
 
-```bash
-curl https://api.workos.com/directories \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -G \
-  -d "organization_id=org_123"
+## ID Prefixes
+
+Recognize resources by ID prefix:
+- `directory_`: Directory resource
+- `directory_user_`: Directory user resource
+- `directory_group_`: Directory group resource
+- `org_`: Organization resource
+
+## Pagination Pattern
+
+All list endpoints return paginated results.
+
+**Request pattern:**
+```
+GET /directory_users?limit=50&after={cursor}
 ```
 
-**Response:**
-
-```json
+**Response structure (check fetched docs for exact schema):**
+```
 {
-  "data": [
-    {
-      "id": "directory_123",
-      "organization_id": "org_123",
-      "name": "Acme Corp Directory",
-      "type": "azure scim v2.0",
-      "state": "linked",
-      "created_at": "2024-01-15T10:00:00.000Z",
-      "updated_at": "2024-01-15T10:00:00.000Z"
-    }
-  ],
+  "data": [...],
   "list_metadata": {
-    "before": null,
-    "after": "directory_456"
+    "after": "cursor_string",
+    "before": "cursor_string"
   }
 }
 ```
 
-### Get Directory
-
-```bash
-curl https://api.workos.com/directories/directory_123 \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
+**Iteration pseudocode:**
 ```
+cursor = null
+all_users = []
 
-**Response:**
-
-```json
-{
-  "id": "directory_123",
-  "organization_id": "org_123",
-  "name": "Acme Corp Directory",
-  "type": "azure scim v2.0",
-  "state": "linked",
-  "created_at": "2024-01-15T10:00:00.000Z",
-  "updated_at": "2024-01-15T10:00:00.000Z"
-}
+loop:
+  response = fetch("/directory_users?directory={id}&after={cursor}")
+  all_users.append(response.data)
+  cursor = response.list_metadata.after
+  if cursor is null: break
 ```
-
-### List Directory Users
-
-```bash
-curl https://api.workos.com/directory_users \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -G \
-  -d "directory_id=directory_123" \
-  -d "limit=10"
-```
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "id": "directory_user_123",
-      "directory_id": "directory_123",
-      "organization_id": "org_123",
-      "idp_id": "azure_user_456",
-      "emails": [
-        {
-          "primary": true,
-          "type": "work",
-          "value": "user@example.com"
-        }
-      ],
-      "first_name": "Jane",
-      "last_name": "Doe",
-      "username": "jane.doe@example.com",
-      "state": "active",
-      "custom_attributes": {},
-      "raw_attributes": {},
-      "created_at": "2024-01-15T10:00:00.000Z",
-      "updated_at": "2024-01-15T10:00:00.000Z"
-    }
-  ],
-  "list_metadata": {
-    "before": null,
-    "after": "directory_user_456"
-  }
-}
-```
-
-### Get Directory User
-
-```bash
-curl https://api.workos.com/directory_users/directory_user_123 \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-```
-
-### List Directory Groups
-
-```bash
-curl https://api.workos.com/directory_groups \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -G \
-  -d "directory_id=directory_123" \
-  -d "limit=10"
-```
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "id": "directory_group_123",
-      "directory_id": "directory_123",
-      "organization_id": "org_123",
-      "idp_id": "azure_group_456",
-      "name": "Engineering",
-      "created_at": "2024-01-15T10:00:00.000Z",
-      "updated_at": "2024-01-15T10:00:00.000Z",
-      "raw_attributes": {}
-    }
-  ],
-  "list_metadata": {
-    "before": null,
-    "after": "directory_group_456"
-  }
-}
-```
-
-### Get Directory Group
-
-```bash
-curl https://api.workos.com/directory_groups/directory_group_123 \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-```
-
-### Delete Directory
-
-```bash
-curl -X DELETE https://api.workos.com/directories/directory_123 \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-```
-
-**Response:** `204 No Content` on success
-
-## Pagination Handling
-
-Directory Sync API uses cursor-based pagination via the `before` and `after` parameters.
-
-**Pattern:**
-
-1. Initial request returns `list_metadata` with `after` cursor
-2. Pass `after` cursor value to `after` parameter for next page
-3. Continue until `after` is `null`
-
-**Example:**
-
-```bash
-# Page 1
-curl "https://api.workos.com/directory_users?directory_id=directory_123&limit=10" \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-
-# Page 2 (using after cursor from page 1 response)
-curl "https://api.workos.com/directory_users?directory_id=directory_123&limit=10&after=directory_user_456" \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-```
-
-**Default limit:** 10 records per page  
-**Maximum limit:** Check fetched docs for current maximum
 
 ## Error Code Mapping
 
-| Status Code               | Cause                                              | Fix                                                                                                                    |
-| ------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| 400 Bad Request           | Invalid parameter format (e.g., malformed ID)      | Verify parameter values match expected format (directory IDs start with `directory_`, user IDs with `directory_user_`) |
-| 401 Unauthorized          | Missing or invalid API key                         | Check `WORKOS_API_KEY` is set and starts with `sk_`                                                                    |
-| 403 Forbidden             | API key lacks required permissions                 | Verify API key has Directory Sync read permissions in WorkOS Dashboard                                                 |
-| 404 Not Found             | Directory, user, or group ID doesn't exist         | Verify the resource ID exists by listing resources first                                                               |
-| 422 Unprocessable Entity  | Invalid `organization_id` or `directory_id` filter | Ensure organization/directory exists and you have access                                                               |
-| 429 Too Many Requests     | Rate limit exceeded                                | Implement exponential backoff with initial delay of 1 second                                                           |
-| 500 Internal Server Error | WorkOS service issue                               | Retry with exponential backoff; check status.workos.com                                                                |
-| 503 Service Unavailable   | WorkOS service temporarily unavailable             | Retry after delay specified in `Retry-After` header                                                                    |
+| Status | Cause | Fix |
+| ------ | ----- | --- |
+| 401 | Invalid or missing API key | Verify `WORKOS_API_KEY` starts with `sk_` and is set correctly |
+| 403 | API key lacks required permissions | Check key environment (test vs live) matches directory environment |
+| 404 | Resource not found | Verify ID format and that resource exists in correct environment |
+| 422 | Invalid parameter value | Check fetched docs for valid parameter formats |
+| 429 | Rate limit exceeded | Implement exponential backoff (see Rate Limits below) |
+| 500 | WorkOS service error | Retry with exponential backoff, contact support if persistent |
+
+**Specific errors:**
+
+**"Directory not found"** → Check directory ID and verify it belongs to the correct organization
+
+**"Organization required"** → Add `?organization={org_id}` filter parameter
+
+**"Invalid directory state"** → Directory may be pending activation or deleted — check status in Dashboard
 
 ## Rate Limits
 
-**Limit:** Check fetched documentation for current rate limits  
-**Retry strategy:** Implement exponential backoff starting at 1 second, max 5 retries  
-**Headers to check:**
+Directory Sync API has rate limits (check fetched docs for current values).
 
-- `X-RateLimit-Limit`: Total requests allowed per window
-- `X-RateLimit-Remaining`: Requests remaining in current window
-- `X-RateLimit-Reset`: Unix timestamp when limit resets
+**Retry strategy:**
+```
+initial_delay = 1 second
+max_retries = 3
 
-## SDK Usage Patterns
-
-### Node.js
-
-```javascript
-import { WorkOS } from "@workos-inc/node";
-
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
-
-// List directories
-const { data: directories } = await workos.directorySync.listDirectories({
-  organizationId: "org_123",
-});
-
-// Get directory
-const directory = await workos.directorySync.getDirectory("directory_123");
-
-// List users
-const { data: users } = await workos.directorySync.listUsers({
-  directory: "directory_123",
-  limit: 10,
-});
-
-// Get user
-const user = await workos.directorySync.getUser("directory_user_123");
-
-// List groups
-const { data: groups } = await workos.directorySync.listGroups({
-  directory: "directory_123",
-  limit: 10,
-});
-
-// Get group
-const group = await workos.directorySync.getGroup("directory_group_123");
-
-// Delete directory
-await workos.directorySync.deleteDirectory("directory_123");
+for attempt in 1..max_retries:
+  response = make_request()
+  if response.status != 429: return response
+  sleep(initial_delay * (2 ^ attempt))
+  
+throw "Rate limit exceeded after retries"
 ```
 
-### Python
+**Trap:** Do not retry 4xx errors other than 429 — they indicate client errors that won't resolve with retries.
 
-```python
-from workos import WorkOSClient
+## Webhook Events
 
-workos = WorkOSClient(api_key=os.getenv('WORKOS_API_KEY'))
+Directory Sync emits webhook events for real-time updates. Use webhooks instead of polling for changes.
 
-# List directories
-directories = workos.directory_sync.list_directories(
-    organization_id='org_123'
-)
+**Event types:**
+- `dsync.user.created`
+- `dsync.user.updated`
+- `dsync.user.deleted`
+- `dsync.group.created`
+- `dsync.group.updated`
+- `dsync.group.deleted`
 
-# Get directory
-directory = workos.directory_sync.get_directory('directory_123')
+**Integration pattern:**
+1. Register webhook endpoint in WorkOS Dashboard
+2. Verify webhook signatures (see webhooks skill)
+3. Handle events idempotently — events may be delivered multiple times
+4. Return 200 immediately, process asynchronously
 
-# List users
-users = workos.directory_sync.list_users(
-    directory='directory_123',
-    limit=10
-)
+Check fetched docs for event payload schemas.
 
-# Get user
-user = workos.directory_sync.get_user('directory_user_123')
+## Common Patterns
 
-# List groups
-groups = workos.directory_sync.list_groups(
-    directory='directory_123',
-    limit=10
-)
+### Sync All Users from a Directory
 
-# Get group
-group = workos.directory_sync.get_group('directory_group_123')
-
-# Delete directory
-workos.directory_sync.delete_directory('directory_123')
+**Pattern:**
+```
+1. GET /directories?organization={org_id}
+2. For each directory:
+   - GET /directory_users?directory={dir_id} (paginate through all)
+   - Store users locally
+3. Set up webhooks for incremental updates
 ```
 
-## Runnable Verification
+**Trap:** Do not poll list endpoints frequently — use webhooks for updates to avoid rate limits.
 
-**Test 1: List directories for organization**
+### Find User's Group Memberships
 
+**Pattern:**
+```
+1. GET /directory_users/{user_id}
+2. Extract group IDs from user.groups array
+3. For detailed group data:
+   - GET /directory_groups/{group_id} for each group
+```
+
+**Optimization:** Cache group details — they change less frequently than memberships.
+
+### Check If Directory Is Active
+
+**Pattern:**
+```
+1. GET /directories/{directory_id}
+2. Check directory.state field
+```
+
+**States to handle (check fetched docs for complete list):**
+- `linked`: Active and syncing
+- `unlinked`: Not connected
+- `invalid_credentials`: Auth failure — user must reconnect
+
+## Verification Commands
+
+**Test API key:**
 ```bash
 curl https://api.workos.com/directories \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -G \
-  -d "organization_id=YOUR_ORG_ID"
+  -H "Authorization: Bearer ${WORKOS_API_KEY}"
 ```
 
-Expected: 200 OK with array of directories
-
-**Test 2: Get specific directory**
-
+**Test directory access:**
 ```bash
-curl https://api.workos.com/directories/YOUR_DIRECTORY_ID \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
+curl https://api.workos.com/directories/{directory_id} \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}"
 ```
 
-Expected: 200 OK with directory object
-
-**Test 3: List users from directory**
-
+**Test user listing:**
 ```bash
-curl https://api.workos.com/directory_users \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -G \
-  -d "directory_id=YOUR_DIRECTORY_ID"
+curl "https://api.workos.com/directory_users?directory={directory_id}&limit=10" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}"
 ```
 
-Expected: 200 OK with paginated user list
-
-**Test 4: List groups from directory**
-
+**Test pagination:**
 ```bash
-curl https://api.workos.com/directory_groups \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -G \
-  -d "directory_id=YOUR_DIRECTORY_ID"
+curl "https://api.workos.com/directory_users?directory={directory_id}&limit=1&after={cursor}" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}"
 ```
 
-Expected: 200 OK with paginated group list
+## SDK Usage Pattern
 
-**Test 5: Invalid API key handling**
-
-```bash
-curl https://api.workos.com/directories \
-  -H "Authorization: Bearer invalid_key"
+**Initialize client:**
+```
+client = WorkOS(api_key=WORKOS_API_KEY)
 ```
 
-Expected: 401 Unauthorized
-
-## Common Integration Patterns
-
-### Sync users on schedule
-
-```javascript
-async function syncUsers(directoryId) {
-  let after = null;
-  const allUsers = [];
-
-  do {
-    const response = await workos.directorySync.listUsers({
-      directory: directoryId,
-      limit: 100,
-      after: after,
-    });
-
-    allUsers.push(...response.data);
-    after = response.listMetadata.after;
-  } while (after !== null);
-
-  // Process allUsers (e.g., update local database)
-  for (const user of allUsers) {
-    await updateLocalUser(user);
-  }
-}
+**List users:**
+```
+response = client.directory_sync.list_users(
+  directory=directory_id,
+  limit=50,
+  after=cursor
+)
 ```
 
-### Filter active users only
-
-```javascript
-const { data: users } = await workos.directorySync.listUsers({
-  directory: "directory_123",
-});
-
-const activeUsers = users.filter((user) => user.state === "active");
+**Get single user:**
+```
+user = client.directory_sync.get_user(user_id)
 ```
 
-### Get user's group memberships
+Check fetched docs for SDK method signatures in your language.
 
-Groups contain member references. To get a user's groups, list all groups and filter:
+## Traps and Gotchas
 
-```javascript
-const { data: groups } = await workos.directorySync.listGroups({
-  directory: "directory_123",
-});
+**Trap:** Directory IDs are not the same as connection IDs. Use the correct ID type for each endpoint.
 
-// Check group membership via webhooks or raw_attributes
-// The Directory Sync API doesn't expose direct user->groups relationships
-// Use directory.user_updated webhooks to track group membership changes
-```
+**Trap:** User emails are not guaranteed unique across directories — always scope queries by directory.
+
+**Trap:** Deleted users remain in API responses with `state: "inactive"` — filter by state if you only want active users.
+
+**Trap:** Group hierarchies are flattened — parent-child relationships are not preserved in the API.
+
+**Trap:** Custom attributes vary by provider (Azure AD vs Okta vs Google) — do not assume consistent attribute names. Check fetched docs for provider-specific schemas.
 
 ## Related Skills
 
-- workos-directory-sync (feature overview and webhook handling)
+- workos-directory-sync (feature implementation guide)
+- workos-webhooks (for handling directory sync events)

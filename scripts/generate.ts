@@ -13,7 +13,7 @@ import {
   generateRouter,
   generateIntegrationRouter,
 } from "./lib/generator.ts";
-import { refineSkill, rateLimitDelay } from "./lib/refiner.ts";
+import { refineSkill } from "./lib/refiner.ts";
 import { runQualityGate } from "./lib/quality-gate.ts";
 import { shouldRegenerate } from "./lib/hasher.ts";
 import { HAND_CRAFTED_SKILLS, VALIDATION } from "./lib/config.ts";
@@ -189,29 +189,34 @@ async function main() {
       console.warn("  No skills matched for refinement");
     }
 
-    console.log(`  Refining ${toRefine.length} skills...\n`);
+    const concurrency = 5;
+    console.log(
+      `  Refining ${toRefine.length} skills (concurrency: ${concurrency})...\n`,
+    );
 
-    for (let i = 0; i < toRefine.length; i++) {
-      const skill = toRefine[i];
+    let completed = 0;
+    const refineOne = async (skill: GeneratedSkill, i: number) => {
       const idx = generatedSkills.indexOf(skill);
-      console.log(`  [${i + 1}/${toRefine.length}] Refining ${skill.name}...`);
-
       try {
         const refined = await refineSkill(skill, refineOptions);
         generatedSkills[idx] = refined;
+        completed++;
         console.log(
-          `    ✓ ${(skill.sizeBytes / 1024).toFixed(1)}KB → ${(refined.sizeBytes / 1024).toFixed(1)}KB`,
+          `  [${completed}/${toRefine.length}] ✓ ${skill.name} ${(skill.sizeBytes / 1024).toFixed(1)}KB → ${(refined.sizeBytes / 1024).toFixed(1)}KB`,
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error(`    ✗ Failed: ${msg}`);
-        console.error(`    Keeping original scaffold for ${skill.name}`);
+        completed++;
+        console.error(
+          `  [${completed}/${toRefine.length}] ✗ ${skill.name}: ${msg}`,
+        );
       }
+    };
 
-      // Rate limit between calls
-      if (i < toRefine.length - 1) {
-        await rateLimitDelay();
-      }
+    // Process in batches of `concurrency`
+    for (let i = 0; i < toRefine.length; i += concurrency) {
+      const batch = toRefine.slice(i, i + concurrency);
+      await Promise.all(batch.map((skill, j) => refineOne(skill, i + j)));
     }
 
     console.log("\n  Refinement complete.");
@@ -250,6 +255,12 @@ async function main() {
   let written = 0;
   let skipped = 0;
   for (const skill of generatedSkills) {
+    // When --refine-only is set, only write the targeted skill
+    if (flags.refineOnly && skill.name !== flags.refineOnly) {
+      skipped++;
+      continue;
+    }
+
     const fullPath = join(process.cwd(), skill.path);
     await mkdir(dirname(fullPath), { recursive: true });
 

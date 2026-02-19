@@ -13,386 +13,351 @@ description: Migrate to WorkOS from AWS Cognito.
 
 WebFetch: `https://workos.com/docs/migrate/aws-cognito`
 
-The migration guide is the source of truth. If this skill conflicts with the fetched documentation, follow the documentation.
+This is the source of truth for migration patterns. If this skill conflicts with fetched docs, follow the docs.
 
 ## Step 2: Pre-Migration Assessment
 
-### Cognito User Pool Audit
+### Source System Audit
 
-Determine what types of authentication exist in your Cognito User Pool:
+Check your Cognito User Pool configuration:
 
 ```bash
-# List Cognito user pools
+# List all user pools
 aws cognito-idp list-user-pools --max-results 60
 
-# Describe specific pool to see auth providers
-aws cognito-idp describe-user-pool --user-pool-id <pool-id>
+# Describe target pool (replace POOL_ID)
+aws cognito-idp describe-user-pool --user-pool-id POOL_ID
 ```
 
-Document:
-
-- **Password-based users**: Count and determine reset strategy
-- **OAuth providers**: Google, Facebook, Apple, SAML, OIDC (note: Client IDs/Secrets)
-- **MFA settings**: SMS, TOTP, hardware tokens
-- **Custom attributes**: Will need mapping to WorkOS user metadata
-
-### Critical Cognito Limitation
-
-**Cognito does not export password hashes.** You CANNOT migrate existing passwords directly.
+Identify authentication methods in use:
 
 ```
-Can you export password hashes from Cognito?
+Auth Method              Action Required
   |
-  +-- NO --> All password users MUST reset passwords
-```
-
-This is a Cognito export limitation, not a WorkOS import limitation. WorkOS supports password hash import, but Cognito doesn't provide the hashes.
-
-## Step 3: WorkOS Environment Setup
-
-### Create Organization and Connection
-
-1. Log into WorkOS Dashboard
-2. Navigate to Organizations
-3. Create organization for your user base
-4. Note the `organization_id` (starts with `org_`)
-
-### Configure Authentication Methods
-
-Based on Step 2 assessment:
-
-#### For Password Users (Decision Tree)
-
-```
-Password reset strategy?
+  +-- Username/Password  --> Export users, see Step 3
   |
-  +-- Forced reset on first login
-  |     --> Implement login flow that calls Send Password Reset API
-  |     --> Store migration flag in user metadata
+  +-- OAuth (Google, etc.) --> Preserve OAuth credentials, see Step 5
   |
-  +-- Proactive email campaign
-        --> Export Cognito users to CSV
-        --> Batch call Send Password Reset API
-        --> Track sent emails to avoid duplicates
+  +-- SAML                --> See workos-sso-* skills
+  |
+  +-- Custom Auth Flow    --> Manual migration required
 ```
 
-#### For OAuth Provider Users
+### WorkOS Prerequisites
 
-For EACH OAuth provider (Google, Facebook, etc.) in Cognito:
+Verify in WorkOS Dashboard:
 
-1. **Find Cognito credentials**: AWS Console → Cognito → User Pool → App Integration → Identity Providers
-2. **Copy to WorkOS**: Dashboard → Authentication → Connections → Add Connection
-3. **Use EXACT SAME Client ID and Client Secret** — do not create new OAuth apps
-4. **Add WorkOS redirect URI** to OAuth provider:
-   - WorkOS callback URL: `https://api.workos.com/sso/oauth/<provider>/callback`
-   - Add this to provider's authorized redirect URIs list
+- Organization created (get `org_id` from URL or API)
+- Connection configured for target auth method
+- API keys visible: `WORKOS_API_KEY` (starts with `sk_`), `WORKOS_CLIENT_ID` (starts with `client_`)
 
-**Example: Google OAuth Migration**
-
-```bash
-# Find Cognito Google OAuth settings
-aws cognito-idp describe-identity-provider \
-  --user-pool-id <pool-id> \
-  --provider-name Google
-
-# Note: client_id and client_secret from output
-# Then in Google Cloud Console:
-# APIs & Services → Credentials → OAuth 2.0 Client ID → Add URI:
-# https://api.workos.com/sso/oauth/google/callback
-```
-
-**Verification**: User should authenticate to WorkOS without re-authorizing Google.
-
-## Step 4: User Data Export
+## Step 3: User Data Export
 
 ### Export User List
 
 ```bash
-# Export all Cognito users
+# Export all users from Cognito pool
 aws cognito-idp list-users \
-  --user-pool-id <pool-id> \
-  --limit 60 \
-  > cognito-users.json
-
-# For pools >60 users, use pagination
-aws cognito-idp list-users \
-  --user-pool-id <pool-id> \
-  --pagination-token <token>
+  --user-pool-id POOL_ID \
+  --output json > cognito_users.json
 ```
 
-### Transform to WorkOS Format
+### Parse User Attributes
 
-Parse `cognito-users.json` and map fields:
+Transform Cognito attributes to WorkOS format:
 
 ```
-Cognito Field              --> WorkOS Field
-Username                   --> email (or email attribute if different)
-Attributes['email']        --> email
-Attributes['given_name']   --> first_name
-Attributes['family_name']  --> last_name
-Attributes['custom:*']     --> user metadata object
-UserCreateDate            --> created_at (informational only)
+Cognito Field          WorkOS Field
+  |
+  +-- sub               --> externalId (preserve as-is)
+  +-- email             --> email
+  +-- email_verified    --> emailVerified
+  +-- given_name        --> firstName
+  +-- family_name       --> lastName
+  +-- custom:*          --> Store in metadata if needed
 ```
 
-**Critical**: Cognito usernames may not be email addresses. Check `email` attribute explicitly.
+**CRITICAL PASSWORD HASH NOTE:**
 
-## Step 5: User Import to WorkOS
+Cognito does NOT export password hashes via API. This is a Cognito limitation, not a WorkOS limitation.
 
-### Import Users via API
+WorkOS DOES support importing password hashes if you have them, but since Cognito doesn't export them, you must trigger password resets for username/password users. See Step 4.
 
-Use the User Management API to create users in WorkOS:
+## Step 4: User Import Decision Tree
+
+```
+Do you have password hashes?
+  |
+  +-- NO (typical for Cognito)
+  |     |
+  |     +-- Import users WITHOUT passwords
+  |     +-- Trigger password reset flow (see Step 4a)
+  |
+  +-- YES (from other source)
+        |
+        +-- Check fetched docs for hash format requirements
+        +-- Import with passwordHash field
+```
+
+### Step 4a: Bulk User Import (No Passwords)
+
+Use WorkOS Directory Sync API for bulk import:
 
 ```bash
-# Example: Create single user
-curl -X POST https://api.workos.com/user_management/users \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+# Pseudocode pattern — exact endpoint in fetched docs
+for each user in cognito_users.json:
+  POST /user_management/users
+  {
+    "organizationId": "org_...",
+    "email": user.email,
+    "emailVerified": user.email_verified,
+    "firstName": user.given_name,
+    "lastName": user.family_name,
+    "externalId": user.sub  # Preserve Cognito sub
+  }
+```
+
+**Verify after each batch:**
+
+```bash
+# Check import succeeded
+curl -X GET https://api.workos.com/user_management/users \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "first_name": "John",
-    "last_name": "Doe",
-    "email_verified": true,
-    "organization_id": "org_123"
+  --data '{"organizationId": "org_..."}'
+```
+
+### Step 4b: Trigger Password Resets
+
+Two strategies:
+
+**Strategy A: On-demand reset (user-triggered)**
+
+1. User attempts sign-in
+2. App detects "migrated from Cognito" flag (store in user metadata)
+3. Redirect to password reset flow
+4. Use WorkOS Send Password Reset Email API (check fetched docs for endpoint)
+
+**Strategy B: Proactive reset (bulk email)**
+
+1. After import completes, loop through all imported users
+2. Call Send Password Reset Email API for each user
+3. Track sent emails to avoid duplicates
+
+Pseudocode for bulk reset:
+
+```bash
+# Get all imported users
+GET /user_management/users?organizationId=org_...
+
+# Send reset email to each
+for each user:
+  POST /user_management/password_reset
+  {
+    "email": user.email,
+    "passwordResetUrl": "https://yourapp.com/reset-password"  # Your callback URL
+  }
+```
+
+**Verify reset emails are sent:**
+
+Check WorkOS Dashboard → Events → Filter by `password_reset.requested`
+
+## Step 5: OAuth Provider Migration
+
+### Preserve OAuth Credentials
+
+If migrating users who sign in with Google/Microsoft/GitHub:
+
+1. **Critical:** Use the SAME Client ID and Client Secret in WorkOS that you used in Cognito
+2. Go to OAuth provider settings (e.g., Google Cloud Console)
+3. Add WorkOS redirect URI to authorized redirects
+
+**Pattern for finding WorkOS redirect URI:**
+
+```bash
+# Check fetched docs for exact format, typically:
+https://api.workos.com/sso/authorize/callback
+```
+
+**Example: Google OAuth**
+
+1. Go to Google Cloud Console → APIs & Services → Credentials
+2. Select OAuth 2.0 Client ID used in Cognito
+3. Add WorkOS redirect URI to "Authorized redirect URIs"
+4. Save and wait 5-10 minutes for propagation
+
+**Verify OAuth works:**
+
+```bash
+# Test OAuth flow
+curl -X POST https://api.workos.com/sso/authorize \
+  -H "Content-Type: application/json" \
+  --data '{
+    "clientId": "'"$WORKOS_CLIENT_ID"'",
+    "redirectUri": "YOUR_CALLBACK_URL",
+    "provider": "GoogleOAuth",
+    "organizationId": "org_..."
   }'
 ```
 
-**Batch import pattern**:
+Should return authorization URL. Visit it and complete OAuth flow.
 
-1. Read transformed user data from Step 4
-2. For each user, POST to `/user_management/users`
-3. Store mapping: `cognito_user_id` → `workos_user_id` for reference
-4. Handle errors: duplicate emails, invalid formats, rate limits
+### Configure Connection in WorkOS
 
-**Do NOT attempt to import passwords** — Cognito does not export them.
+For each OAuth provider:
 
-## Step 6: Password Reset Strategy Implementation
+1. WorkOS Dashboard → Authentication → Connections
+2. Create new connection matching Cognito provider
+3. Enter SAME credentials from Cognito
+4. Test connection before cutover
 
-Choose ONE strategy from Step 3 decision tree:
+## Step 6: Application Code Migration
 
-### Strategy A: Forced Reset on First Login
+### Replace Cognito SDK Calls
 
-Implement in your login flow:
-
-```typescript
-// Pseudocode: Login handler
-async function handleLogin(email: string, password: string) {
-  try {
-    // Attempt WorkOS authentication
-    const session = await authenticateWithWorkOS(email, password);
-    return session;
-  } catch (error) {
-    if (error.code === "invalid_credentials") {
-      // Check if user is migrated but hasn't reset password
-      const user = await getUserByEmail(email);
-      if (user.metadata?.cognitoMigrated && !user.metadata?.passwordReset) {
-        // Trigger password reset
-        await fetch("https://api.workos.com/user_management/password_reset", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${WORKOS_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: email,
-            password_reset_url: "https://yourapp.com/reset-password",
-          }),
-        });
-        return { requiresPasswordReset: true };
-      }
-    }
-    throw error;
-  }
-}
-```
-
-### Strategy B: Proactive Email Campaign
-
-Batch trigger password resets:
-
-```bash
-# For each migrated user
-while IFS=, read -r email; do
-  curl -X POST https://api.workos.com/user_management/password_reset \
-    -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-    -H "Content-Type: application/json" \
-    -d "{
-      \"email\": \"$email\",
-      \"password_reset_url\": \"https://yourapp.com/reset-password\"
-    }"
-  sleep 0.1  # Rate limit protection
-done < migrated-users.csv
-```
-
-## Step 7: Application Code Migration
-
-### Update Authentication Calls
-
-Replace Cognito SDK calls with WorkOS SDK:
+Map Cognito SDK methods to WorkOS equivalents:
 
 ```
-Cognito Pattern                          --> WorkOS Pattern
-InitiateAuth (username/password)        --> AuthKit sign-in flow
-GetUser (access token validation)       --> getUser() with session
-AdminCreateUser                         --> User Management API
-ConfirmSignUp (email verification)      --> Email verification via AuthKit
+Cognito Method                   WorkOS Pattern
+  |
+  +-- initiateAuth()             --> Use AuthKit sign-in flow (see workos-authkit-* skills)
+  |
+  +-- signUp()                   --> POST /user_management/users
+  |
+  +-- confirmSignUp()            --> Email verification via AuthKit
+  |
+  +-- forgotPassword()           --> POST /user_management/password_reset
+  |
+  +-- getUser()                  --> GET /user_management/users/:id
 ```
 
-**Example: Sign-in flow migration**
+### Session Management
 
-Before (Cognito):
+Replace Cognito JWT validation with WorkOS session handling:
 
-```typescript
-import {
-  CognitoIdentityProviderClient,
-  InitiateAuthCommand,
-} from "@aws-sdk/client-cognito-identity-provider";
+1. Remove `aws-jwt-verify` or similar packages
+2. Install WorkOS SDK for your framework (see Related Skills)
+3. Replace token validation logic with WorkOS session checks
 
-const client = new CognitoIdentityProviderClient({ region: "us-east-1" });
-const command = new InitiateAuthCommand({
-  AuthFlow: "USER_PASSWORD_AUTH",
-  ClientId: process.env.COGNITO_CLIENT_ID,
-  AuthParameters: {
-    USERNAME: email,
-    PASSWORD: password,
-  },
-});
-const response = await client.send(command);
-```
+Check fetched docs for session management patterns specific to your language.
 
-After (WorkOS - use AuthKit):
+## Step 7: Cutover Strategy
 
-```typescript
-// Redirect to AuthKit hosted UI
-const authUrl = getAuthorizationUrl({
-  clientId: process.env.WORKOS_CLIENT_ID,
-  redirectUri: "https://yourapp.com/callback",
-  provider: "authkit",
-});
-```
+### Parallel Run (Recommended)
 
-For server-side authentication, see `Related Skills` section.
+1. Deploy WorkOS integration to production WITHOUT removing Cognito
+2. Route NEW users to WorkOS
+3. Incrementally migrate existing users on next sign-in
+4. Monitor error rates for 1-2 weeks
+5. Remove Cognito integration after validation
 
-### Update Session Management
+### Hard Cutover (Faster but Riskier)
 
-Replace Cognito tokens with WorkOS sessions:
-
-- **Cognito Access Token** → WorkOS session cookie (managed by AuthKit middleware)
-- **Cognito Refresh Token** → WorkOS handles refresh automatically
-- **Cognito ID Token claims** → `session.user` object from `getUser()`
+1. Schedule maintenance window
+2. Export all Cognito users
+3. Import to WorkOS (Steps 3-4)
+4. Deploy code changes
+5. Send password reset emails immediately
+6. Monitor closely for 24-48 hours
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these commands to confirm migration readiness:
-
 ```bash
-# 1. Verify WorkOS API credentials
-curl -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  https://api.workos.com/user_management/organizations | jq '.data[0].id'
-# Should return organization ID
+# 1. User import succeeded
+curl -X GET https://api.workos.com/user_management/users \
+  -H "Authorization: Bearer $WORKOS_API_KEY" | jq '.data | length'
+# Should match Cognito user count
 
-# 2. Verify OAuth connections (if migrating OAuth users)
-curl -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  "https://api.workos.com/connections" | jq '.data[] | {type, state}'
-# Should show active connections for each OAuth provider
+# 2. OAuth providers configured
+# Check WorkOS Dashboard → Connections → Each provider shows "Active"
 
-# 3. Verify user import (spot check)
-curl -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  "https://api.workos.com/user_management/users?email=test@example.com" | jq '.data[0].id'
-# Should return user ID if user was imported
-
-# 4. Verify password reset API access
+# 3. Password reset emails sendable
 curl -X POST https://api.workos.com/user_management/password_reset \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password_reset_url":"https://test.com"}' \
-  -o /dev/null -w "%{http_code}\n"
-# Should return 201
+  --data '{"email": "test@example.com", "passwordResetUrl": "https://yourapp.com/reset"}'
+# Should return 200
 
-# 5. Verify application builds
-npm run build
-# or
-yarn build
+# 4. Application builds with WorkOS SDK
+npm run build  # or equivalent for your language
+
+# 5. Test sign-in flow end-to-end
+# Attempt sign-in with migrated user → should trigger password reset or OAuth flow
 ```
 
 ## Error Recovery
 
-### "User already exists" during import
+### "User not found" after import
 
-**Cause**: Duplicate email in WorkOS organization.
+**Root cause:** Import failed silently or used wrong organization ID
 
-**Fix**:
-
-1. Fetch existing user: `GET /user_management/users?email={email}`
-2. Update user metadata instead: `PUT /user_management/users/{id}`
-3. Skip import, log for reconciliation
-
-### OAuth users cannot authenticate
-
-**Root cause**: WorkOS redirect URI not added to OAuth provider.
-
-**Fix**:
-
-1. Check provider's OAuth app settings (Google Console, Facebook App, etc.)
-2. Add `https://api.workos.com/sso/oauth/<provider>/callback` to authorized redirect URIs
-3. Verify Client ID/Secret match Cognito's EXACTLY
-
-### Password reset emails not sending
-
-**Cause 1**: `password_reset_url` domain not verified in WorkOS Dashboard.
-
-**Fix**: Dashboard → Settings → Domains → Add domain
-
-**Cause 2**: User email not verified in WorkOS.
-
-**Fix**: Set `email_verified: true` during user import (Step 5)
-
-### "Invalid credentials" for OAuth-only users
-
-**Root cause**: User has no password in WorkOS (correct behavior).
-
-**Fix**: Do not prompt for password. Redirect directly to OAuth provider:
-
-```typescript
-// Detect OAuth-only user
-if (user.identities.length > 0 && !user.passwordSet) {
-  // Redirect to OAuth provider flow
-  redirectToOAuthProvider(user.identities[0].type);
-}
-```
-
-### Rate limit errors during batch import
-
-**Cause**: Exceeding WorkOS API rate limits.
-
-**Fix**: Add exponential backoff:
+**Fix:**
 
 ```bash
-# Retry with backoff
-for i in {1..5}; do
-  response=$(curl -w "%{http_code}" -o /dev/null ...)
-  if [ "$response" -eq 201 ]; then break; fi
-  sleep $((2**i))
-done
+# Verify organization ID matches
+echo $WORKOS_ORG_ID
+
+# Re-check user list
+curl -X GET https://api.workos.com/user_management/users?organizationId=$WORKOS_ORG_ID \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
 ```
 
-### Cognito users have custom attributes not in WorkOS
+### "Invalid OAuth credentials"
 
-**Cause**: Cognito allows custom user attributes (`custom:*`), WorkOS uses freeform metadata.
+**Root cause:** Client ID/Secret mismatch between Cognito and WorkOS, or redirect URI not added to OAuth provider
 
-**Fix**: Map to WorkOS user metadata object:
+**Fix:**
 
-```json
-{
-  "email": "user@example.com",
-  "user_metadata": {
-    "cognitoCustomField": "value",
-    "department": "engineering"
-  }
-}
+1. Compare credentials in Cognito and WorkOS Dashboard
+2. Check OAuth provider console for WorkOS redirect URI
+3. Wait 5-10 minutes after adding redirect URI
+4. Test OAuth flow with verbose logging enabled
+
+### "Password reset email not received"
+
+**Root cause:** Email not verified in WorkOS, or passwordResetUrl missing/malformed
+
+**Fix:**
+
+```bash
+# Check user email verification status
+curl -X GET https://api.workos.com/user_management/users/:id \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
+# Look for "emailVerified": true
+
+# Verify passwordResetUrl is absolute URL with https://
+# Check WorkOS Dashboard → Events for password_reset.failed
+```
+
+### "externalId collision"
+
+**Root cause:** Duplicate Cognito `sub` values or re-importing same users
+
+**Fix:**
+
+1. Query WorkOS for existing externalIds before import
+2. Use upsert pattern if supported (check fetched docs)
+3. Track imported user IDs to avoid re-import
+
+### Rate limit exceeded during bulk import
+
+**Root cause:** Importing too many users too quickly
+
+**Fix:**
+
+```bash
+# Add delay between requests (adjust based on rate limits in fetched docs)
+for user in users; do
+  import_user $user
+  sleep 0.1  # 100ms delay = ~10 req/sec
+done
+
+# Or batch import if API supports (check fetched docs)
 ```
 
 ## Related Skills
 
-- **workos-authkit-nextjs**: If using Next.js for application (recommended)
-- **workos-authkit-react**: If using React SPA
-- **workos-authkit-base**: For other frameworks
+- **workos-authkit-nextjs** - Integrate WorkOS authentication with Next.js
+- **workos-authkit-react** - React-specific AuthKit integration
+- **workos-authkit-vanilla-js** - Framework-agnostic AuthKit setup

@@ -20,9 +20,45 @@ description: WorkOS RBAC API endpoints — roles, permissions, and role assignme
 - https://workos.com/docs/reference/roles/organization-role/list
 - https://workos.com/docs/reference/roles/organization-role/remove-permission
 
+## Endpoint Catalog
+
+### Global Roles (Environment-Wide Templates)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/roles` | Create a global role template |
+| GET | `/roles/:id` | Fetch a specific global role |
+| GET | `/roles` | List all global role templates |
+| PATCH | `/roles/:id` | Update a global role template |
+| POST | `/roles/:id/permissions` | Add permission to global role |
+| POST | `/roles/:id/permissions/set` | Replace all permissions on global role |
+
+### Organization Roles (Org-Specific Instances)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/organization_roles` | Create org-specific role |
+| GET | `/organization_roles/:id` | Fetch a specific org role |
+| GET | `/organization_roles` | List org roles (filter by org) |
+| PATCH | `/organization_roles/:id` | Update org role |
+| DELETE | `/organization_roles/:id` | Delete org role |
+| POST | `/organization_roles/:id/permissions` | Add permission to org role |
+| DELETE | `/organization_roles/:id/permissions/:permission_id` | Remove permission from org role |
+| POST | `/organization_roles/:id/permissions/set` | Replace all permissions on org role |
+
+### Permissions
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/permissions` | Create a permission |
+| GET | `/permissions/:id` | Fetch a specific permission |
+| GET | `/permissions` | List all permissions |
+| PATCH | `/permissions/:id` | Update permission metadata |
+| DELETE | `/permissions/:id` | Delete a permission |
+
 ## Authentication Setup
 
-All API calls require Bearer authentication:
+Include your API key in the `Authorization` header:
 
 ```bash
 Authorization: Bearer sk_live_...
@@ -31,383 +67,157 @@ Authorization: Bearer sk_live_...
 Set your API key as an environment variable:
 
 ```bash
-export WORKOS_API_KEY="sk_live_..."
+export WORKOS_API_KEY=sk_live_...
 ```
-
-## Endpoint Catalog
-
-### Organization Roles (Org-Specific)
-
-| Method | Endpoint                                     | Purpose                                         |
-| ------ | -------------------------------------------- | ----------------------------------------------- |
-| POST   | `/organization_roles`                        | Create a role for a specific organization       |
-| GET    | `/organization_roles/:id`                    | Retrieve a single organization role             |
-| GET    | `/organization_roles`                        | List organization roles (paginated)             |
-| PUT    | `/organization_roles/:id`                    | Update an organization role's name/description  |
-| DELETE | `/organization_roles/:id`                    | Delete an organization role                     |
-| POST   | `/organization_roles/:id/permissions/add`    | Add permissions to an organization role         |
-| POST   | `/organization_roles/:id/permissions/remove` | Remove permissions from an organization role    |
-| POST   | `/organization_roles/:id/permissions/set`    | Replace all permissions on an organization role |
-
-### Roles (Environment-Level Templates)
-
-| Method | Endpoint                     | Purpose                                     |
-| ------ | ---------------------------- | ------------------------------------------- |
-| POST   | `/roles`                     | Create a role template for your environment |
-| GET    | `/roles/:id`                 | Retrieve a single role template             |
-| GET    | `/roles`                     | List role templates (paginated)             |
-| PUT    | `/roles/:id`                 | Update a role template's name/description   |
-| POST   | `/roles/:id/permissions/add` | Add permissions to a role template          |
-| POST   | `/roles/:id/permissions/set` | Replace all permissions on a role template  |
-
-### Permissions
-
-| Method | Endpoint           | Purpose                                |
-| ------ | ------------------ | -------------------------------------- |
-| POST   | `/permissions`     | Create a permission resource           |
-| GET    | `/permissions/:id` | Retrieve a single permission           |
-| GET    | `/permissions`     | List permissions (paginated)           |
-| PUT    | `/permissions/:id` | Update a permission's name/description |
-| DELETE | `/permissions/:id` | Delete a permission                    |
 
 ## Operation Decision Tree
 
-### Creating Roles
+### When to use Global Roles vs Organization Roles
 
-**Q: Is this role specific to one organization or reusable across all organizations?**
-
-- **Organization-specific** → Use `POST /organization_roles` with `organization_id`
-- **Reusable template** → Use `POST /roles` (no organization_id)
-
-Example (organization-specific):
-
-```bash
-curl -X POST https://api.workos.com/organization_roles \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "organization_id": "org_01H5Z8X...",
-    "name": "Engineering Manager",
-    "description": "Manages engineering team members"
-  }'
+```
+Are you defining a role template that applies across all orgs?
+├─ YES → Use /roles (global role)
+│   └─ Example: "Admin", "Member", "Billing Manager"
+└─ NO → Use /organization_roles (org-specific role)
+    └─ Example: Custom roles that vary per org
 ```
 
-Example (environment template):
+### Create vs Update vs Set Permissions
 
-```bash
-curl -X POST https://api.workos.com/roles \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Admin",
-    "description": "Full administrative access"
-  }'
+```
+Do you need to manage role permissions?
+├─ Adding ONE permission → POST /roles/:id/permissions or /organization_roles/:id/permissions
+├─ Removing ONE permission → DELETE /organization_roles/:id/permissions/:permission_id
+└─ Replacing ALL permissions → POST /roles/:id/permissions/set or /organization_roles/:id/permissions/set
 ```
 
-### Managing Permissions
+**Trap:** There is no DELETE endpoint for global role permissions. To remove a permission from a global role, use the set-permissions endpoint with the desired permission list.
 
-**Q: Do you need to add, remove, or completely replace permissions?**
+### List Filtering Pattern
 
-- **Add one or more** → Use `POST /organization_roles/:id/permissions/add` or `POST /roles/:id/permissions/add`
-- **Remove one or more** → Use `POST /organization_roles/:id/permissions/remove`
-- **Replace all** → Use `POST /organization_roles/:id/permissions/set` or `POST /roles/:id/permissions/set`
+When listing organization roles:
+- Filter by `organization_id` query parameter
+- Filter by `role_slug` to find roles derived from a global template
+- Paginate with `before`, `after`, `limit` parameters
 
-Example (add permissions):
-
-```bash
-curl -X POST https://api.workos.com/organization_roles/orgrole_01H5Z8X.../permissions/add \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "permissions": ["permission_01H5Z8X...", "permission_01H5Z8Y..."]
-  }'
-```
-
-Example (set permissions):
-
-```bash
-curl -X POST https://api.workos.com/organization_roles/orgrole_01H5Z8X.../permissions/set \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "permissions": ["permission_01H5Z8X..."]
-  }'
-```
-
-### Listing Resources
-
-**Q: Do you need all results or just a subset?**
-
-All list endpoints support pagination:
-
-- `limit` (default 10, max 100)
-- `before` or `after` cursors for pagination
-
-Example (list with pagination):
-
-```bash
-curl "https://api.workos.com/organization_roles?organization_id=org_01H5Z8X...&limit=50&after=orgrole_01H5Z8Y..." \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}"
-```
-
-## Request/Response Patterns
-
-### Creating an Organization Role
-
-**Request:**
-
-```json
-POST /organization_roles
-{
-  "organization_id": "org_01H5Z8X...",
-  "name": "Billing Admin",
-  "description": "Manages billing and subscription settings"
-}
-```
-
-**Response (201 Created):**
-
-```json
-{
-  "object": "organization_role",
-  "id": "orgrole_01H5Z8X...",
-  "organization_id": "org_01H5Z8X...",
-  "name": "Billing Admin",
-  "description": "Manages billing and subscription settings",
-  "permissions": [],
-  "created_at": "2025-01-15T10:00:00.000Z",
-  "updated_at": "2025-01-15T10:00:00.000Z"
-}
-```
-
-### Creating a Permission
-
-**Request:**
-
-```json
-POST /permissions
-{
-  "name": "repo:read",
-  "description": "Read access to repositories"
-}
-```
-
-**Response (201 Created):**
-
-```json
-{
-  "object": "permission",
-  "id": "permission_01H5Z8X...",
-  "name": "repo:read",
-  "description": "Read access to repositories",
-  "created_at": "2025-01-15T10:00:00.000Z",
-  "updated_at": "2025-01-15T10:00:00.000Z"
-}
-```
-
-### Listing Roles with Pagination
-
-**Request:**
-
-```bash
-GET /roles?limit=25&after=role_01H5Z8X...
-```
-
-**Response (200 OK):**
-
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "object": "role",
-      "id": "role_01H5Z8Y...",
-      "name": "Admin",
-      "description": "Full administrative access",
-      "permissions": ["permission_01H5Z8X..."],
-      "created_at": "2025-01-15T09:00:00.000Z",
-      "updated_at": "2025-01-15T09:30:00.000Z"
-    }
-  ],
-  "list_metadata": {
-    "before": "role_01H5Z8W...",
-    "after": "role_01H5Z8Z..."
-  }
-}
-```
+Check fetched docs for exact pagination parameter names and formats.
 
 ## Error Code Mapping
 
-### 400 Bad Request
-
-**Cause:** Invalid request body or missing required fields
-**Fix:** Check that `organization_id` (for org roles), `name`, and `permissions` arrays are valid
-
-Example error:
-
-```json
-{
-  "error": "invalid_request",
-  "error_description": "organization_id is required for organization roles"
-}
-```
-
-### 401 Unauthorized
-
-**Cause:** Missing or invalid API key
-**Fix:** Verify `Authorization: Bearer sk_live_...` header is set and key starts with `sk_`
-
-### 404 Not Found
-
-**Cause:** Role, permission, or organization ID does not exist
-**Fix:** Verify the resource ID exists by listing resources first
-
-Example error:
-
-```json
-{
-  "error": "not_found",
-  "error_description": "Organization role orgrole_invalid not found"
-}
-```
-
-### 409 Conflict
-
-**Cause:** Duplicate resource name within scope (e.g., role name already exists in organization)
-**Fix:** Use a unique name or update the existing resource instead
-
-Example error:
-
-```json
-{
-  "error": "conflict",
-  "error_description": "A role with name 'Admin' already exists in this organization"
-}
-```
-
-### 422 Unprocessable Entity
-
-**Cause:** Invalid permission ID in permissions array
-**Fix:** Verify all permission IDs exist by calling `GET /permissions` first
-
-### 429 Too Many Requests
-
-**Cause:** Rate limit exceeded
-**Fix:** Implement exponential backoff with 1s, 2s, 4s delays between retries
+| Status Code | Common Cause | Fix |
+|-------------|--------------|-----|
+| 401 | Invalid API key | Verify `WORKOS_API_KEY` starts with `sk_` and is active |
+| 404 | Role or permission not found | Verify the ID exists with a GET request first |
+| 409 | Duplicate slug | Role slugs must be unique within an environment — choose a different slug |
+| 422 | Invalid request payload | Check fetched docs for required fields and format constraints |
+| 429 | Rate limit exceeded | Implement exponential backoff (start with 1s delay, double on each retry) |
 
 ## Pagination Handling
 
-All list endpoints (`GET /roles`, `GET /organization_roles`, `GET /permissions`) use cursor-based pagination:
+The list endpoints return paginated results. Check fetched docs for the exact pagination parameters, but the pattern is:
 
-1. **First page:** Call endpoint without `before` or `after`
-2. **Next page:** Use `after` cursor from `list_metadata.after`
-3. **Previous page:** Use `before` cursor from `list_metadata.before`
-4. **Control page size:** Set `limit` (max 100)
+1. Initial request returns `data` array + `list_metadata` with `before` and `after` cursors
+2. To fetch next page, include `after` cursor from previous response
+3. To fetch previous page, include `before` cursor from previous response
+4. Set `limit` to control page size (default and max vary by endpoint)
 
-Example pagination loop (bash):
+Pseudocode:
+```
+all_roles = []
+cursor = null
 
-```bash
-cursor=""
-while true; do
-  response=$(curl "https://api.workos.com/roles?limit=100&after=${cursor}" \
-    -H "Authorization: Bearer ${WORKOS_API_KEY}")
+loop:
+  response = GET /organization_roles?organization_id=X&after=cursor&limit=100
+  all_roles.append(response.data)
+  
+  if response.list_metadata.after exists:
+    cursor = response.list_metadata.after
+  else:
+    break
 
-  # Process response data
-  echo "$response" | jq '.data[]'
-
-  # Get next cursor
-  cursor=$(echo "$response" | jq -r '.list_metadata.after // empty')
-  [ -z "$cursor" ] && break
-done
+return all_roles
 ```
 
-## Rate Limit Guidance
+## Verification Commands
 
-- WorkOS enforces rate limits per API key
-- When you receive 429, implement exponential backoff
-- Typical pattern: wait 1s, then 2s, then 4s before retrying
-- For bulk operations, batch requests with 100ms delays between calls
-
-## Runnable Verification
-
-### Create a Permission
-
+### Test Authentication
 ```bash
-curl -X POST https://api.workos.com/permissions \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
+curl https://api.workos.com/roles \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Content-Type: application/json"
+```
+
+Expected: 200 with role list (may be empty)
+
+### Create and Verify Global Role
+```bash
+# Create
+curl -X POST https://api.workos.com/roles \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "test:read",
-    "description": "Test permission for verification"
+    "slug": "test-role",
+    "name": "Test Role"
+  }'
+
+# Verify (save role ID from create response)
+curl https://api.workos.com/roles/role_123 \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
+```
+
+### Create Organization Role from Global Template
+```bash
+curl -X POST https://api.workos.com/organization_roles \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_id": "org_123",
+    "role_slug": "test-role"
   }'
 ```
 
-Expected: 201 response with `permission_01...` ID
+Expected: 201 with new organization role inheriting permissions from global template
 
-### Create an Environment Role with Permission
+## Rate Limits
 
-```bash
-# 1. Create role
-role_response=$(curl -X POST https://api.workos.com/roles \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Test Role",
-    "description": "Verification test role"
-  }')
+WorkOS applies rate limits per API key. If you receive 429 responses:
 
-role_id=$(echo "$role_response" | jq -r '.id')
+1. Parse `Retry-After` header (seconds until retry)
+2. Implement exponential backoff if no header present
+3. Consider batching operations (use set-permissions instead of multiple add-permission calls)
 
-# 2. Add permission to role
-curl -X POST "https://api.workos.com/roles/${role_id}/permissions/add" \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "permissions": ["permission_01..."]
-  }'
+## Common Patterns
+
+### Initialize Default Roles for New Organization
+
+```
+1. Fetch global role templates: GET /roles
+2. For each desired role (e.g., "admin", "member"):
+   POST /organization_roles with organization_id + role_slug
+3. Permissions are inherited from global template
 ```
 
-Expected: Role created with permission attached
+### Customize Permissions for Specific Org
 
-### List Organization Roles
-
-```bash
-curl "https://api.workos.com/organization_roles?organization_id=org_01H5Z8X...&limit=10" \
-  -H "Authorization: Bearer ${WORKOS_API_KEY}"
+```
+1. Create org role from template (inherits permissions)
+2. Modify permissions:
+   - Add: POST /organization_roles/:id/permissions
+   - Remove: DELETE /organization_roles/:id/permissions/:permission_id
+   - Replace all: POST /organization_roles/:id/permissions/set
 ```
 
-Expected: 200 response with `data` array and `list_metadata` cursors
+### Audit Role Hierarchy
 
-## SDK Usage (Node.js)
-
-Check fetched documentation for SDK-specific method names. Typical patterns:
-
-```javascript
-import { WorkOS } from "@workos-inc/node";
-
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
-
-// Create organization role
-const role = await workos.userManagement.createOrganizationRole({
-  organizationId: "org_01H5Z8X...",
-  name: "Engineering Manager",
-  description: "Manages engineering team",
-});
-
-// Add permissions
-await workos.userManagement.addOrganizationRolePermissions(role.id, {
-  permissions: ["permission_01H5Z8X...", "permission_01H5Z8Y..."],
-});
-
-// List roles with pagination
-const roles = await workos.userManagement.listOrganizationRoles({
-  organizationId: "org_01H5Z8X...",
-  limit: 50,
-  after: "orgrole_01H5Z8Y...",
-});
+```
+1. List global roles: GET /roles
+2. For each org:
+   GET /organization_roles?organization_id=X
+3. Compare org role permissions against global template
+4. Identify customizations by checking role_slug matches
 ```
 
 ## Related Skills
 
-- workos-user-management (for assigning roles to users)
-- workos-organizations (for managing organizations that roles apply to)
+- workos-user-management (assigning roles to users)
+- workos-organizations (managing organization lifecycle)

@@ -13,501 +13,444 @@ description: Migrate to WorkOS from Better Auth.
 
 WebFetch: `https://workos.com/docs/migrate/better-auth`
 
-The WorkOS docs are the source of truth. If this skill conflicts with docs, follow docs.
+The docs are the source of truth. If this skill conflicts with docs, follow docs.
 
 ## Step 2: Pre-Migration Assessment
 
-### Database Access Verification
+### Database Access
 
-Better Auth uses multiple tables. Confirm you can access:
+Better Auth uses multiple tables. Confirm you have read access to:
 
 - `user` table (core user data)
-- `account` table (password hashes, social auth links)
+- `account` table (passwords + social auth)
 - `organization` table (if using organization plugin)
-- `member` table (org membership if using plugin)
+- `member` table (if using organization plugin)
 
-**Verify access:**
+**Decision: Export Method**
 
-```bash
-# Test database connection (adjust for your DB)
-psql $DATABASE_URL -c "SELECT COUNT(*) FROM user;"
-psql $DATABASE_URL -c "SELECT COUNT(*) FROM account WHERE providerId = 'credential';"
+```
+How will you export data?
+  |
+  +-- Native DB tools --> Use pg_dump, mysqldump, etc.
+  |
+  +-- ORM (Prisma) --> Write export script using Prisma client
+  |
+  +-- Direct SQL --> Query tables, export to JSON/CSV
 ```
 
-If queries fail, fix database access before continuing.
+Choose ONE method before proceeding. Do not mix approaches.
 
-### WorkOS Environment Setup
+### WorkOS Environment
 
-Check `.env` for:
+Confirm in WorkOS Dashboard:
+
+- Environment exists (Production or Staging)
+- API key has `users:write` permission
+- AuthKit is enabled for environment
+
+Check `.env` or environment variables for:
 
 - `WORKOS_API_KEY` - starts with `sk_`
 - `WORKOS_CLIENT_ID` - starts with `client_`
 
-**Verify SDK installed:**
-
-```bash
-# Should return version number
-npm list @workos-inc/node 2>/dev/null || echo "FAIL: SDK not installed"
-```
-
 ## Step 3: Export Better Auth Data
 
-### Export User Table
+### Export Users
 
-Query user table and export to JSON:
+Query user table:
 
 ```sql
--- Export users to JSON file
-SELECT json_agg(row_to_json(t))
-FROM (
-  SELECT id, email, emailVerified, name, createdAt, updatedAt
-  FROM "user"
-) t;
+SELECT id, name, email, emailVerified, image, createdAt, updatedAt
+FROM user;
 ```
 
-Save output to `users.json`.
+Save output to `users_export.json` or `users_export.csv`. Format choice must match your import script.
 
 ### Export Password Hashes
 
-Better Auth stores passwords in `account` table with `providerId = 'credential'`:
+Query account table for credential-based accounts:
 
 ```sql
--- Export password hashes
-SELECT json_agg(row_to_json(t))
-FROM (
-  SELECT userId, password
-  FROM account
-  WHERE providerId = 'credential'
-) t;
+SELECT userId, password
+FROM account
+WHERE providerId = 'credential';
 ```
 
-Save output to `passwords.json`.
+Save to `passwords_export.json`.
 
-**Critical:** Better Auth uses `scrypt` by default. If you customized the hashing algorithm, note which algorithm for Step 5.
+**CRITICAL: Password Algorithm Detection**
 
-### Export Social Auth Links (if applicable)
+Better Auth defaults to `scrypt`, but supports custom hashing. Check your Better Auth config:
+
+```
+Better Auth password algorithm?
+  |
+  +-- scrypt (default) --> Use password_hash_type='scrypt'
+  |
+  +-- bcrypt --> Use password_hash_type='bcrypt'
+  |
+  +-- argon2 --> Use password_hash_type='argon2'
+  |
+  +-- pbkdf2 --> Use password_hash_type='pbkdf2'
+```
+
+Write algorithm name to `password_algorithm.txt` for import step.
+
+### Export Social Auth Accounts (If Used)
+
+Query account table for social providers:
 
 ```sql
--- Export social provider accounts
-SELECT json_agg(row_to_json(t))
-FROM (
-  SELECT userId, providerId, providerAccountId
-  FROM account
-  WHERE providerId != 'credential'
-) t;
+SELECT userId, providerId, providerAccountId
+FROM account
+WHERE providerId != 'credential';
 ```
 
-Save output to `social_accounts.json`.
+Save to `social_accounts_export.json`.
 
-### Export Organizations (if using plugin)
+Common Better Auth `providerId` values: `'google'`, `'github'`, `'microsoft'`, `'apple'`.
+
+### Export Organizations (If Using Plugin)
+
+If using Better Auth organization plugin, export organizations and members:
 
 ```sql
--- Export organizations
-SELECT json_agg(row_to_json(t))
-FROM (
-  SELECT id, name, slug, createdAt
-  FROM organization
-) t;
+-- Organizations
+SELECT id, name, slug, metadata, createdAt
+FROM organization;
 
--- Export organization members
-SELECT json_agg(row_to_json(t))
-FROM (
-  SELECT organizationId, userId, role
-  FROM member
-) t;
+-- Members
+SELECT userId, organizationId, role, createdAt
+FROM member;
 ```
 
-Save to `organizations.json` and `members.json`.
+Save to `organizations_export.json` and `members_export.json`.
 
 ## Step 4: Import Users to WorkOS
 
 ### Rate Limit Strategy
 
-WorkOS Create User API is rate-limited. For large migrations:
+WorkOS Create User API is rate-limited. Check fetched docs for current limits.
+
+For large migrations (1000+ users), implement batching:
 
 ```
-User count?
-  |
-  +-- < 100    --> Direct sequential import
-  |
-  +-- 100-1000 --> Batch of 10 with 1s delay between batches
-  |
-  +-- 1000+    --> Batch of 10 with 2s delay, log progress every 100
+Batch size: 50-100 users
+Delay between batches: 1-2 seconds
 ```
-
-Check https://workos.com/docs/reference/rate-limits for current limits.
 
 ### Field Mapping
 
-Map Better Auth fields to WorkOS Create User API:
+Map Better Auth `user` table columns to WorkOS Create User API:
 
-| Better Auth     | WorkOS           | Notes                          |
-| --------------- | ---------------- | ------------------------------ |
-| `email`         | `email`          | Required                       |
-| `emailVerified` | `email_verified` | Boolean                        |
-| `name`          | `first_name`     | Split on first space if needed |
-| `name`          | `last_name`      | Remainder after first space    |
+| Better Auth     | WorkOS           | Notes                           |
+| --------------- | ---------------- | ------------------------------- |
+| `email`         | `email`          | Required                        |
+| `emailVerified` | `email_verified` | Boolean                         |
+| `name`          | `first_name`     | Parse full name for first name  |
+| `name`          | `last_name`      | Parse full name for last name   |
 
-**Name splitting logic:**
+**Name Parsing Logic**
 
-```javascript
-const [firstName, ...lastNameParts] = user.name.trim().split(" ");
-const lastName = lastNameParts.join(" ") || firstName; // Fallback if no space
+Better Auth stores full name in single `name` field. Split for WorkOS:
+
+```
+Parse name:
+  |
+  +-- "John Doe" --> first_name="John", last_name="Doe"
+  |
+  +-- "Alice" --> first_name="Alice", last_name="" (empty string allowed)
+  |
+  +-- "María García López" --> first_name="María", last_name="García López"
 ```
 
-### Import Script Pattern
+Use space-split with first token as `first_name`, rest as `last_name`.
 
-```javascript
-const { WorkOS } = require("@workos-inc/node");
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
-const users = require("./users.json");
+### Import Pseudocode
 
-async function importUsers() {
-  for (const user of users) {
-    const [firstName, ...rest] = (user.name || "").trim().split(" ");
-    const lastName = rest.join(" ") || firstName;
-
-    try {
-      const workosUser = await workos.users.createUser({
-        email: user.email,
-        email_verified: user.emailVerified || false,
-        first_name: firstName,
-        last_name: lastName,
-      });
-
-      console.log(`Imported: ${user.email} -> ${workosUser.id}`);
-      // Store mapping: Better Auth ID -> WorkOS ID
-      // You'll need this for password and org imports
-    } catch (error) {
-      console.error(`Failed to import ${user.email}:`, error.message);
-    }
-
-    // Rate limit handling
-    await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms delay
-  }
-}
+```
+For each user in users_export:
+  1. Parse name into first_name and last_name
+  2. Create user via WorkOS SDK:
+     - email: user.email
+     - email_verified: user.emailVerified
+     - first_name: parsed first name
+     - last_name: parsed last name
+  3. Store mapping: betterauth_id -> workos_user_id
+  4. If batch complete, delay before next batch
+  5. Log success/failure for each user
 ```
 
-**Critical:** Save a mapping file of `betterAuthUserId -> workosUserId`. You need this for Steps 5 and 6.
+**Error Handling Pattern**
+
+```
+For each user creation:
+  |
+  +-- Success (201) --> Log workos_user_id, continue
+  |
+  +-- Email exists (409) --> Log conflict, continue (don't fail migration)
+  |
+  +-- Rate limit (429) --> Increase delay, retry with exponential backoff
+  |
+  +-- Invalid email (400) --> Log error, skip user, continue
+  |
+  +-- Auth error (401/403) --> STOP migration, fix API key
+```
+
+Never fail entire migration on single user error (except auth errors).
 
 ## Step 5: Import Password Hashes
 
-### Password Hash Format (Decision Tree)
+**CRITICAL: PHC Format Requirement**
 
-Better Auth default is scrypt. Determine your hash algorithm:
+WorkOS requires password hashes in PHC string format. Better Auth may store raw scrypt hashes.
+
+### Check Hash Format
+
+Inspect first password hash from `passwords_export.json`:
 
 ```
-Hash algorithm?
+Does hash start with "$scrypt$" or similar?
   |
-  +-- scrypt (default)  --> Use password_hash_type: 'scrypt'
+  +-- YES (PHC format) --> Use hash directly
   |
-  +-- bcrypt            --> Use password_hash_type: 'bcrypt'
+  +-- NO (raw hash) --> Convert to PHC format (see Step 5a)
+```
+
+### Step 5a: PHC Format Conversion (If Needed)
+
+If Better Auth stores raw scrypt hashes, convert to PHC format. Check fetched docs for exact PHC parameter requirements for scrypt.
+
+**Common scrypt PHC format:**
+
+```
+$scrypt$ln=<log_n>,r=<r>,p=<p>$<salt_base64>$<hash_base64>
+```
+
+Example: `$scrypt$ln=15,r=8,p=1$c2FsdA$aGFzaA`
+
+If you don't have Better Auth's scrypt parameters, check Better Auth config or use defaults (ln=15, r=8, p=1).
+
+### Import Passwords
+
+**Decision: When to Import**
+
+```
+Import passwords:
   |
-  +-- argon2            --> Use password_hash_type: 'argon2'
+  +-- During user creation --> Include password_hash in Create User call
   |
-  +-- pbkdf2            --> Use password_hash_type: 'pbkdf2'
+  +-- After user creation --> Use Update User API with workos_user_id
 ```
 
-### Scrypt Format Requirements
+Choose ONE. During creation is more efficient.
 
-Better Auth scrypt hashes must be in PHC string format:
+### Import Pseudocode
 
 ```
-$scrypt$ln=<N>,r=<r>,p=<p>$<salt>$<hash>
+For each password in passwords_export:
+  1. Look up workos_user_id from betterauth_user_id mapping
+  2. Update user via WorkOS SDK:
+     - user_id: workos_user_id
+     - password_hash: PHC formatted hash
+     - password_hash_type: 'scrypt' (or detected algorithm)
+  3. Log success/failure
 ```
 
-**If hashes are NOT in PHC format**, convert them:
+**Algorithm-Specific Parameters**
 
-```javascript
-function convertToPhcFormat(rawHash, salt, n = 16384, r = 8, p = 1) {
-  const ln = Math.log2(n);
-  return `$scrypt$ln=${ln},r=${r},p=${p}$${salt}$${rawHash}`;
-}
-```
+Check fetched docs for exact parameters required for each algorithm:
 
-Check fetched docs for exact PHC parameter requirements.
-
-### Import Password Script
-
-```javascript
-const passwords = require("./passwords.json");
-const userMapping = require("./user_mapping.json"); // betterAuthId -> workosId
-
-async function importPasswords() {
-  for (const record of passwords) {
-    const workosUserId = userMapping[record.userId];
-    if (!workosUserId) {
-      console.error(
-        `No WorkOS user found for Better Auth ID: ${record.userId}`,
-      );
-      continue;
-    }
-
-    try {
-      await workos.users.updateUser({
-        userId: workosUserId,
-        password_hash: record.password, // Must be PHC format
-        password_hash_type: "scrypt", // Or your custom algorithm
-      });
-
-      console.log(`Imported password for user: ${workosUserId}`);
-    } catch (error) {
-      console.error(
-        `Failed to import password for ${workosUserId}:`,
-        error.message,
-      );
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-}
-```
-
-**Verification command:**
-
-```bash
-# Test a user can authenticate with their old password
-curl -X POST https://api.workos.com/user_management/authenticate \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "client_id": "'"$WORKOS_CLIENT_ID"'",
-    "email": "test@example.com",
-    "password": "their_old_password",
-    "grant_type": "password"
-  }'
-```
-
-Should return 200 with user token, not 401.
+- `scrypt`: Requires `ln`, `r`, `p` parameters in PHC format
+- `bcrypt`: Requires cost factor
+- `argon2`: Requires variant, memory, iterations, parallelism
+- `pbkdf2`: Requires iterations, hash function
 
 ## Step 6: Configure Social Auth Providers
 
-### Provider Setup (Per Provider)
+If you exported social accounts in Step 3, configure providers in WorkOS Dashboard.
 
-For each `providerId` found in Step 3's `social_accounts.json`:
+### Provider Setup Checklist
 
-```
-providerId?
-  |
-  +-- 'google'    --> Set up Google OAuth integration
-  |
-  +-- 'github'    --> Set up GitHub OAuth integration
-  |
-  +-- 'microsoft' --> Set up Microsoft OAuth integration
-```
-
-**For each provider:**
-
-1. Go to WorkOS Dashboard → Authentication → Social Connections
-2. Enable the provider (e.g., Google)
-3. Configure OAuth client ID and secret from provider's console
-4. Set redirect URI to your app's callback URL
-
-**Verify setup:**
+For each unique `providerId` in `social_accounts_export.json`:
 
 ```bash
-# Check provider is enabled via API
-curl https://api.workos.com/user_management/authentication_methods \
-  -H "Authorization: Bearer $WORKOS_API_KEY" | jq '.data[] | select(.type=="oauth")'
+# Check which providers you need
+jq -r '.[] | .providerId' social_accounts_export.json | sort -u
 ```
 
-Should return enabled OAuth providers.
+For each provider (google, github, microsoft, etc.):
 
-### Email Matching Behavior
+1. Navigate to WorkOS Dashboard → Integrations
+2. Find provider in list (check integrations page in fetched docs for supported providers)
+3. Configure OAuth client credentials (client ID, client secret)
+4. Set redirect URI to your app's callback URL
+5. Enable provider for your environment
 
-When users sign in with social auth after migration:
+**Matching Behavior**
 
-- WorkOS matches by **email address** to existing user
-- If email verified by provider (e.g., Gmail domain via Google), user is auto-linked
-- If email NOT verified by provider, user may need to verify email first
+After provider setup, users signing in via social auth will auto-match by **email address**. No manual linking required.
 
-**Important:** Users migrated from Better Auth will be automatically linked to their social auth accounts on first sign-in IF the email matches.
+**Email Verification Note**
 
-## Step 7: Migrate Organizations (if applicable)
+Some providers require email verification after first WorkOS login. Check fetched docs for provider-specific behavior (gmail.com domains skip verification, others may not).
+
+## Step 7: Migrate Organizations (If Applicable)
+
+Skip this step if you didn't export organizations in Step 3.
 
 ### Create Organizations
 
-```javascript
-const organizations = require("./organizations.json");
-const orgMapping = {}; // betterAuthOrgId -> workosOrgId
+For each organization in `organizations_export.json`:
 
-async function importOrganizations() {
-  for (const org of organizations) {
-    try {
-      const workosOrg = await workos.organizations.createOrganization({
-        name: org.name,
-        // slug maps to 'domains' in WorkOS - check docs
-      });
-
-      orgMapping[org.id] = workosOrg.id;
-      console.log(`Created org: ${org.name} -> ${workosOrg.id}`);
-    } catch (error) {
-      console.error(`Failed to create org ${org.name}:`, error.message);
-    }
-  }
-}
 ```
+Create organization:
+  1. Map Better Auth org fields to WorkOS:
+     - name: org.name
+     - domains: (extract from org.metadata if present)
+  2. Create org via WorkOS SDK
+  3. Store mapping: betterauth_org_id -> workos_org_id
+```
+
+Check fetched docs for Create Organization API field requirements.
 
 ### Add Organization Members
 
-```javascript
-const members = require("./members.json");
-const userMapping = require("./user_mapping.json");
+For each member in `members_export.json`:
 
-async function importMembers() {
-  for (const member of members) {
-    const workosUserId = userMapping[member.userId];
-    const workosOrgId = orgMapping[member.organizationId];
-
-    if (!workosUserId || !workosOrgId) {
-      console.error(`Missing mapping for member: ${member.userId}`);
-      continue;
-    }
-
-    try {
-      await workos.organizations.createOrganizationMembership({
-        organization_id: workosOrgId,
-        user_id: workosUserId,
-        role_slug: member.role, // May need mapping - check docs
-      });
-
-      console.log(`Added member ${workosUserId} to org ${workosOrgId}`);
-    } catch (error) {
-      console.error(`Failed to add member:`, error.message);
-    }
-  }
-}
+```
+Add member:
+  1. Look up workos_user_id from betterauth_user_id mapping
+  2. Look up workos_org_id from betterauth_org_id mapping
+  3. Add user to org via WorkOS SDK:
+     - user_id: workos_user_id
+     - organization_id: workos_org_id
+     - role: (map Better Auth role to WorkOS role - see below)
 ```
 
-**Role mapping:** Better Auth roles may differ from WorkOS role slugs. Check fetched docs for valid `role_slug` values.
+**Role Mapping Decision**
 
-## Verification Checklist (ALL MUST PASS)
+```
+Better Auth role --> WorkOS role
+  |
+  +-- Better Auth uses custom roles --> Map to WorkOS roles or use generic "member"
+  |
+  +-- Better Auth uses standard roles (admin, member) --> Use WorkOS equivalents
+```
 
-Run these commands after migration:
+Check fetched docs for WorkOS Organization role names and capabilities.
+
+## Step 8: Verification
+
+Run these commands to confirm migration success:
 
 ```bash
-# 1. Verify users imported
-curl https://api.workos.com/user_management/users \
-  -H "Authorization: Bearer $WORKOS_API_KEY" | jq '.data | length'
-# Should match your Better Auth user count
+# 1. Check all user IDs were mapped
+jq -r '.[] | .id' users_export.json | wc -l
+# Should match number of successful user creations in logs
 
-# 2. Test password authentication
-curl -X POST https://api.workos.com/user_management/authenticate \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "client_id": "'"$WORKOS_CLIENT_ID"'",
-    "email": "known_user@example.com",
-    "password": "their_old_password",
-    "grant_type": "password"
-  }' | jq '.access_token'
-# Should return valid token, not null
+# 2. Check password import success rate
+grep "password import success" migration.log | wc -l
+# Should match number of credential accounts exported
 
-# 3. Verify social auth providers enabled
-curl https://api.workos.com/user_management/authentication_methods \
-  -H "Authorization: Bearer $WORKOS_API_KEY" | jq '.data[] | select(.type=="oauth")'
-# Should list configured providers
+# 3. Spot check: Fetch random WorkOS user
+# (Replace USER_ID with actual workos_user_id from mapping)
+curl https://api.workos.com/users/USER_ID \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
 
-# 4. Verify organizations (if applicable)
-curl https://api.workos.com/organizations \
-  -H "Authorization: Bearer $WORKOS_API_KEY" | jq '.data | length'
-# Should match your Better Auth org count
-
-# 5. Check email verification status
-curl https://api.workos.com/user_management/users \
-  -H "Authorization: Bearer $WORKOS_API_KEY" | jq '.data[] | {email, email_verified}'
-# Verify email_verified matches Better Auth emailVerified
+# 4. If organizations: Check org creation count
+grep "organization created" migration.log | wc -l
+# Should match organizations_export.json count
 ```
+
+### Test User Login
+
+Create test script to verify migrated users can authenticate:
+
+1. Pick test user from `users_export.json`
+2. Attempt password login via AuthKit
+3. If user had social auth, attempt OAuth login
+4. Verify session works correctly
+
+**All verification steps must pass before marking migration complete.**
 
 ## Error Recovery
 
-### "Invalid password hash format"
+### "Email already exists" (409)
 
-**Root cause:** Password hash not in PHC string format.
+**Not an error** — WorkOS found duplicate email. Log and continue. User may have been partially migrated in previous run.
 
-**Fix:**
+**Action:** Skip user creation, but still import password hash using existing user ID.
 
-1. Check if hash starts with `$scrypt$` (or `$bcrypt$`, etc.)
-2. If not, convert using PHC format function from Step 5
-3. Verify parameters: ln (log2 of N), r, p match Better Auth config
+### "Invalid password hash format" (400)
 
-### "User already exists" during import
-
-**Root cause:** Email already imported (duplicate run or partial failure).
+**Root cause:** Hash not in PHC format or missing required parameters.
 
 **Fix:**
 
-1. Query existing WorkOS users: `workos.users.listUsers({ email: user.email })`
-2. If user exists, skip creation or update existing user
-3. Save WorkOS ID to mapping file for password/org import
+1. Check fetched docs for exact PHC format for your algorithm
+2. Verify conversion logic in Step 5a
+3. Test with single hash before batch import
+4. Common mistake: Missing salt or hash encoding (must be base64)
 
-### "Rate limit exceeded"
+### "Rate limit exceeded" (429)
 
-**Root cause:** Importing too fast.
-
-**Fix:**
-
-1. Increase delay between API calls (Step 4 default is 100ms)
-2. For 429 errors, implement exponential backoff:
-
-```javascript
-async function retryWithBackoff(fn, maxRetries = 3) {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await fn();
-    } catch (error) {
-      if (error.status === 429 && i < maxRetries - 1) {
-        const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      } else {
-        throw error;
-      }
-    }
-  }
-}
-```
-
-### "Unknown password hash type"
-
-**Root cause:** Better Auth using custom hash algorithm not supported by WorkOS.
+**Root cause:** Batch size too large or delay too short.
 
 **Fix:**
 
-1. Check fetched docs for supported `password_hash_type` values
-2. If algorithm unsupported, migrate users WITHOUT password hashes
-3. Users must reset password on first sign-in via WorkOS password reset flow
+1. Reduce batch size to 25-50 users
+2. Increase delay to 2-3 seconds
+3. Implement exponential backoff on 429 response
+4. Resume from last successful user ID
 
-### Social auth user not auto-linking after migration
+### "Authorization failed" (401/403)
 
-**Root cause:** Email mismatch or email not verified.
-
-**Fix:**
-
-1. Check WorkOS user's `email` exactly matches social provider's email
-2. If provider doesn't verify emails, user must verify via WorkOS first
-3. Check WorkOS Dashboard → Authentication → Email Verification settings
-
-### Organization role mapping issues
-
-**Root cause:** Better Auth role names don't match WorkOS role slugs.
+**Root cause:** API key invalid or missing permissions.
 
 **Fix:**
 
-1. Check fetched docs for valid WorkOS `role_slug` values (likely `admin`, `member`)
-2. Create role mapping dictionary:
+1. Verify `WORKOS_API_KEY` starts with `sk_`
+2. Check key in WorkOS Dashboard → API Keys
+3. Confirm key has `users:write` scope
+4. If using environment-specific keys, verify correct environment
 
-```javascript
-const roleMap = {
-  owner: "admin",
-  admin: "admin",
-  member: "member",
-  // Add other Better Auth roles
-};
-```
+**Never continue migration with auth errors** — fix immediately.
 
-3. Apply mapping in member import: `role_slug: roleMap[member.role] || 'member'`
+### "User not found" during password import
+
+**Root cause:** User ID mapping failed or user creation didn't succeed.
+
+**Fix:**
+
+1. Check user creation logs for failures
+2. Verify user ID mapping file is complete
+3. Re-run user creation for failed users before password import
+4. Use Update User API instead of Create User for retry
+
+### Social auth users can't sign in
+
+**Root cause:** Provider not configured or email mismatch.
+
+**Fix:**
+
+1. Verify provider is enabled in WorkOS Dashboard
+2. Check OAuth client credentials are correct
+3. Confirm redirect URI matches app callback URL
+4. Verify user's email from provider matches WorkOS user email (case-sensitive)
+
+### Organization members not linking correctly
+
+**Root cause:** User or org ID mapping incomplete.
+
+**Fix:**
+
+1. Check both user and org creation succeeded
+2. Verify mapping files contain all IDs
+3. Check for Better Auth orphaned members (user/org deleted but member record remains)
+4. Re-create missing users/orgs before linking
 
 ## Related Skills
 
-- workos-authkit-nextjs
-- workos-authkit-react
+- workos-authkit-nextjs - Integrate AuthKit with Next.js after migration
+- workos-authkit-react - Integrate AuthKit with React after migration
