@@ -1,5 +1,11 @@
-import type { GeneratedSkill, RuleViolation } from "./types.ts";
+import type {
+  GeneratedSkill,
+  RuleViolation,
+  SkillFeedback,
+  SemanticCheckResult,
+} from "./types.ts";
 import { loadRules, evaluateRules } from "./rules.ts";
+import { loadFeedback } from "./feedback.ts";
 
 export interface QualityResult {
   skillName: string;
@@ -7,6 +13,7 @@ export interface QualityResult {
   score: number;
   issues: string[];
   ruleViolations: RuleViolation[];
+  semanticCheck?: SemanticCheckResult;
 }
 
 export interface QualityReport {
@@ -14,6 +21,12 @@ export interface QualityReport {
   passed: number;
   failed: number;
   results: QualityResult[];
+}
+
+export interface QualityGateOptions {
+  refineMode?: boolean;
+  apiKey?: string;
+  model?: string;
 }
 
 /**
@@ -25,12 +38,20 @@ export interface QualityReport {
  * - Has at least 2 structural sections (15 pts)
  * - Content length > 1KB (10 pts)
  * - Has verification checklist OR error recovery (15 pts)
- * - No raw doc content > 2KB without structural formatting (15 pts)
+ * - No doc dump: no code blocks >40 lines, no single example >1KB (15 pts)
+ *
+ * Penalty: behavioral claim patterns without doc deferral nearby (-10 pts)
  *
  * Pass threshold: 70/100
  */
-export function runQualityGate(skills: GeneratedSkill[]): QualityReport {
-  const results: QualityResult[] = skills.map((skill) => scoreSkill(skill));
+export async function runQualityGate(
+  skills: GeneratedSkill[],
+  options: QualityGateOptions = {},
+): Promise<QualityReport> {
+  const results: QualityResult[] = [];
+  for (const skill of skills) {
+    results.push(await scoreSkill(skill, options));
+  }
 
   return {
     total: results.length,
@@ -40,7 +61,10 @@ export function runQualityGate(skills: GeneratedSkill[]): QualityReport {
   };
 }
 
-function scoreSkill(skill: GeneratedSkill): QualityResult {
+async function scoreSkill(
+  skill: GeneratedSkill,
+  options: QualityGateOptions,
+): Promise<QualityResult> {
   const issues: string[] = [];
   let score = 0;
   const content = skill.content;
@@ -118,8 +142,17 @@ function scoreSkill(skill: GeneratedSkill): QualityResult {
     issues.push("Missing verification checklist or error recovery section");
   }
 
-  // 7. No raw doc dump (15 pts)
-  // Check for long paragraphs without markdown formatting
+  // 7. No doc dump (15 pts)
+  // Check for code blocks >40 lines or single examples >1KB
+  const codeBlockRegex = /```[\s\S]*?```/g;
+  const codeBlocks = content.match(codeBlockRegex) || [];
+  const longCodeBlocks = codeBlocks.filter((block) => {
+    const lines = block.split("\n").length - 2; // subtract opening/closing fences
+    return lines > 40;
+  });
+  const largeExamples = codeBlocks.filter((block) => block.length > 1024);
+
+  // Also check for long unformatted paragraphs (original check)
   const paragraphs = content.split(/\n\n+/);
   const longUnformattedBlocks = paragraphs.filter(
     (p) =>
@@ -130,26 +163,37 @@ function scoreSkill(skill: GeneratedSkill): QualityResult {
       !p.includes("- "),
   );
 
-  if (longUnformattedBlocks.length === 0) {
+  if (
+    longCodeBlocks.length === 0 &&
+    largeExamples.length === 0 &&
+    longUnformattedBlocks.length === 0
+  ) {
     score += 15;
   } else {
     score += 5;
-    issues.push(
-      `${longUnformattedBlocks.length} block(s) of unformatted content >2KB (possible doc dump)`,
-    );
+    if (longCodeBlocks.length > 0) {
+      issues.push(
+        `${longCodeBlocks.length} code block(s) >40 lines (prefer pseudocode patterns)`,
+      );
+    }
+    if (largeExamples.length > 0) {
+      issues.push(
+        `${largeExamples.length} code example(s) >1KB (defer to docs)`,
+      );
+    }
+    if (longUnformattedBlocks.length > 0) {
+      issues.push(
+        `${longUnformattedBlocks.length} block(s) of unformatted content >2KB (possible doc dump)`,
+      );
+    }
   }
 
-  // --- Global Checks ---
-
-  // Check for "check docs" overuse (>3 deferrals)
-  const checkDocsCount = (
-    content.match(
-      /check\s+(the\s+)?(docs|documentation)\s+for\s+(exact|current|specific|actual)/gi,
-    ) || []
-  ).length;
-  if (checkDocsCount > 3) {
+  // --- Behavioral claim check (penalty: -10 pts) ---
+  const behavioralClaimPenalty = checkBehavioralClaims(content);
+  if (behavioralClaimPenalty.count > 0) {
+    score = Math.max(0, score - 10);
     issues.push(
-      `Excessive "check docs" deferrals (${checkDocsCount}x) — skill should provide concrete guidance`,
+      `${behavioralClaimPenalty.count} behavioral assertion(s) without doc deferral nearby: ${behavioralClaimPenalty.examples.slice(0, 3).join("; ")}`,
     );
   }
 
@@ -157,19 +201,38 @@ function scoreSkill(skill: GeneratedSkill): QualityResult {
   const rules = loadRules(skill.name);
   const ruleViolations = evaluateRules(content, rules);
 
-  // Log rule violations
   for (const v of ruleViolations) {
-    const icon = v.severity === "error" ? "✗" : "⚠";
     const typeLabel = v.type === "missing" ? "Missing" : "Forbidden";
     issues.push(
       `RULE ${v.ruleId}: ${typeLabel} pattern "${v.pattern}" (${v.severity})`,
     );
   }
 
-  // Promoted error-severity violations block the skill
   const hasBlockingViolation = ruleViolations.some(
     (v) => v.severity === "error",
   );
+
+  // --- Semantic check (only in refine mode) ---
+  let semanticCheck: SemanticCheckResult | undefined;
+  if (options.refineMode && options.apiKey) {
+    const feedback = loadFeedback(skill.name);
+    if (feedback.corrections.length > 0 || feedback.emphasis.length > 0) {
+      try {
+        semanticCheck = await semanticQualityCheck(content, feedback, {
+          apiKey: options.apiKey,
+          model: options.model,
+        });
+        if (!semanticCheck.pass) {
+          for (const v of semanticCheck.violations) {
+            issues.push(`SEMANTIC: ${v}`);
+          }
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`  ⚠ Semantic check failed for ${skill.name}: ${msg}`);
+      }
+    }
+  }
 
   return {
     skillName: skill.name,
@@ -177,5 +240,134 @@ function scoreSkill(skill: GeneratedSkill): QualityResult {
     score,
     issues,
     ruleViolations,
+    semanticCheck,
   };
+}
+
+/**
+ * Check for behavioral assertions without nearby doc deferrals.
+ * Returns count and example matches.
+ */
+function checkBehavioralClaims(content: string): {
+  count: number;
+  examples: string[];
+} {
+  const behavioralPatterns = [
+    /is\s+required/gi,
+    /is\s+mandatory/gi,
+    /is\s+not\s+supported/gi,
+    /must\s+use/gi,
+    /only\s+supports/gi,
+  ];
+
+  const lines = content.split("\n");
+  const examples: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    for (const pattern of behavioralPatterns) {
+      pattern.lastIndex = 0;
+      if (pattern.test(line)) {
+        // Check if "check fetched docs" or "check docs" appears nearby (within 3 lines)
+        const nearby = lines
+          .slice(Math.max(0, i - 3), Math.min(lines.length, i + 4))
+          .join(" ");
+        if (!/check\s+(fetched\s+)?docs/i.test(nearby)) {
+          const snippet = line.trim().slice(0, 80);
+          examples.push(snippet);
+        }
+      }
+    }
+  }
+
+  return { count: examples.length, examples };
+}
+
+const SEMANTIC_CHECK_URL = "https://api.anthropic.com/v1/messages";
+const SEMANTIC_CHECK_MODEL = "claude-haiku-4-5-20251001";
+const SEMANTIC_CHECK_MAX_TOKENS = 1024;
+
+/**
+ * Run LLM-based semantic validation on a refined skill.
+ * Checks: (a) feedback corrections respected, (b) behavioral claims deferred to docs.
+ * Only called when --refine flag is active.
+ */
+export async function semanticQualityCheck(
+  skillContent: string,
+  feedback: SkillFeedback,
+  options: { apiKey: string; model?: string },
+): Promise<SemanticCheckResult> {
+  const system = `You are a skill quality auditor. Check the given skill content against domain expert feedback and the content taxonomy.
+
+Return ONLY valid JSON in this format:
+{"pass": true/false, "violations": ["description of each violation"], "score": 0-100}
+
+Check for:
+1. Each correction in the feedback — is it respected? Does the skill contradict it?
+2. Behavioral claims — does the skill assert "is required", "is mandatory", etc. without deferring to docs?
+
+Score guide:
+- 90-100: All feedback respected, no behavioral claims baked in
+- 70-89: Minor issues (soft emphasis missed, borderline behavioral language)
+- 50-69: Some feedback corrections not respected, or multiple behavioral assertions
+- 0-49: Major violations (directly contradicts feedback, heavy doc-baking)`;
+
+  const user = `## Skill Content
+
+${skillContent.slice(0, 6000)}
+
+## Domain Expert Feedback
+
+### Corrections (must be respected)
+${feedback.corrections.map((c) => `- ${c}`).join("\n") || "None"}
+
+### Emphasis (should be highlighted)
+${feedback.emphasis.map((e) => `- ${e}`).join("\n") || "None"}
+
+Analyze and return JSON only.`;
+
+  try {
+    const response = await fetch(SEMANTIC_CHECK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": options.apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: options.model ?? SEMANTIC_CHECK_MODEL,
+        max_tokens: SEMANTIC_CHECK_MAX_TOKENS,
+        system,
+        messages: [{ role: "user", content: user }],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error ${response.status}`);
+    }
+
+    const data = (await response.json()) as {
+      content: Array<{ type: string; text: string }>;
+    };
+
+    const text = data.content
+      .filter((c) => c.type === "text")
+      .map((c) => c.text)
+      .join("");
+
+    // Extract JSON from response (may be wrapped in markdown code fences)
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return { pass: true, violations: [], score: 50 };
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    return {
+      pass: Boolean(parsed.pass),
+      violations: Array.isArray(parsed.violations) ? parsed.violations : [],
+      score: typeof parsed.score === "number" ? parsed.score : 50,
+    };
+  } catch {
+    return { pass: true, violations: [], score: 50 };
+  }
 }

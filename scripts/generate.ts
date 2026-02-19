@@ -280,7 +280,11 @@ async function main() {
   // --- Phase 4: Quality Gate ---
 
   console.log("\n--- Quality Gate ---");
-  const qualityReport = runQualityGate(generatedSkills);
+  const qualityReport = await runQualityGate(generatedSkills, {
+    refineMode: shouldRefine,
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    model: flags.model ?? undefined,
+  });
 
   for (const r of qualityReport.results) {
     const status = r.pass ? "✓" : "✗";

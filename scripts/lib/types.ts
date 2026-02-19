@@ -102,6 +102,19 @@ export interface RuleViolation {
   context: string;
 }
 
+// --- Feedback ---
+
+export interface SkillFeedback {
+  corrections: string[];
+  emphasis: string[];
+}
+
+export interface SemanticCheckResult {
+  pass: boolean;
+  violations: string[];
+  score: number;
+}
+
 // --- Validator ---
 
 export interface ValidationResult {
