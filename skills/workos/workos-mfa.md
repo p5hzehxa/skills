@@ -7,226 +7,73 @@ description: Add multi-factor authentication to your application.
 
 # WorkOS Multi-Factor Authentication
 
-## Step 1: Fetch Documentation (BLOCKING)
+## When to Use
 
-**STOP. Do not proceed until complete.**
+Use this skill when you need to add a second authentication factor (TOTP authenticator apps or SMS codes) to an existing authentication system. MFA protects high-value actions like login, account changes, or transaction approval by requiring users to prove they possess a registered device. WorkOS MFA works standalone or alongside AuthKit/SSO — add it to any authentication flow where you control the primary credential check.
 
-WebFetch:
+## Documentation
+
 - https://workos.com/docs/mfa/index
 - https://workos.com/docs/mfa/example-apps
 - https://workos.com/docs/mfa/ux/sign-in
 - https://workos.com/docs/mfa/ux/enrollment
 
-These docs are the source of truth. If this skill conflicts with fetched docs, follow docs.
+## Key Concepts
 
-## Step 2: Pre-Flight Validation
+**Core Resources**
+- **Authentication Factor** — a registered MFA method (TOTP or SMS) identified by `auth_factor_<id>`
+- **Authentication Challenge** — a verification attempt identified by `auth_challenge_<id>`, created when a user needs to prove possession of a factor
+- **Factor Types** — `totp` (authenticator apps like Google Authenticator, 1Password, Authy) or `sms` (text message codes)
 
-### Environment Variables
+**Enrollment Flow Pattern**
+1. Call `client.mfa.enrollFactor()` with user ID and factor type
+2. Present QR code (TOTP) or send SMS (SMS) to user
+3. User enters code from their device
+4. Call `client.mfa.challengeFactor()` to verify enrollment code
+5. Store `auth_factor_<id>` with user record for future challenges
 
-Check environment for:
+**Challenge Flow Pattern**
+1. After primary authentication succeeds, call `client.mfa.challengeFactor(authFactorId)` to issue a challenge
+2. Present code entry UI to user
+3. User enters code from their device
+4. Call `client.mfa.verifyChallenge(authChallengeId, code)` to validate
+5. On success, complete session creation — treat failed verification like a failed login
 
-- `WORKOS_API_KEY` - starts with `sk_`
-- `WORKOS_CLIENT_ID` - starts with `client_`
+**ID Prefixes**
+- `auth_factor_` — enrolled MFA factors
+- `auth_challenge_` — active verification challenges
 
-**Verify:** Both exist before continuing.
+**Environment Variables**
+- `WORKOS_API_KEY` — your secret API key (starts with `sk_`)
 
-### SDK Installation
+**Decision Points**
+- **TOTP vs SMS** — TOTP is more secure (no SMS interception) but requires users to install an app; SMS works with any phone but costs per message and has delivery delays
+- **Enrollment timing** — enroll during signup for mandatory MFA, or offer opt-in enrollment in account settings for progressive security
+- **Challenge scope** — challenge on every login for maximum security, or use remember-me cookies to challenge only on new devices (you implement cookie logic)
 
-Detect package manager, install WorkOS SDK from fetched docs.
+**Integration Traps**
+- Do NOT create a new challenge for retry attempts — reuse the same `auth_challenge_<id>` until it expires or succeeds
+- Do NOT store MFA codes server-side — WorkOS validates them, you only pass them through
+- Factor deletion is immediate — if a user loses their device and you delete their factor, they cannot recover it (build account recovery flows)
 
-**Verify:** SDK package exists in node_modules/vendor directory before continuing.
-
-## Step 3: Architecture Decision (Decision Tree)
-
-MFA API is composable — integrate it into YOUR existing auth flow, not a standalone system.
-
-```
-Where in auth flow?
-  |
-  +-- After primary auth (password/SSO) --> Store factor_id with user record
-  |
-  +-- Optional step-up auth --> Create challenge on-demand for sensitive actions
-  |
-  +-- New user enrollment --> Present enrollment UI after account creation
-```
-
-**Critical:** MFA API does NOT manage sessions or primary authentication. You handle that.
-
-**SSO users:** Do NOT use this API with WorkOS SSO. Use Identity Provider's native MFA instead.
-
-## Step 4: Factor Type Selection (Decision Tree)
-
-```
-User preference?
-  |
-  +-- Authenticator app (Google Auth, Authy) --> Use factor type: "totp"
-  |                                               Response contains qr_code (base64 data URI)
-  |                                               Response contains secret (manual entry)
-  |
-  +-- SMS to mobile device --> Use factor type: "sms"
-                               Phone number MUST be valid (E.164 format)
-                               Malformed numbers return error immediately
-```
-
-Check fetched docs for exact API method signatures and required parameters.
-
-## Step 5: Enrollment Flow (Pseudocode Pattern)
-
-```
-1. User initiates enrollment
-   → Call SDK method to create authentication factor
-   → Method returns: { id, type, qr_code (TOTP), secret (TOTP) }
-
-2. Display enrollment UI
-   → If TOTP: render qr_code as image (data URI), show secret for manual entry
-   → If SMS: confirm phone number with user
-
-3. User completes setup in their authenticator/receives SMS
-
-4. Create verification challenge
-   → Call SDK method with factor_id
-   → Method returns: { id, expires_at (SMS only) }
-
-5. User enters code from authenticator/SMS
-
-6. Verify challenge
-   → Call SDK method with factor_id and code
-   → Method returns: { valid: true/false }
-
-7. Persist factor_id in your user model
-   → Critical: Store this ID — you need it for future sign-ins
-```
-
-**Do NOT write complete code implementations.** Check fetched docs for exact method names and parameters.
-
-## Step 6: Sign-In Flow (Pseudocode Pattern)
-
-```
-1. User enters username/password (YOUR primary auth)
-
-2. Check if user has factor_id in your database
-   → If no factor_id: standard sign-in complete
-   → If factor_id exists: proceed to MFA verification
-
-3. Create new challenge
-   → Call SDK method with stored factor_id
-   → Method returns: { id, expires_at (SMS only) }
-   → If SMS: user receives text message automatically
-
-4. Display verification UI
-   → Show code entry form
-   → If SMS: show expiration timer (10 minutes)
-
-5. User enters code
-
-6. Verify challenge
-   → Call SDK method with challenge_id and code
-   → If valid: true → Complete sign-in, create session
-   → If valid: false → Show error, allow retry
-```
-
-**Challenge expiration (SMS only):** 10 minutes. After expiration, create new challenge.
-
-**Challenge reuse:** Each challenge is single-use. Never retry same challenge_id — create new challenge instead.
-
-## Step 7: UI Integration Points
-
-### Enrollment Screen
-
-TOTP factors:
-- Render `qr_code` value as `<img src="{qr_code}">` (it's a data URI)
-- Display `secret` text for manual entry option
-- Add code verification input field
-- Show "Verify" button
-
-SMS factors:
-- Display phone number confirmation
-- Add code verification input field
-- Show "Verify" button
-- Add expiration countdown timer (10 minutes)
-
-### Sign-In Screen
-
-After primary auth succeeds:
-- Check user record for `factor_id`
-- If present: redirect to MFA verification screen
-- Display code entry form
-- For SMS: show "Resend code" option (creates new challenge)
-
-Check fetched docs for UX recommendations and example implementations.
-
-## Verification Checklist (ALL MUST PASS)
-
-Run these commands to confirm integration:
-
+**Verification Commands**
 ```bash
-# 1. Check environment variables exist
-env | grep WORKOS_API_KEY && env | grep WORKOS_CLIENT_ID || echo "FAIL: Missing env vars"
+# List all factors for a user (check enrollment worked)
+curl https://api.workos.com/user_management/users/{user_id}/auth_factors \
+  -H "Authorization: Bearer $WORKOS_API_KEY"
 
-# 2. Check SDK installed
-ls node_modules/@workos-inc 2>/dev/null || ls vendor/workos 2>/dev/null || echo "FAIL: SDK not found"
-
-# 3. Check factor_id persistence in user model
-grep -r "factor_id" app/models/ || grep -r "factor_id" src/models/ || echo "WARN: No factor_id in models (check your DB schema)"
-
-# 4. Application builds without errors
-npm run build || cargo build || go build || echo "FAIL: Build errors"
+# Verify API key is valid
+curl https://api.workos.com/mfa/factors \
+  -H "Authorization: Bearer $WORKOS_API_KEY" \
+  -H "Content-Type: application/json"
 ```
 
-**If check #3 warns:** Verify you have a database column/field to store factor_id per user. This is required.
+## Implementation Guide
 
-## Error Recovery
+For step-by-step implementation, verification commands, and error recovery:
 
-### "Challenge already verified" error
-
-**Root cause:** Attempted to verify same challenge_id twice.
-
-**Fix:** Create new challenge with factor_id, get new challenge_id, verify that instead.
-
-**Pattern:**
-```
-❌ Wrong: Retry same challenge_id
-✅ Right: New challenge → new challenge_id → verify
-```
-
-### "Challenge expired" error (SMS only)
-
-**Root cause:** More than 10 minutes elapsed since challenge creation.
-
-**Fix:** Create new challenge, send new SMS.
-
-**Critical:** TOTP challenges do NOT expire — this only affects SMS.
-
-### "Invalid phone number" error (SMS enrollment)
-
-**Root cause:** Phone number not in E.164 format or invalid.
-
-**Fix:** Validate phone format before SDK call. Must include country code (e.g., +1234567890).
-
-### "Factor not found" error (sign-in)
-
-**Root cause:** factor_id in your database doesn't exist in WorkOS (deleted or never enrolled).
-
-**Fix:** Prompt user to re-enroll, create new factor, update your database.
-
-### "Invalid code" error (verification)
-
-**Root cause:** User entered wrong code OR challenge expired (SMS) OR clock skew (TOTP).
-
-**Fix for TOTP:** Check fetched docs for time window tolerance (usually ±1 period).
-
-**Fix for SMS:** Check if expired, create new challenge if needed.
-
-**UX pattern:** Allow 3-5 retry attempts before rate limiting or requiring new challenge.
-
-### SDK method not found
-
-**Root cause:** Incorrect SDK version or language-specific naming.
-
-**Fix:** Check fetched docs for exact method name in your SDK language. Method names vary (e.g., `createFactor` vs `create_factor`).
+→ Read `skills/workos/workos-mfa.guide.md`
 
 ## Related Skills
 
-- **workos-authkit-nextjs**: If using AuthKit for primary auth, integrate MFA after initial sign-in
-- **workos-authkit-react**: Client-side MFA UI components for React applications
-- **workos-sso**: Do NOT combine with MFA API — use IdP's native MFA instead
+- **workos-sso**: SSO for primary authentication

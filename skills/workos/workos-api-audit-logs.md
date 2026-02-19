@@ -7,264 +7,67 @@ description: WorkOS Audit Logs API endpoints — create events, manage schemas, 
 
 # WorkOS Audit Logs API Reference
 
-## Step 1: Fetch Documentation
+## When to Use
 
-**STOP. WebFetch the relevant docs for latest implementation details before proceeding.**
+Use this API when you need to emit tamper-proof audit events for compliance (SOC 2, HIPAA, GDPR) or surface a searchable audit trail in your product. Audit Logs provides structured event ingestion, schema validation, configurable retention, and CSV export — without building your own event storage infrastructure.
 
-- https://workos.com/docs/reference/audit-logs
-- https://workos.com/docs/reference/audit-logs/configuration
-- https://workos.com/docs/reference/audit-logs/event
-- https://workos.com/docs/reference/audit-logs/event/create
-- https://workos.com/docs/reference/audit-logs/export
-- https://workos.com/docs/reference/audit-logs/export/create
-- https://workos.com/docs/reference/audit-logs/export/get
-- https://workos.com/docs/reference/audit-logs/retention
+Reach for this when you need to answer "who did what, when" for security reviews, customer support, or regulatory audits.
 
-## Available Endpoints
+## Key Concepts
 
-| Method | Path | Purpose |
-| ------ | ---- | ------- |
-| POST | `/events` | Create a single audit log event |
-| POST | `/exports` | Create an export of audit log events |
-| GET | `/exports/:id` | Retrieve status and download URL for an export |
-| POST | `/schemas` | Create a custom audit log schema |
-| GET | `/schemas` | List all audit log schemas for an organization |
-| GET | `/schemas/actions` | List all available action types across schemas |
-| GET | `/retention` | Get current retention policy |
-| PUT | `/retention` | Set retention policy (days to retain logs) |
+**Event Structure**
+- Event type naming: `{group}.{action}` (e.g., `user.created`, `document.deleted`)
+- Actor: who performed the action (user, API key, or system)
+- Target: what was affected (resource ID + type)
+- Context: IP address, user agent, location metadata
+- Occurred at: ISO 8601 timestamp (defaults to ingestion time if omitted)
 
-## Authentication Setup
+**Schema Management**
+- Schemas define valid actions for a group (e.g., `user` group with `created`, `updated`, `deleted` actions)
+- Create schemas before emitting events — events failing schema validation are rejected
+- List all schemas to see available event types
+- List actions per group to validate event type strings before emission
 
-Set your API key as a bearer token in the Authorization header:
+**Export & Retention**
+- Exports: async CSV generation for date ranges (poll export status, then download signed URL)
+- Retention: configure per-organization how long events are stored (default varies, check dashboard)
+- Set retention via API or dashboard — impacts export availability and compliance posture
 
+**ID Prefixes & Auth**
+- Organization ID: `org_` prefix (scope exports and retention to an org)
+- Export ID: `audit_log_export_` prefix (use to poll export status)
+- Auth: `WORKOS_API_KEY` (server-side only — never expose in client code)
+
+**Dashboard Navigation**
+- View events: Dashboard → Audit Logs → Events
+- Manage schemas: Dashboard → Audit Logs → Schemas
+- Configure retention: Dashboard → Audit Logs → Settings
+
+**Architectural Decisions**
+- Emit events asynchronously: return 200 immediately, don't block user flows on audit ingestion
+- Use idempotency keys if retrying failed event creation (prevents duplicate events)
+- Batch event creation if emitting high volumes (check fetched docs for batch endpoint availability)
+- For compliance: verify retention meets your regulatory requirements before go-live
+
+**Verification Commands**
 ```bash
-Authorization: Bearer sk_live_your_api_key_here
+# Confirm event was created (replace IDs and timestamps)
+curl -X GET "https://api.workos.com/audit-logs?organization_id=org_123&occurred_at_gte=2024-01-01T00:00:00Z" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}"
+
+# Check schema exists before emitting events
+curl -X GET "https://api.workos.com/audit-logs/schema/list?organization_id=org_123" \
+  -H "Authorization: Bearer ${WORKOS_API_KEY}"
 ```
 
-Verify authentication works:
+**Common Traps**
+- Emitting events before creating schemas → 400 validation error
+- Using client-side API keys → security risk (audit logs are server-side only)
+- Blocking user flows on event creation → degrades UX (emit async instead)
+- Not setting retention → events may expire before you need them for audits
 
-```bash
-curl https://api.workos.com/audit_logs/schemas \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-```
+## Implementation Guide
 
-Expected: 200 response with schema list (may be empty if none configured).
+For step-by-step implementation, verification commands, and error recovery:
 
-## Operation Decision Tree
-
-**Creating audit events:**
-- Single event → POST `/events` with event object
-- Bulk events → Call POST `/events` multiple times (no batch endpoint)
-- Asynchronous → Events return 200 immediately, processing happens async
-
-**Exporting audit logs:**
-- Recent events (< 30 days) → POST `/exports` with date range filters
-- Historical analysis → POST `/exports`, poll GET `/exports/:id` until `state: "ready"`
-- Download CSV → Use `url` field from export response once ready
-
-**Schema management:**
-- First-time setup → POST `/schemas` to define event types
-- Viewing configured schemas → GET `/schemas`
-- Listing all possible actions → GET `/schemas/actions`
-
-**Retention configuration:**
-- Check current policy → GET `/retention`
-- Set retention period → PUT `/retention` with `days` (min 30, max varies by plan)
-
-## Event Creation Pattern
-
-```pseudocode
-POST /events
-Headers:
-  Authorization: Bearer $WORKOS_API_KEY
-  Content-Type: application/json
-  Idempotency-Key: <unique-key-for-this-event>
-
-Body:
-  organization_id: "org_12345"
-  event:
-    action: "user.created"           # Format: {resource}.{action}
-    occurred_at: "2024-01-15T10:30:00Z"
-    actor:
-      id: "user_abc"
-      name: "Jane Doe"
-      type: "user"
-    targets:
-      - id: "user_xyz"
-        type: "user"
-    context:
-      location: "192.168.1.1"
-      user_agent: "Mozilla/5.0..."
-    metadata:
-      custom_field: "custom_value"
-
-Response: 200 (event accepted, async processing)
-```
-
-**Idempotency:** Use `Idempotency-Key` header to prevent duplicate events. Same key within 24 hours = deduplication.
-
-## Export Pattern
-
-```pseudocode
-# Step 1: Create export
-POST /exports
-Body:
-  organization_id: "org_12345"
-  range_start: "2024-01-01T00:00:00Z"
-  range_end: "2024-01-31T23:59:59Z"
-  actions: ["user.created", "user.deleted"]  # Optional filter
-  actors: ["user_abc"]                       # Optional filter
-
-Response:
-  id: "audit_log_export_123"
-  state: "pending"
-  created_at: "..."
-
-# Step 2: Poll for completion
-GET /exports/audit_log_export_123
-
-Response (when ready):
-  id: "audit_log_export_123"
-  state: "ready"
-  url: "https://workos-exports.s3.amazonaws.com/..."  # Valid 1 hour
-  
-# Step 3: Download CSV
-curl -o events.csv "<url from step 2>"
-```
-
-**Polling strategy:** Check every 5-10 seconds for small exports, 30-60 seconds for large ranges.
-
-## Error Code Mapping
-
-| Status | Cause | Fix |
-| ------ | ----- | --- |
-| 401 | Missing or invalid API key | Verify `WORKOS_API_KEY` starts with `sk_` and is from correct environment |
-| 403 | API key lacks audit logs permission | Enable Audit Logs in WorkOS Dashboard → API Keys |
-| 404 | Export ID not found | Verify export was created for this organization |
-| 422 | Invalid event schema | Check `action` format is `{resource}.{action}`, `occurred_at` is ISO8601 |
-| 422 | Organization not found | Verify `organization_id` exists and is accessible |
-| 422 | Retention period out of range | Check fetched docs for min/max retention days for your plan |
-| 429 | Rate limit exceeded | Implement exponential backoff (start at 1s, max 60s) |
-| 500 | WorkOS server error | Retry with exponential backoff, contact support if persists |
-
-## Rate Limits
-
-Check fetched documentation for current rate limits. General guidance:
-- Event creation: High throughput allowed (thousands/minute typical)
-- Export creation: Lower limit (check docs for exact number)
-- Retry strategy: Exponential backoff starting at 1s, max 60s between attempts
-
-## Schema Configuration
-
-Define custom event types before emitting events:
-
-```pseudocode
-POST /schemas
-Body:
-  organization_id: "org_12345"
-  name: "User Management"
-  actions:
-    - name: "user.created"
-      description: "User account created"
-    - name: "user.deleted"
-      description: "User account deleted"
-
-Response: 201 with schema object
-```
-
-**Best practices:**
-- Define schemas during initial setup, not at runtime
-- Use consistent naming: `{resource}.{action}` (lowercase, dot-separated)
-- One schema per logical domain (e.g., "User Management", "Billing")
-
-## Verification Commands
-
-```bash
-# 1. Verify API key authentication
-curl https://api.workos.com/audit_logs/schemas \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-
-# 2. Create a test event
-curl -X POST https://api.workos.com/audit_logs/events \
-  -H "Authorization: Bearer $WORKOS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: test-$(date +%s)" \
-  -d '{
-    "organization_id": "org_YOUR_ORG_ID",
-    "event": {
-      "action": "test.verification",
-      "occurred_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
-      "actor": {"type": "user", "id": "test_user"},
-      "targets": [{"type": "resource", "id": "test_resource"}]
-    }
-  }'
-
-# 3. Check retention policy
-curl https://api.workos.com/audit_logs/retention \
-  -H "Authorization: Bearer $WORKOS_API_KEY"
-```
-
-## Pagination Handling
-
-Schema and action list endpoints support pagination:
-
-```pseudocode
-GET /schemas?limit=10&after=cursor_abc123
-
-Response:
-  data: [...]
-  list_metadata:
-    after: "cursor_xyz789"  # Use for next page
-    before: "cursor_abc123"
-```
-
-Use `after` cursor for forward pagination, `before` for backward.
-
-## Common Integration Patterns
-
-**Real-time event logging:**
-```pseudocode
-function logAuditEvent(action, actor, target, metadata):
-  # Non-blocking - fire and forget
-  asyncPost("/events", {
-    organization_id: currentOrg.id,
-    event: {
-      action: action,
-      occurred_at: now(),
-      actor: actor,
-      targets: [target],
-      metadata: metadata
-    }
-  })
-```
-
-**Compliance export (monthly):**
-```pseudocode
-function exportMonthlyLogs(org_id, year, month):
-  start = firstDayOfMonth(year, month)
-  end = lastDayOfMonth(year, month)
-  
-  export = post("/exports", {
-    organization_id: org_id,
-    range_start: start,
-    range_end: end
-  })
-  
-  while export.state != "ready":
-    sleep(30)
-    export = get("/exports/" + export.id)
-  
-  downloadCSV(export.url, filename)
-```
-
-## Dashboard Configuration
-
-Navigate to WorkOS Dashboard:
-1. **API Keys** → Verify Audit Logs permission enabled
-2. **Audit Logs** → Configure retention policy
-3. **Audit Logs** → Define schemas (or use API)
-
-## Related Skills
-
-- `workos-audit-logs-feature` - Feature overview and integration patterns
-- `workos-organizations-api` - Managing organizations for audit log scoping
+→ Read `skills/workos/workos-api-audit-logs.guide.md`
