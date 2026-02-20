@@ -7,8 +7,8 @@ export function renderFrontmatter(spec: SkillSpec): string {
   return `---\nname: ${spec.name}\ndescription: ${desc}\n---`;
 }
 
-/** Generate the full SKILL.md content from a SkillSpec */
-export function renderSkill(spec: SkillSpec, sourceHash?: string): string {
+/** Generate the summary file content — lightweight overview with guide pointer */
+export function renderSummary(spec: SkillSpec, sourceHash?: string): string {
   const parts: string[] = [];
 
   parts.push(renderFrontmatter(spec));
@@ -22,14 +22,105 @@ export function renderSkill(spec: SkillSpec, sourceHash?: string): string {
   parts.push("");
   parts.push(`# ${spec.title}`);
   parts.push("");
-  parts.push(renderDocFetchSection(spec.docUrls));
   parts.push(renderWhenToUse(spec));
+  parts.push(renderKeyVocabularyPlaceholder(spec));
+  parts.push(renderGuidePointer(spec.name));
+  parts.push(renderRelatedSkills(spec));
+
+  return parts.join("\n");
+}
+
+/** Generate the guide file content — full implementation details */
+export function renderGuide(spec: SkillSpec, sourceHash?: string): string {
+  const parts: string[] = [];
+
+  parts.push(
+    sourceHash
+      ? `<!-- generated:sha256:${sourceHash} -->`
+      : "<!-- generated -->",
+  );
+
+  parts.push("");
+  parts.push(`# ${spec.title} — Implementation Guide`);
+  parts.push("");
+  parts.push(renderDocFetchSection(spec.docUrls));
   parts.push(renderPrerequisites(spec));
   parts.push(renderImplementationGuide(spec));
   parts.push(renderVerificationChecklist(spec));
   parts.push(renderErrorRecovery(spec));
-  parts.push(renderRelatedSkills(spec));
 
+  return parts.join("\n");
+}
+
+/** Documentation URLs section for summaries */
+export function renderDocumentation(docUrls: string[]): string {
+  if (docUrls.length === 0) return "";
+  const lines = ["## Documentation", ""];
+  const urls = docUrls.slice(0, 5);
+  for (const url of urls) {
+    lines.push(`- ${url}`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+/** Key Vocabulary placeholder — populated by the refiner */
+export function renderKeyVocabularyPlaceholder(spec: SkillSpec): string {
+  return `## Key Vocabulary
+
+_Entity names, ID prefixes, and structural terms for ${spec.title.replace("WorkOS ", "")}. Populated during refinement._
+
+`;
+}
+
+/** Pointer to the full implementation guide */
+export function renderGuidePointer(skillName: string): string {
+  return `## Implementation Guide
+
+For step-by-step implementation, verification commands, and error recovery:
+
+→ Read \`skills/workos/${skillName}.guide.md\`
+
+`;
+}
+
+/** Deterministic stub for API reference guides — endpoint table + doc pointer */
+export function renderApiRefStub(spec: SkillSpec, sourceHash?: string): string {
+  const parts: string[] = [];
+  parts.push(
+    sourceHash
+      ? `<!-- generated:sha256:${sourceHash} -->`
+      : "<!-- generated -->",
+  );
+  parts.push("");
+  parts.push(`# ${spec.title} — Quick Reference`);
+  parts.push("");
+  parts.push("## Step 1: Fetch Documentation");
+  parts.push("");
+  parts.push("**WebFetch the API reference before making calls.**");
+  parts.push("");
+  for (const url of spec.docUrls.slice(0, 5)) {
+    parts.push(`- ${url}`);
+  }
+  parts.push("");
+  // Extract endpoint table if present
+  const tableMatch = spec.content.match(
+    /\|[^\n]*(?:Endpoint|Method|Path)[^\n]*\|[\s\S]*?(?=\n\n|\n[^|]|$)/i,
+  );
+  if (tableMatch) {
+    parts.push("## Endpoints");
+    parts.push("");
+    parts.push(tableMatch[0].trim());
+    parts.push("");
+  }
+  // Pointer to feature guide
+  const featureName = spec.name.replace("workos-api-", "workos-");
+  parts.push("## Implementation");
+  parts.push("");
+  parts.push("For integration patterns, error recovery, and verification:");
+  parts.push("");
+  parts.push(`> Read \`skills/workos/${featureName}.guide.md\``);
+  parts.push("");
   return parts.join("\n");
 }
 

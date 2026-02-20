@@ -48,6 +48,8 @@ export interface GeneratedSkill {
   generated: boolean;
   /** SHA-256 hash of source doc content (for content-addressed locking) */
   sourceHash?: string;
+  /** 'summary' for the lightweight overview, 'guide' for full implementation */
+  type?: "summary" | "guide";
 }
 
 // --- Split strategies ---
@@ -82,24 +84,17 @@ export interface FetchOptions {
   retries?: number;
 }
 
-// --- Domain Rules ---
+// --- Feedback ---
 
-export interface SkillRule {
-  id: string;
-  description: string;
-  severity: "warn" | "error";
-  promoted: boolean;
-  must_contain?: Array<{ pattern: string; context: string }>;
-  must_not_contain?: Array<{ pattern: string; context: string }>;
+export interface SkillFeedback {
+  corrections: string[];
+  emphasis: string[];
 }
 
-export interface RuleViolation {
-  ruleId: string;
-  description: string;
-  severity: "warn" | "error";
-  type: "missing" | "forbidden";
-  pattern: string;
-  context: string;
+export interface SemanticCheckResult {
+  pass: boolean;
+  violations: string[];
+  score: number;
 }
 
 // --- Validator ---

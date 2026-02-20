@@ -66,6 +66,12 @@ export const SECTION_CONFIG: Record<string, SectionConfig> = {
   "admin-portal": { split: { strategy: "single" } },
 };
 
+/** Summary file validation thresholds */
+export const SUMMARY_VALIDATION = {
+  minSize: 200,
+  maxSize: 2048, // 2KB
+} as const;
+
 /** Validation thresholds */
 export const VALIDATION = {
   expectedSectionCount: 24,

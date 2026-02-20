@@ -10,80 +10,103 @@ A collection of 39 task-based skills that help AI agents implement WorkOS featur
 User Request
     │
     ├─ "Add authentication"        → skills/workos-authkit-{framework}/
-    ├─ "Configure SSO"             → skills/workos-sso/
-    ├─ "Set up Directory Sync"     → skills/workos-directory-sync/
-    ├─ "Add RBAC / roles"          → skills/workos-rbac/
-    ├─ "Encrypt data with Vault"   → skills/workos-vault/
-    ├─ "Handle webhooks / events"  → skills/workos-events/
-    ├─ "Set up Audit Logs"         → skills/workos-audit-logs/
-    ├─ "Add MFA"                   → skills/workos-mfa/
-    ├─ "Set up IdP integration"    → skills/workos-integrations/
-    ├─ "Migrate from Auth0/etc"    → skills/workos-migrate-{provider}/
-    ├─ "API reference for X"       → skills/workos-api-{domain}/
+    ├─ "Configure SSO"             → Read skills/workos/workos-sso.md
+    ├─ "Set up Directory Sync"     → Read skills/workos/workos-directory-sync.md
+    ├─ "Add RBAC / roles"          → Read skills/workos/workos-rbac.md
+    ├─ "Encrypt data with Vault"   → Read skills/workos/workos-vault.md
+    ├─ "Handle webhooks / events"  → Read skills/workos/workos-events.md
+    ├─ "Set up Audit Logs"         → Read skills/workos/workos-audit-logs.md
+    ├─ "Add MFA"                   → Read skills/workos/workos-mfa.md
+    ├─ "Set up IdP integration"    → Read skills/workos/workos-integrations.md
+    ├─ "Migrate from Auth0/etc"    → Read skills/workos/workos-migrate-{provider}.md
+    ├─ "API reference for X"       → Read skills/workos/workos-api-{domain}.md
     └─ "Not sure"                  → WebFetch https://workos.com/docs/llms.txt
 ```
 
-## Directory Structure
+## Progressive Disclosure
+
+Skills use a two-step loading pattern to save context:
+
+1. **Summary** (`workos-sso.md`, <1KB) — routing doc. Answers: "Is this the right skill?" Contains: When to Use, Key Vocabulary (entity names + ID prefixes), guide pointer, Related Skills.
+2. **Guide** (`workos-sso.guide.md`, 7-11KB) — implementation. Load only when implementing. Contains: fetch docs, decision trees, one code example, verification commands, error recovery.
+
+API reference skills use lightweight stubs (`workos-api-sso.guide.md`, ~1KB) — endpoint table + doc pointer.
+
+**Load the summary first.** Only read the guide when the agent is ready to implement.
+
+## File Layout
 
 ```
-skills/
-├── workos/                     # Master dispatcher — start here
-├── workos-integrations/        # Provider lookup table (60+ IdPs)
+skills/workos/
+├── SKILL.md                              # Router — start here
+├── workos-integrations.md                # Provider lookup (60+ IdPs)
 │
-├── workos-authkit-nextjs/      # AuthKit framework skills (hand-crafted)
-├── workos-authkit-react/
-├── workos-authkit-react-router/
-├── workos-authkit-tanstack-start/
-├── workos-authkit-vanilla-js/
-├── workos-authkit-base/
+├── workos-sso.md                         # Summary (routing doc)
+├── workos-sso.guide.md                   # Guide (implementation)
+├── workos-directory-sync.md / .guide.md
+├── workos-rbac.md / .guide.md
+├── workos-vault.md / .guide.md
+├── workos-events.md / .guide.md
+├── workos-audit-logs.md / .guide.md
+├── workos-admin-portal.md / .guide.md
+├── workos-mfa.md / .guide.md
+├── workos-custom-domains.md / .guide.md
+├── workos-email.md / .guide.md
+├── workos-widgets.md / .guide.md
 │
-├── workos-sso/                 # Feature skills (generated + refined)
-├── workos-directory-sync/
-├── workos-rbac/
-├── workos-vault/
-├── workos-events/
-├── workos-audit-logs/
-├── workos-admin-portal/
-├── workos-mfa/
-├── workos-custom-domains/
-├── workos-email/
-├── workos-widgets/
+├── workos-migrate-auth0.md / .guide.md   # Migration skills
+├── workos-migrate-firebase.md / .guide.md
+├── workos-migrate-clerk.md / .guide.md
+├── ...
 │
-├── workos-migrate-auth0/       # Migration skills
-├── workos-migrate-firebase/
-├── workos-migrate-clerk/
-├── workos-migrate-aws-cognito/
-├── workos-migrate-stytch/
-├── workos-migrate-supabase-auth/
-├── workos-migrate-descope/
-├── workos-migrate-better-auth/
-├── workos-migrate-other-services/
-├── workos-migrate-the-standalone-sso-api/
+├── workos-api-sso.md / .guide.md         # API ref (summary + stub)
+├── workos-api-authkit.md / .guide.md
+├── ...
 │
-├── workos-api-sso/             # API reference skills
-├── workos-api-authkit/
-├── workos-api-directory-sync/
-├── workos-api-audit-logs/
-├── workos-api-organization/
-├── workos-api-events/
-├── workos-api-vault/
-├── workos-api-roles/
-├── workos-api-widgets/
-└── workos-api-admin-portal/
+└── workos-directory-sync.feedback.md     # Domain expert feedback (5 files)
 ```
 
-## Skill Pattern
+## Skill Patterns
 
-Every skill follows the same structure:
+### Summaries (<1KB)
 
-1. **YAML frontmatter** — `name` and `description` for agent matching
-2. **Step 1: Fetch Documentation (BLOCKING)** — WebFetch doc URLs before proceeding
-3. **Pre-flight validation** — check env vars, SDK installation, project structure
-4. **Decision trees** — conditional flows for implementation choices
-5. **Numbered implementation steps** — imperative, concrete actions
-6. **Verification checklist** — runnable bash commands to confirm success
-7. **Error recovery** — specific error messages mapped to root causes and fixes
-8. **Related skills** — cross-references to other WorkOS skills
+```markdown
+---
+name: workos-sso
+description: Configure Single Sign-On with SAML and OIDC identity providers.
+---
+
+## When to Use
+
+2-3 sentences positioning the feature.
+
+## Key Vocabulary
+
+- **Organization** `org_` — tenant entity
+- **Connection** `conn_` — link to an identity provider
+
+## Implementation Guide
+
+→ Read `skills/workos/workos-sso.guide.md`
+
+## Related Skills
+
+- **workos-rbac**: Role-based access after SSO
+```
+
+### Guides (7-11KB)
+
+1. **Step 1: Fetch Documentation (BLOCKING)** — WebFetch doc URLs before proceeding
+2. **Pre-flight validation** — check env vars, SDK installation, project structure
+3. **Decision trees** — conditional flows for implementation choices
+4. **One code example** — language-agnostic SDK pattern (10-25 lines)
+5. **Verification checklist** — runnable bash commands to confirm success
+6. **Error recovery** — specific error messages mapped to root causes and fixes
+7. **Related skills** — cross-references to other WorkOS skills
+
+### API Reference Stubs (~1KB)
+
+Endpoint table + doc pointer + link to feature guide. No implementation details.
 
 ## Key Principle
 

@@ -88,16 +88,10 @@ bun run generate
 bun run generate -- --force
 
 # Generate + AI refinement (requires ANTHROPIC_API_KEY)
-bun run generate -- --refine
+bun run generate -- --refine --force
 
-# Batch refinement (parallel)
-bun run scripts/refine-batch.ts --concurrency=6
-
-# Refine specific skills
-bun run scripts/refine-batch.ts workos-sso workos-mfa
-
-# Rebuild plugin.json + marketplace.json from SKILL.md frontmatter
-bun run scripts/build-plugin-manifests.ts
+# Refine a single skill (only writes that skill)
+bun run generate -- --refine-only=workos-sso --force
 ```
 
 ### Test
@@ -111,10 +105,21 @@ bun test
 1. **Fetch** — downloads `llms.txt` (URL index) and `llms-full.txt` (full docs) from workos.com
 2. **Parse** — splits docs into sections by `## Name {#anchor}` boundaries
 3. **Split** — applies per-section strategies (single, per-subsection, per-api-domain) to produce skill specs
-4. **Generate** — transforms specs into SKILL.md scaffolds with frontmatter, doc fetch steps, and source hash
-5. **Refine** (optional) — calls Anthropic API to transform doc prose into procedural agent instructions
-6. **Quality gate** — automated rubric scoring + domain rules ensure quality thresholds
+4. **Generate** — transforms specs into summary + guide pairs (or API ref stubs) with source hash markers
+5. **Refine** (optional) — calls Anthropic API to transform doc prose into procedural agent instructions. Runs at concurrency 5. API ref stubs skip refinement.
+6. **Quality gate** — automated rubric scoring (summaries, guides, stubs, legacy) + LLM semantic check against domain feedback
 7. **Write** — skips files with matching source hash (content-addressed locking)
+
+### Progressive disclosure
+
+Each generated skill produces two files:
+
+- **Summary** (`workos-sso.md`) — lightweight routing doc (<1KB). When to Use, Key Vocabulary (entity names + ID prefixes), guide pointer, Related Skills. Agent loads this first.
+- **Guide** (`workos-sso.guide.md`) — full implementation (7-11KB). Fetch docs, decision trees, one language-agnostic code example, verification commands, error recovery. Agent reads this only when implementing.
+
+API reference skills use a third format:
+
+- **Stub** (`workos-api-sso.guide.md`) — deterministic endpoint table + doc pointer (~1KB). No LLM refinement needed.
 
 ### Content-addressed locking
 
@@ -127,29 +132,31 @@ Each skill has a marker embedding a SHA-256 hash of its source doc content:
 
 `generate` skips files where the hash matches — only skills whose upstream docs changed get regenerated. Use `--force` to bypass.
 
-### Domain rules
+### Feedback system
 
-Per-skill `.rules.yml` files encode factual constraints:
+Per-skill `.feedback.md` files encode domain expert corrections:
 
-```yaml
-# skills/workos-directory-sync/.rules.yml
-rules:
-  - id: dsync-webhooks-mandatory
-    severity: error
-    promoted: true
-    must_contain:
-      - pattern: "webhook"
-    must_not_contain:
-      - pattern: "poll(ing)? for.*(directory|sync).*event"
+```markdown
+# Feedback for workos-directory-sync
+
+## Corrections
+
+- WorkOS supports both webhooks AND the Events API for directory sync.
+  Do not claim webhooks are mandatory or that polling is not supported.
+
+## Emphasis
+
+- The dsync.deleted event does NOT trigger individual user/group delete
+  events. This is a common trap — emphasize it.
 ```
 
-Rules are checked during the quality gate and injected into the refiner prompt so the LLM knows constraints upfront. Promoted rules with `severity: error` block skills from shipping.
+Feedback is loaded by `scripts/lib/feedback.ts` and injected into refiner prompts so the LLM knows constraints upfront. `## Corrections` are hard rules; `## Emphasis` are soft guidance.
 
 ### Hand-crafted vs generated
 
 - **Hand-crafted** (6 AuthKit skills) — never overwritten by the generator
-- **Generated** (33 skills) — produced by `scripts/generate.ts`, refined via Anthropic API
-- **Excluded** (5 skills) — on disk but not shipped: FGA (deprecated), magic-link (deprecated), pipes, domain-verification, feature-flags (too thin)
+- **Generated** (33 skills) — produced by `scripts/generate.ts`, refined via Anthropic API, split into summary + guide pairs
+- **Excluded** (5 sections) — skipped during generation: FGA, magic-link, pipes, domain-verification, feature-flags
 
 ## License
 
