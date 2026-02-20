@@ -9,24 +9,15 @@ description: Sync user directories from identity providers like Okta, Azure AD, 
 
 ## When to Use
 
-Use Directory Sync when your application needs to automatically provision, update, or deprovision users and groups from an organization's identity provider (Azure AD, Okta, Google Workspace, etc.). This enables workforce identity management at scale — employees added in the IdP appear in your app without manual CSV imports or API calls.
-
-## Documentation
-
-- https://workos.com/docs/directory-sync/understanding-events
-- https://workos.com/docs/directory-sync/quick-start
-- https://workos.com/docs/directory-sync/index
-- https://workos.com/docs/directory-sync/identity-provider-role-assignment
-- https://workos.com/docs/directory-sync/handle-inactive-users
+Use Directory Sync when you need to provision user accounts and groups from identity providers (Okta, Azure AD, Google Workspace) into your application. This skill handles both real-time webhook-based sync and batch processing via the Events API. Choose webhooks for immediate provisioning; choose Events API for reconciliation, recovery, or batch imports.
 
 ## Key Vocabulary
 
-- **Directory** `directory_` — represents a synced identity provider connection
-- **User** `directory_user_` — synced employee record from the IdP
-- **Group** `directory_group_` — synced team/role container from the IdP
-- **Event types**: `dsync.user.created`, `dsync.user.updated`, `dsync.user.deleted`, `dsync.group.created`, `dsync.group.updated`, `dsync.group.deleted`, `dsync.group.user_added`, `dsync.group.user_removed`, `dsync.activated`, `dsync.deleted`
-- **Directory state**: `linked`, `unlinked`, `invalid_credentials`
-- **User state**: `active`, `inactive`
+- **Directory** `directory_` — represents a sync connection to an IdP
+- **Directory User** `directory_user_` — synced user account from the IdP
+- **Directory Group** `directory_group_` — synced group from the IdP
+- **Event types**: `dsync.user.created`, `dsync.user.updated`, `dsync.user.deleted`, `dsync.group.created`, `dsync.group.updated`, `dsync.group.deleted`, `dsync.group.user_added`, `dsync.group.user_removed`
+- **`dsync.deleted`** — triggered when entire Directory is deactivated (does NOT trigger individual user/group delete events)
 
 ## Implementation Guide
 

@@ -9,21 +9,13 @@ description: Migrate to WorkOS from Descope.
 
 ## When to Use
 
-Use this skill when migrating authentication from Descope to WorkOS AuthKit. Descope is a CIAM platform, so this migration primarily handles user identity transfer and SSO connection mapping. You'll export user data from Descope's API, transform it to WorkOS format, and import via User Management API.
-
-## Documentation
-
-- https://workos.com/docs/migrate/descope
+Use this skill when migrating existing users and organizations from Descope to WorkOS. This covers data export from Descope, password hash migration limitations, and bulk import into WorkOS User Management.
 
 ## Key Vocabulary
 
-- **Organization** `org_` — WorkOS container for users and SSO connections
-- **User** `user_` — imported from Descope user records
-- **Connection** `conn_` — SSO configuration migrated from Descope projects
-- **loginId** — Descope's unique user identifier (maps to WorkOS email)
-- **userTenants** — Descope's org membership structure
-- **SAML/OIDC connections** — authentication methods to recreate in WorkOS
-- **MFA enrollment** — multi-factor settings to preserve during migration
+- **User** `user_` — WorkOS User Management entity
+- **Organization** `org_` — WorkOS Organization entity
+- **Organization Membership** `om_` — links users to organizations with roles
 
 ## Implementation Guide
 

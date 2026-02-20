@@ -8,175 +8,260 @@
 
 WebFetch: `https://workos.com/docs/email`
 
-The docs are the source of truth. If this skill conflicts with docs, follow docs.
+The Email docs are the source of truth. If this skill conflicts with docs, follow docs.
 
-## Step 2: Choose Email Delivery Strategy (Decision Tree)
-
-WorkOS provides three email delivery modes. Choose based on your priorities:
+## Step 2: Choose Email Strategy (Decision Tree)
 
 ```
-Email delivery mode?
+Email delivery requirements?
   |
-  +-- Need to start quickly, minimal setup
-  |   → Use WorkOS email domain (workos-mail.com)
-  |   → Trade-off: Less brand recognition, no control over domain reputation
+  +-- Need IMMEDIATE setup (testing/MVP)
+  |     --> Use WorkOS email domain (workos-mail.com)
+  |     --> Zero DNS config required
+  |     --> Tradeoff: Lower trust, "unknown sender" experience
   |
-  +-- Want branded sender, control over deliverability
-  |   → Configure your own email domain
-  |   → Requires: DNS configuration (CNAME records)
-  |   → Addresses used: welcome@yourdomain.com, access@yourdomain.com
+  +-- Production app with brand trust needs
+  |     --> Use your own email domain
+  |     --> Requires DNS verification (3 CNAME records)
+  |     --> Tradeoff: Setup time vs. deliverability
   |
-  +-- Need full control over email content/provider
-      → Use event-driven email (listen to WorkOS events, send via your provider)
-      → Requires: Event webhook setup + your own email infrastructure
+  +-- Need full control (custom templates/provider/retry logic)
+        --> Use event webhooks to send your own email
+        --> Listen to WorkOS events, trigger own provider
+        --> Tradeoff: Maximum flexibility, most implementation work
 ```
 
-**IMPORTANT:** For strategies (A) and (B), WorkOS sends the email. For strategy (C), you send it. Do not mix approaches for the same email type.
+**Key architectural decision:** WorkOS sends emails for Magic Auth, password resets, invitations. Choose strategy based on whether you prioritize speed-to-market or deliverability.
 
-## Step 3: Email Domain Configuration (if using your domain)
+## Step 3: DNS Configuration (If Using Your Domain)
 
-### Dashboard Setup
+**Skip if using WorkOS domain.**
 
 Navigate to WorkOS Dashboard → Email Settings.
 
-Add your domain and configure DNS records at your domain provider:
+**Required DNS records:**
 
-1. **Ownership verification CNAME** (1 record)
-2. **SPF/DKIM authentication CNAMEs** (2 records via SendGrid automated security)
+1. **Domain verification:** 1 CNAME record (proves ownership)
+2. **SPF/DKIM authentication:** 2 CNAME records (SendGrid automated security)
 
-Check fetched docs for exact record values — they are unique per domain.
+**Critical:** All 3 CNAMEs must be added to your DNS provider before WorkOS can send from your domain. Partial configuration = emails fail silently.
 
-**Verify:** Dashboard shows "Verified" status before proceeding. Unverified domains will not send email.
+**Verification command:**
 
-### Create Sender Inboxes (CRITICAL)
-
-Email providers check if sender addresses have real inboxes. Create these inboxes at your domain:
-
-- `welcome@yourdomain.com`
-- `access@yourdomain.com`
-
-**Do NOT skip this step.** Missing inboxes reduce deliverability.
-
-### DMARC Configuration (REQUIRED for bulk senders)
-
-If sending 5000+ emails/day, DMARC is required by Google/Yahoo/Apple guidelines.
-
-Add DNS TXT record at your domain provider:
-
-```
-Record type: TXT
-Name: _dmarc.yourdomain.com
-Content: v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com
+```bash
+# Replace example.com with your domain
+dig CNAME _domainkey.example.com +short
+dig CNAME em123.example.com +short
 ```
 
-Check fetched docs for policy options (`p=reject`, `p=quarantine`, `p=none`).
+Both must return SendGrid subdomains. If empty, DNS not propagated yet (wait 5-60 minutes).
 
-**Why this matters:** Without DMARC, email providers may reject bulk email outright (not just spam filter).
+## Step 4: Sender Address Inbox Setup (Your Domain Only)
 
-## Step 4: Content Rules (TRAP WARNING)
+**Skip if using WorkOS domain.**
 
-### Do NOT Send Unsolicited Email
+WorkOS sends from these addresses on your domain:
 
-**CRITICAL:** WorkOS email domain reputation is shared across all tenants. Sending unsolicited email (e.g., marketing lists) will degrade deliverability for everyone.
+- `welcome@<your-domain>`
+- `access@<your-domain>`
 
-**Safe pattern:** User explicitly requests access → invitation sent
-**Unsafe pattern:** Import email list → bulk invite without consent
+**Required:** Create mailboxes for both addresses with your email provider. Email providers (especially Google, Microsoft) check if sender addresses have real inboxes. Missing inboxes = spam filter triggers.
 
-**Consequence:** Account suspension if unsolicited email is detected.
+**Verification:** Send test email TO these addresses. If bounces, inbox not configured.
 
-### Organization/Team Name Hygiene
+## Step 5: DMARC Policy Configuration (Recommended for Your Domain)
 
-WorkOS emails include your team name and organization names in email body. Avoid [spam trigger words](https://mailtrap.io/blog/email-spam-words/) in these names.
+**Skip if using WorkOS domain.**
 
-**Bad:** "Free Money Org", "Click Here LLC", "Urgent Action Corp"
-**Good:** "Acme Corp", "Engineering Team", "Sales Division"
+DMARC tells receiving servers what to do with emails that fail authentication. Required by Google/Yahoo for bulk senders.
 
-**Where to check:** WorkOS Dashboard → Organization names, Team settings
+Add this DNS TXT record:
+
+```
+TXT Record
+Name: _dmarc.example.com
+Content: v=DMARC1; p=reject; rua=mailto:dmarc-reports@example.com
+```
+
+**Policy options:**
+
+- `p=none` → Monitor mode (collect reports, don't block)
+- `p=quarantine` → Send suspicious emails to spam
+- `p=reject` → Block suspicious emails entirely
+
+**Verification command:**
+
+```bash
+dig TXT _dmarc.example.com +short
+```
+
+Should return your DMARC policy string. If empty, record not added yet.
+
+## Step 6: Event Webhook Setup (If Sending Your Own Email)
+
+**Skip if using WorkOS or your domain.**
+
+WorkOS emits events when email should be sent. Your app listens to these events and triggers your email provider.
+
+**Event types to subscribe to:**
+
+- `magic_auth.created` → Send Magic Auth link
+- `password_reset.created` → Send password reset link
+- `invitation.created` → Send invitation email
+
+Check fetched docs for complete event list and payload schemas.
+
+**Webhook endpoint requirements:**
+
+1. Return `200 OK` within 5 seconds
+2. Verify signature before processing (prevents spoofing)
+3. Process event asynchronously (queue job, don't block response)
+
+**Signature verification pattern:**
+
+```
+# Pseudocode - use SDK method for webhook signature verification
+webhook_secret = env.WORKOS_WEBHOOK_SECRET
+signature = request.headers['WorkOS-Signature']
+payload = request.body
+
+if not workos.webhooks.verifySignature(payload, signature, webhook_secret):
+  return 401 Unauthorized
+
+# Queue email job, return immediately
+queue.enqueue(SendEmailJob, event.data)
+return 200 OK
+```
+
+**Trap warning:** Do NOT verify signature AFTER processing event. Verify first, process second.
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these checks to confirm email setup:
+Run these commands to confirm setup. **Do not mark complete until all pass:**
 
 ```bash
-# 1. Check DNS records are configured (if using your domain)
+# 1. Check DNS records (if using your domain)
 dig CNAME _domainkey.yourdomain.com +short
-# Should return SendGrid CNAME values from dashboard
-
-# 2. Check DMARC exists (if required)
 dig TXT _dmarc.yourdomain.com +short
-# Should return DMARC policy string
 
-# 3. Trigger test email via WorkOS feature (invitation, magic auth, etc.)
-# Then check email arrival in test inbox
+# 2. Test sender inbox (if using your domain)
+echo "Test" | mail -s "Inbox Test" welcome@yourdomain.com
 
-# 4. Check sender inbox exists
-# Manual: Try sending email TO welcome@yourdomain.com and access@yourdomain.com
-# Should not bounce
+# 3. Check webhook endpoint (if using events)
+curl -X POST https://yourapp.com/webhooks/workos \
+  -H "Content-Type: application/json" \
+  -d '{"test": true}'
+# Should return 200 OK
+
+# 4. Send test Magic Auth email via WorkOS API
+# Use SDK method for sending test Magic Auth email
+# Should receive email at test address
 ```
 
-**Do not mark complete until test email arrives in inbox (not spam folder).**
+**If using your domain:** Wait 5-60 minutes for DNS propagation before testing.
 
 ## Error Recovery
 
-### Email arrives in spam folder (subset of users)
+### Emails not reaching inbox (spam filtered)
 
-**Diagnosis:** Provider-specific filtering or organization IT policy, not domain reputation.
+**Diagnose scope first:**
 
-**Fixes:**
-1. Ask affected users to mark as "Not Spam" and add sender to contacts
-2. For corporate domains: Contact their IT to allowlist your domain
-3. Check Google Postmaster Tools for Gmail-specific issues
-4. Check Microsoft Sender Support for Outlook-specific issues
+- **All users affected?** → Domain reputation issue (see "Poor domain reputation" below)
+- **Only Gmail/Google Workspace?** → Google spam filter too aggressive
+- **Only Microsoft 365?** → Microsoft spam filter too aggressive
+- **Only one organization?** → That org's IT policies blocking
 
-**Tools:**
-- [Google Postmaster Tools](https://www.gmail.com/postmaster/) (Gmail/Workspace)
-- [Microsoft Sender Support](https://sendersupport.olc.protection.outlook.com/pm/)
+**For Gmail issues:**
 
-### Email arrives in spam folder (all users)
+1. Register domain at https://www.gmail.com/postmaster/
+2. Check domain reputation score (should be "High" or "Medium")
+3. Check spam rate (should be <0.1%)
 
-**Diagnosis:** Domain reputation issue.
+**For Microsoft issues:**
 
-**Fixes:**
-1. Check you are NOT sending unsolicited email (see Step 4)
-2. Verify DMARC record exists and is set to `p=reject` or `p=quarantine`
-3. Verify sender inboxes (`welcome@`, `access@`) exist and are not bouncing
-4. Run spam test: [Litmus](https://www.litmus.com/email-testing) or [Warmly](https://www.warmy.io/free-tools/email-deliverability-test/)
-5. Review organization/team names for spam trigger words
+1. Submit domain to https://sendersupport.olc.protection.outlook.com/pm/
+2. Check junk mail reporting status
 
-**If issue persists after fixes:** Contact WorkOS support with spam test results.
+### Poor domain reputation
 
-### Email delayed (arrives 10+ minutes late)
+**Root causes:**
 
-**Diagnosis:** Google Enhanced Pre-delivery Message Scanning or similar provider feature.
+1. **Unsolicited invitations** → Sending invites to users who didn't request them (bulk email lists)
+2. **Spam-trigger words in org names** → Org/team names contain "free", "winner", "click here", etc.
+3. **No DMARC policy** → Receiving servers don't trust your domain
 
-**Not fixable on your side** — this is a recipient email provider setting. Email will eventually arrive.
+**Fix priority order:**
 
-**User education:** Let users know email may take 10-15 minutes during first send. Subsequent emails are usually faster.
+1. Stop ALL unsolicited invitations immediately
+2. Audit organization names for spam words (check https://mailtrap.io/blog/email-spam-words/)
+3. Add DMARC policy (Step 5)
+4. Create sender inboxes (Step 4)
 
-### DNS records not verifying in dashboard
+**Recovery timeline:** Domain reputation takes 2-4 weeks to recover after fixing issues.
 
-**Check:**
-1. CNAME records entered exactly as shown in dashboard (no trailing dots unless specified)
-2. DNS propagation complete (can take 24-48 hours) — use `dig` to verify
-3. No conflicting TXT/CNAME records for same subdomain
+### DNS verification failing
 
-**Propagation check:**
+**Symptoms:** WorkOS Dashboard shows "Domain not verified" after adding CNAME records.
+
+**Common causes:**
+
+1. CNAME record name incorrect (missing subdomain prefix)
+2. DNS not propagated yet (wait 5-60 minutes)
+3. CNAME points to wrong target (typo in SendGrid subdomain)
+
+**Verification:**
+
 ```bash
-# Check if DNS sees your CNAME
-dig CNAME _domainkey.yourdomain.com @8.8.8.8 +short
+dig CNAME <record-name-from-dashboard> +short
 ```
 
-If empty after 48 hours, DNS records were not entered correctly.
+Should return exact target shown in WorkOS Dashboard. If different, update DNS record.
 
-### "Domain not verified" when sending email
+### Webhook signature verification fails
 
-**Fix:** Go back to Step 3 Dashboard Setup. Domain must show "Verified" status before WorkOS will send from it.
+**Symptoms:** Webhook returns 401, WorkOS retries event repeatedly.
 
-### Sender inbox bouncing email
+**Common causes:**
 
-**Fix:** Create real inboxes at your email provider (Google Workspace, Microsoft 365, etc.) — forwarding aliases are not sufficient. Email providers check for actual mailboxes.
+1. Using wrong webhook secret (copied from different environment)
+2. Verifying signature AFTER reading body (body consumed, can't re-read)
+3. Signature header name case-sensitive mismatch
+
+**Fix:**
+
+1. Get webhook secret from Dashboard → Webhooks → [your endpoint] → Secret
+2. Verify signature BEFORE processing body
+3. Use exact header name: `WorkOS-Signature` (capital W, capital S)
+
+### Emails delayed (Enhanced Pre-delivery Scanning)
+
+**Symptoms:** Emails arrive 5-15 minutes late, only for some users.
+
+**Root cause:** Google/Microsoft scanning links in email before delivery.
+
+**This is NORMAL behavior.** Email providers scan for malicious links. Cannot be disabled by sender.
+
+**Mitigation:** Set user expectations in UI ("Email may take up to 15 minutes").
+
+## Spam Prevention Rules (CRITICAL)
+
+**Never send invitations to:**
+
+- Scraped email lists
+- Purchased marketing lists
+- Users who haven't explicitly requested access
+
+**One violation = domain reputation permanently damaged.**
+
+**Safe invitation patterns:**
+
+- User types email address into "Invite teammate" form → SAFE
+- Admin imports CSV of employee emails (company they work for) → SAFE
+- Bulk invite 10,000 emails from trade show badge scan → UNSAFE
+
+**Test:** "Did this specific person ask to receive email from my app?" If no → don't send.
 
 ## Related Skills
 
-- workos-directory-sync (uses invitation email)
-- workos-magic-auth (uses magic link email)
+- workos-authkit-nextjs (uses email for Magic Auth)
+- workos-authkit-react (uses email for password reset)

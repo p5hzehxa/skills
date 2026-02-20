@@ -9,25 +9,13 @@ description: Implement audit logging for compliance and security.
 
 ## When to Use
 
-Use this skill when you need to emit compliance-grade audit events from your application, export user activity logs to external systems, or provide customers with self-service access to their organization's audit trail. Choose Audit Logs when you need structured, tamper-evident activity records — not generic application logging.
-
-## Documentation
-
-- https://workos.com/docs/audit-logs/metadata-schema
-- https://workos.com/docs/audit-logs/log-streams
-- https://workos.com/docs/audit-logs/index
-- https://workos.com/docs/audit-logs/exporting-events
-- https://workos.com/docs/audit-logs/editing-events
+Use this skill when you need to export structured compliance logs (actor, action, target, metadata) from your application to third-party SIEM tools. Audit Logs is a **data export product**, not an authentication or access control feature — it lets customers pull their organization's activity history via CSV exports or a streaming API.
 
 ## Key Vocabulary
 
-- **Event** — a single audit record with actor, action, target, and context metadata
-- **Log Stream** — export destination for audit events (e.g., S3, Datadog)
-- **Organization `org_`** — tenant context for multi-tenant audit trails
-- **Actor** — the entity performing the action (user, API key, system)
-- **Target** — the resource being acted upon (file, user, project)
-- **Action** — the verb describing what happened (e.g., `user.created`, `file.deleted`)
-- **Context** — additional metadata (IP address, user agent, location)
+- **Event** `event_` — a single audit log record (actor, action, target, occurred_at, metadata)
+- **Export** `audit_log_export_` — a CSV snapshot of events filtered by date range and actor
+- **Organization** `org_` — the tenant whose events are being logged/exported
 
 ## Implementation Guide
 

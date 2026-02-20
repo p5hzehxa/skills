@@ -9,20 +9,15 @@ description: Migrate to WorkOS from Auth0.
 
 ## When to Use
 
-Migrate existing user accounts and organization data from Auth0 to WorkOS AuthKit, preserving user credentials so they can continue signing in with their existing passwords. This skill covers both password hash import and passwordless migration strategies depending on Auth0 plan capabilities.
-
-## Documentation
-
-- https://workos.com/docs/migrate/auth0
+Migrate existing Auth0 users and organizations to WorkOS when consolidating auth providers or adopting WorkOS AuthKit. Handles password hash imports, organization structures, and SSO connection mappings.
 
 ## Key Vocabulary
 
-- **User `user_`** — WorkOS user entity created from Auth0 user records
-- **Organization `org_`** — WorkOS organization entity mapped from Auth0 organizations or tenant structures
-- **Password hash** — bcrypt hash exported from Auth0 (Enterprise plan only)
-- **Magic Auth** — passwordless authentication fallback when hash export unavailable
-- **Auth0 Management API** — source API for exporting user and organization data
-- **`email_verified`** — user verification status field to preserve during migration
+- **User `user_`** — imported Auth0 user with password hash
+- **Organization `org_`** — mapped Auth0 tenant or organization
+- **Connection `conn_`** — migrated SSO connection from Auth0 Enterprise
+- **Password Hash Algorithm** — Auth0-specific formats (bcrypt, PBKDF2)
+- **Migration `mig_`** — bulk import job tracking entity
 
 ## Implementation Guide
 
@@ -32,6 +27,6 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-authkit-base
-- workos-authkit-nextjs
-- workos-authkit-react
+- **workos-authkit-base** — post-migration authentication flows
+- **workos-directory-sync** — if migrating Auth0 SCIM directories
+- **workos-user-management** — managing imported users after migration

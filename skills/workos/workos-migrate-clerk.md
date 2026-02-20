@@ -9,30 +9,18 @@ description: Migrate to WorkOS from Clerk.
 
 ## When to Use
 
-Use this skill when migrating an existing authentication system from Clerk to WorkOS AuthKit. This guide covers exporting user data from Clerk, transforming it into WorkOS's format, and importing users while preserving their authentication state and organization memberships.
-
-## Documentation
-
-- https://workos.com/docs/migrate/clerk
+Use this skill when migrating an existing application from Clerk to WorkOS for authentication and user management. This migration preserves user identities, organization structures, and SSO connections without requiring users to re-authenticate or re-enroll.
 
 ## Key Vocabulary
 
-- **User ID** — Clerk's user identifier format (starts with `user_`)
-- **Organization ID** — Clerk's organization identifier format (starts with `org_`)
-- **Organization Membership** — Clerk's join table linking users to organizations with roles
-- **Email Address** — primary contact method, may be verified or unverified in Clerk
-- **Password Hash** — Clerk uses bcrypt; WorkOS requires bcrypt format during import
-- **User Metadata** — custom key-value data stored on Clerk user objects
-- **Organization Metadata** — custom key-value data stored on Clerk organization objects
-- **Multi-factor Authentication (MFA)** — TOTP or backup codes; requires re-enrollment in WorkOS
+- **User Migration** — bulk import of Clerk user records into WorkOS User Management
+- **Organization `org_`** — WorkOS entity representing a tenant or workspace
+- **Organization Membership `om_`** — links users to organizations with roles
+- **Connection `conn_`** — SSO or Directory Sync configuration attached to an organization
+- **Password Hash Import** — transferring bcrypt hashes from Clerk exports to preserve existing credentials
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-migrate-clerk.guide.md`
-
-## Related Skills
-
-- workos-authkit-base — for understanding WorkOS user and organization models post-migration
-- workos-user-management — for managing imported users after migration

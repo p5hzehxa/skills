@@ -17,42 +17,6 @@ When a user needs help with WorkOS, consult the tables below to route to the rig
 
 **All other skills** are bundled files. To load one, Read `skills/workos/{name}.md` from this plugin directory and follow its instructions.
 
-## Disambiguation Rules
-
-### Feature skill vs API reference
-- **Prefer feature skills** (e.g., `workos-sso.md`) for implementation questions: "How do I set up X?", "Help me configure Y"
-- **Route to API reference** only when user explicitly asks about:
-  - API endpoints, request/response formats
-  - SDK method signatures or parameters
-  - References "API docs", "API reference", or "endpoint documentation"
-- **If unclear**: Start with feature skill. It will reference the API skill if needed.
-
-### AuthKit vs specific feature
-- **Route to AuthKit** if user mentions:
-  - Authentication, login, sign-up, sign-in, logout
-  - Session management, user management
-  - "Auth setup", "authentication flow"
-- **Route to feature skill** if user explicitly names:
-  - SSO, MFA, Directory Sync, RBAC, Audit Logs, etc.
-  - Integration with a specific IdP
-- **If user mentions BOTH** (e.g., "AuthKit with SSO"):
-  1. Load AuthKit skill for framework
-  2. Then load SSO feature skill for configuration
-
-### Multiple features mentioned
-- Route to the **most specific** skill first
-- If user mentions 2+ features at equal specificity (e.g., "SSO and Directory Sync"), ask which to start with
-- User can load additional skills after completing first task
-
-### Migration vs fresh setup
-- **Route to migration skill** if user mentions:
-  - "Migrating from X", "switching from Y", "replacing Z"
-  - Existing provider names (Auth0, Cognito, Clerk, etc.)
-  - User data export, password migration, provider comparison
-- **Route to fresh setup** (AuthKit or feature skill) if:
-  - No existing provider mentioned
-  - User says "new project", "starting fresh", "greenfield"
-
 ## Topic → Skill Map
 
 ### AuthKit (load via Skill tool)
@@ -113,89 +77,106 @@ When a user needs help with WorkOS, consult the tables below to route to the rig
 | Migrate from AWS Cognito                     | `skills/workos/workos-migrate-aws-cognito.md` |
 | Migrate from Auth0                           | `skills/workos/workos-migrate-auth0.md` |
 
+## Disambiguation Rules
+
+### Priority Order (Check Top to Bottom)
+
+1. **Migration context wins** — If the user mentions "migrate from [provider]" or "switching from [provider]", route to the migration skill FIRST, even if they also mention features. Migration skills contain provider-specific guidance that feature skills don't.
+
+2. **Explicit API reference requests** — If the user says "API docs", "API reference", "endpoint", "request format", "response schema", or asks about HTTP methods, route to the API reference skill.
+
+3. **Feature-specific keywords** — If the user mentions a feature by name (SSO, MFA, Directory Sync, Audit Logs, etc.), route to the feature skill. Feature skills contain setup and integration patterns; API skills contain request/response details.
+
+4. **AuthKit as fallback for auth terms** — If the user says "authentication", "login", "sign-up", "sign-in", or "auth" WITHOUT mentioning a specific feature, route to AuthKit. If they say "SSO" or "MFA" explicitly, route to those feature skills instead (SSO and MFA have their own setup flows beyond AuthKit).
+
+### Overlapping Intent Resolution
+
+- **"Set up SSO" vs "SSO API"** → Feature skill (`workos-sso.md`) wins unless user says "API" explicitly.
+- **"AuthKit + SSO"** → Route to AuthKit first (SSO is integrated into AuthKit's flow). User can load SSO skill later if they need advanced configuration.
+- **"Events + webhooks"** → Same skill (`workos-events.md`) — these terms are synonymous in WorkOS.
+- **"Admin Portal + Directory Sync"** → Route to Directory Sync first (Admin Portal is the UI layer; Directory Sync is the integration). User can load Admin Portal skill later for UI customization.
+- **"Roles + RBAC"** → Same skill (`workos-rbac.md`) — roles are the WorkOS implementation of RBAC.
+
+### Multiple Features in One Request
+
+If the user mentions multiple features ("I want SSO and MFA"):
+1. Route to the FIRST feature mentioned.
+2. After loading that skill, inform the user: "Loaded [Feature 1]. To add [Feature 2], say 'load [Feature 2 skill name].'"
+
+Do NOT attempt to load multiple skills simultaneously — each skill may have conflicting setup steps or assumptions.
+
+### Vague or Underspecified Requests
+
+- **"I need authentication"** → Detect framework → Load AuthKit skill.
+- **"I need WorkOS"** → Ask: "What WorkOS feature? (e.g., SSO, MFA, Directory Sync, Audit Logs)" OR load AuthKit if the project has no WorkOS code yet.
+- **"How do I integrate WorkOS?"** → Check if project has existing WorkOS code (search for `WORKOS_` env vars or `@workos-inc/` imports). If yes, ask what they want to add. If no, route to AuthKit.
+- **"WorkOS setup"** → Same as "I need WorkOS" above.
+
 ## AuthKit Installation Detection
 
-If the user wants to install AuthKit, detect their framework. Check in this order (first match wins):
+If the user wants to install AuthKit (or you routed to AuthKit via disambiguation), detect their framework. Check in this order (first match wins):
 
 ```
-1. @tanstack/start in deps     → Skill tool: workos-authkit-tanstack-start
-2. react-router in deps         → Skill tool: workos-authkit-react-router
-3. next.config.*                → Skill tool: workos-authkit-nextjs
-4. vite.config.* + react in deps → Skill tool: workos-authkit-react
-5. No framework detected         → Skill tool: workos-authkit-vanilla-js
+1. @tanstack/start in package.json dependencies      → workos-authkit-tanstack-start
+2. react-router OR react-router-dom in dependencies  → workos-authkit-react-router
+3. next.config.js OR next.config.mjs in root         → workos-authkit-nextjs
+4. vite.config.* in root AND react in dependencies   → workos-authkit-react
+5. None of the above detected                        → workos-authkit-vanilla-js
 ```
 
-**Priority rationale**: TanStack Start and React Router projects often use Vite, so check their specific packages BEFORE checking for Next.js or generic Vite+React setup. This prevents misrouting a React Router app as a generic React SPA.
+**Framework Detection Edge Cases:**
 
-**Ambiguous cases**:
-- **User mentions framework name but no config files found**: Ask user to confirm framework, then route accordingly. Do NOT guess.
-- **Multiple frameworks detected** (e.g., Next.js config + React Router deps): Ask user which framework they're using for this project.
-- **User says "React" without more context**: Check for framework-specific files first. If none found, route to `workos-authkit-react` (generic React SPA).
+- **Project has BOTH Next.js and React Router** → Next.js wins (step 3 before step 2). Next.js projects sometimes install react-router as a transitive dep.
+- **Project has BOTH TanStack Start and React Router** → TanStack Start wins (step 1 before step 2). TanStack Start projects always have react-router as a dep.
+- **Project has Vite but no React** → Vanilla JS (step 5). Vite can be used with vanilla JS or other frameworks.
+- **Cannot determine framework** → Ask: "What framework are you using? (Next.js, React, React Router, TanStack Start, or none)" then route accordingly.
+
+Do NOT guess if framework detection fails. Ask the user explicitly.
 
 ## General Decision Flow
 
 ```
-User request about WorkOS?
+User request about WorkOS
   |
-  +-- Is this a migration? (mentions existing provider, "migrating from", "switching from")
-  |   → Read skills/workos/workos-migrate-[provider].md
-  |   → If provider not in table, use workos-migrate-other-services.md
+  ├─ Mentions "migrate from [provider]"?
+  │    YES → Read skills/workos/workos-migrate-[provider].md
+  │    NO  → Continue
   |
-  +-- Does user mention specific feature by name? (SSO, MFA, RBAC, Directory Sync, etc.)
-  |   → Read skills/workos/workos-[feature].md
+  ├─ Says "API docs", "endpoint", "API reference", or "request/response"?
+  │    YES → Read skills/workos/workos-api-[feature].md
+  │    NO  → Continue
   |
-  +-- Does user explicitly ask for API reference? (endpoints, request/response, SDK methods)
-  |   → Read skills/workos/workos-api-[feature].md
+  ├─ Mentions specific feature (SSO, MFA, Directory Sync, etc.)?
+  │    YES → Read skills/workos/workos-[feature].md
+  │    NO  → Continue
   |
-  +-- Is this about authentication/login/sessions? (AuthKit territory)
-  |   → Detect framework (see section above)
-  |   → Skill tool: workos-authkit-[framework]
+  ├─ Mentions "authentication", "login", "sign-up", or "AuthKit"?
+  │    YES → Detect framework → Skill tool: workos-authkit-[framework]
+  │    NO  → Continue
   |
-  +-- Is this about IdP integration setup? (Okta, Azure AD, Google Workspace)
-  |   → Read skills/workos/workos-integrations.md
+  ├─ Mentions "integration" or "IdP connection"?
+  │    YES → Read skills/workos/workos-integrations.md
+  │    NO  → Continue
   |
-  +-- Is this about webhooks or event handling?
-  |   → Read skills/workos/workos-events.md
+  ├─ Request is vague ("I need WorkOS", "WorkOS setup")?
+  │    YES → Check if project has WORKOS_ env vars or @workos-inc/ imports
+  │           - If YES: Ask "What WorkOS feature do you want to add?"
+  │           - If NO:  Detect framework → Skill tool: workos-authkit-[framework]
+  │    NO  → Continue
   |
-  +-- Request is vague or ambiguous?
-  |   → Ask clarifying question: "Are you setting up [feature], migrating from another service, or looking for API reference?"
-  |   → If still unclear: WebFetch https://workos.com/docs/llms.txt → Find matching section
+  └─ No match found
+       → WebFetch https://workos.com/docs/llms.txt
+       → Search index for user's topic
+       → WebFetch the section URL
+       → Summarize findings and suggest relevant skill if applicable
 ```
-
-## Edge Cases
-
-### User mentions multiple features
-Example: "I need SSO and Directory Sync"
-1. Ask: "Let's start with one. Which would you like to configure first: SSO or Directory Sync?"
-2. Load that skill
-3. After completion, load second skill
-
-### User's framework cannot be detected
-1. Run detection flow (see AuthKit Installation Detection section)
-2. If no framework files found, ask: "Which framework are you using? (Next.js, React, React Router, TanStack Start, or vanilla JS)"
-3. Route based on user's answer
-
-### User asks "How do I use WorkOS?" (extremely vague)
-1. Ask: "What are you trying to accomplish? For example:
-   - Set up authentication (login/signup)
-   - Configure enterprise SSO
-   - Migrate from another auth provider
-   - Something else?"
-2. Route based on clarified intent
-
-### User mentions AuthKit AND a specific feature
-Example: "Set up AuthKit with Google SSO"
-1. Load AuthKit skill for user's framework (to set up base auth)
-2. Then load `workos-sso.md` (to configure SSO)
-3. SSO skill will reference how to integrate with AuthKit
-
-### User asks about WorkOS but no table match
-1. WebFetch https://workos.com/docs/llms.txt
-2. Search for relevant section
-3. If section found: WebFetch that specific URL
-4. If no section found: Ask user for more details about their use case
 
 ## If No Skill Matches
 
-WebFetch the full docs index: https://workos.com/docs/llms.txt
-Then WebFetch the specific section URL for the user's topic.
+1. WebFetch the full docs index: `https://workos.com/docs/llms.txt`
+2. Search the index for keywords from the user's request.
+3. WebFetch the most relevant section URL.
+4. Summarize the documentation and determine if a skill should be loaded.
+5. If a skill applies, route to it. Otherwise, answer from fetched docs.
+
+Do NOT fabricate answers if no skill matches and docs cannot be fetched.

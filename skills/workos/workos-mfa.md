@@ -9,21 +9,13 @@ description: Add multi-factor authentication to your application.
 
 ## When to Use
 
-Use this skill when you need to add a second authentication factor (TOTP, SMS) to your application's login flow, either as a standalone security layer or alongside SSO. MFA provides challenge-based verification after initial authentication, reducing account takeover risk.
-
-## Documentation
-
-- https://workos.com/docs/mfa/index
-- https://workos.com/docs/mfa/example-apps
-- https://workos.com/docs/mfa/ux/sign-in
-- https://workos.com/docs/mfa/ux/enrollment
+Use this skill when you need to add a second authentication factor to your application after a user's primary authentication. MFA protects user accounts by requiring both something the user knows (password) and something they have (device) before granting access.
 
 ## Key Vocabulary
 
-- **Authentication Factor** `auth_factor_` — an enrolled TOTP or SMS device
-- **Authentication Challenge** `auth_challenge_` — a time-limited verification request
-- **Factor Types** — `totp` (authenticator app) or `sms` (phone number)
-- **Challenge Event** `mfa_challenge_created` — webhook for new challenges
+- **Authentication Factor** `auth_factor_` — a registered MFA method (SMS or TOTP)
+- **Challenge** `auth_challenge_` — a verification request sent to the user's factor
+- **Factor Types**: `sms` (phone-based codes) and `totp` (authenticator app codes)
 
 ## Implementation Guide
 

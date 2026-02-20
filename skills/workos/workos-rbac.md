@@ -9,23 +9,14 @@ description: Set up role-based access control for your application.
 
 ## When to Use
 
-Use this skill when you need to assign users to predefined roles (admin, member, viewer) within an organization and enforce permissions based on those roles. RBAC is the right choice when your authorization model maps to job functions or organizational hierarchy, not when you need resource-level permissions (use FGA instead).
-
-## Documentation
-
-- https://workos.com/docs/rbac/quick-start
-- https://workos.com/docs/rbac/organization-roles
-- https://workos.com/docs/rbac/integration
-- https://workos.com/docs/rbac/index
-- https://workos.com/docs/rbac/idp-role-assignment
+Use this skill when you need to assign users to predefined roles (Admin, Member, Viewer) and enforce permission checks based on those roles. This is simpler than Fine-Grained Authorization (FGA) but less flexible — choose RBAC when your authorization model fits a small set of stable roles rather than complex resource-specific permissions.
 
 ## Key Vocabulary
 
-- **Organization** `org_` — the tenant container for roles and memberships
-- **OrganizationMembership** `om_` — links a user to an organization with an assigned role
-- **Role** `role_` — a named set of permissions (e.g., "admin", "member")
-- **User** `user_` — the authenticated identity receiving role assignments
-- **IdP role mapping** — automatic role assignment based on SAML/OIDC claims
+- **Role** `role_` — A named set of permissions (e.g., "Admin", "Member")
+- **Resource** `resource_` — An entity users can access (e.g., Project, Repository)
+- **Authorization** `authz_` — A user-role-resource binding
+- **Permission** — A capability granted by a role (e.g., `repo:delete`)
 
 ## Implementation Guide
 

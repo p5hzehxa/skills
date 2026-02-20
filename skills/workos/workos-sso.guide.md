@@ -1,12 +1,12 @@
 <!-- refined:sha256:1ef5b36e75cb -->
 
-# WorkOS Single Sign-On
+# WorkOS Single Sign-On — Implementation Guide
 
 ## Step 1: Fetch Documentation (BLOCKING)
 
 **STOP. Do not proceed until complete.**
 
-WebFetch these docs — they are the source of truth for SSO implementation:
+WebFetch these docs — they are the source of truth:
 
 - https://workos.com/docs/sso/test-sso
 - https://workos.com/docs/sso/single-logout
@@ -23,355 +23,345 @@ If this skill conflicts with fetched docs, follow the docs.
 
 ### Environment Variables
 
-Check `.env` or `.env.local` for:
+Check for these variables:
 
 - `WORKOS_API_KEY` — starts with `sk_`
 - `WORKOS_CLIENT_ID` — starts with `client_`
+- Redirect URI configured (callback URL where users return after SSO)
 
-**Verify:** Both exist before proceeding. Missing keys will cause cryptic OAuth errors.
+### WorkOS Dashboard Access
 
-### SDK Installation
+Confirm you can access:
 
-Confirm SDK package exists in project dependencies. Language-specific package name in fetched docs.
+- Organizations page (for creating test orgs)
+- SSO Connections page (for viewing connections)
+- API Keys page (for verifying credentials)
 
-**Verify:** SDK package directory exists in node_modules/site-packages/vendor before importing.
+## Step 3: Choose Login Flow (Decision Tree)
 
-## Step 3: Login Flow Decision Tree
-
-SSO supports two initiation patterns. Choose based on UX requirements:
+SSO supports two distinct flows. Choose based on where users START authentication:
 
 ```
-Who initiates auth?
+Where does the user click "Sign In"?
   |
-  +-- User starts from YOUR login page (enters email)
+  +-- Your app's login page
   |     --> Service Provider-Initiated (SP-initiated)
-  |     --> Common pattern, implement this first
+  |     --> User enters email → app redirects to IdP
+  |     --> Most common for new integrations
   |
-  +-- User starts from THEIR IdP portal (clicks app icon)
+  +-- Identity Provider dashboard
         --> Identity Provider-Initiated (IdP-initiated)
-        --> Often forgotten, causes support tickets if missing
+        --> User selects your app from IdP app list
+        --> MUST handle unsolicited assertions
+        --> Often forgotten — test this explicitly
 ```
 
-**Critical:** Both flows must work for production SSO. Test IdP-initiated even if SP-initiated is primary UX.
+**Both flows must work.** Test IdP-initiated flow even if you think users won't use it — IT admins enable it by default.
 
-### SP-Initiated Flow (User Enters Email)
+## Step 4: Test with Test Identity Provider
 
-1. User submits email on your login page
-2. Your app determines organization from email domain or user input
-3. Generate authorization URL with organization ID
-4. Redirect user to authorization URL
-5. IdP authenticates user
-6. IdP redirects to your callback URL with `code`
-7. Exchange `code` for user profile
+### Access Test SSO Page
 
-**Trap:** Do NOT hardcode organization ID — use domain lookup or org selection UI.
+Dashboard → _Test SSO_ page provides:
 
-### IdP-Initiated Flow (User Clicks App in IdP)
+- Pre-configured test organization (domain: `example.com`)
+- Active SSO connection using Test IdP
+- Test scenarios with exact parameters
 
-1. User logs into IdP directly
-2. User selects your app from IdP app list
-3. IdP redirects to your callback URL with `code` (no state parameter)
-4. Exchange `code` for user profile
-5. Create session and redirect to app
+### Test Scenarios (ALL MUST PASS)
 
-**Critical difference:** IdP-initiated flow skips authorization URL generation. Your callback MUST handle requests with no `state` parameter.
+**Scenario 1: SP-Initiated Flow**
 
-Check fetched docs for SDK methods to:
-- Generate authorization URL (SP-initiated)
-- Exchange code for profile (both flows)
-- Handle missing state parameter (IdP-initiated)
+- User enters email in your app
+- App calls SDK authorization URL method with `email` parameter
+- User redirects to Test IdP → authenticates → returns to callback
 
-## Step 4: Redirect URI Configuration
+**Scenario 2: IdP-Initiated Flow**
 
-Your callback URL must be registered in WorkOS Dashboard before testing.
+- Start from Test IdP page in dashboard (NOT your app)
+- Click "Initiate SSO"
+- User lands directly at your callback with `code` parameter
+- **Critical:** Verify your callback handles requests WITHOUT `state` parameter
 
-### Dashboard Setup
+**Scenario 3: Guest Email Domain**
 
-1. Navigate to Dashboard > Redirects
-2. Add your callback URL exactly as deployed
-3. URL must use HTTPS in production (localhost HTTP allowed for dev)
+- Use email with domain OTHER than `example.com`
+- Test org must have guest domain support enabled
+- Confirms handling of freelancers/contractors with external emails
 
-**Common trap:** Mismatched URLs (trailing slash, http vs https, subdomain) cause `redirect_uri_mismatch` errors.
+**Scenario 4: Error Response**
 
-### Callback Route Implementation
+- Trigger error scenario from Test SSO page
+- Callback receives `error` and `error_description` parameters instead of `code`
+- Verify your app displays error to user (don't crash)
 
-Create route at path matching registered redirect URI:
+## Step 5: Implementation Pattern
 
-```
-Registered URI           --> Route location
-/auth/sso/callback       --> app/auth/sso/callback/route.ts (Next.js)
-/sso/callback            --> routes/sso/callback.py (Django)
-/callback                --> callback.php (Laravel)
-```
+### Authorization URL Generation
 
-Route must:
-1. Extract `code` parameter from query string
-2. Extract `error` and `error_description` if present (error case)
-3. Exchange `code` for user profile using SDK
-4. Create authenticated session
-5. Redirect to authenticated landing page
-
-**Critical:** Never log or expose `code` parameter — it's single-use and sensitive.
-
-## Step 5: Organization Setup
-
-SSO connections belong to organizations. Users authenticate via their organization's configured IdP.
-
-### Organization-Connection Relationship
+When user enters email or selects SSO:
 
 ```
-Organization (your customer company)
-  └── SSO Connection (their IdP config)
-      ├── Verified domain: example.com
-      ├── IdP type: Okta, Azure AD, Google, etc.
-      └── IdP metadata: entity ID, SSO URL, cert
+// Generate authorization URL for user
+authorizationUrl = workos.sso.getAuthorizationUrl({
+  clientId: WORKOS_CLIENT_ID,
+  redirectUri: YOUR_CALLBACK_URL,
+  state: GENERATE_RANDOM_STATE,  // CSRF protection
+
+  // ONE of these (decision tree):
+  organization: org_id,     // If you know which org
+  organizationId: org_id,   // Alternative parameter name
+  provider: 'GoogleOAuth',  // If using OAuth provider directly
+  connection: conn_id,      // If targeting specific connection
+  domainHint: 'example.com' // If identifying by email domain
+})
+
+// Store state in session for verification
+// Redirect user to authorizationUrl
 ```
 
-**Critical:** One organization can have multiple domains, but each domain can only belong to one organization.
-
-### Determine Organization (Decision Tree)
+**Choosing the identifier (decision tree):**
 
 ```
-How to identify org from login email?
+How do you identify which SSO connection?
   |
-  +-- Email domain is verified for an org (user@example.com, example.com is verified)
-  |     --> Use domain-to-org lookup
-  |     --> SDK method for domain lookup in fetched docs
+  +-- Multi-tenant app with org selection
+  |     --> Use organization parameter
   |
-  +-- Email domain is NOT verified (freelancer, consultant, guest user)
-  |     --> User must select organization from list
-  |     --> OR: Reject with "contact your admin" message
+  +-- Email domain matching (user enters email)
+  |     --> Use domainHint parameter
+  |     --> WorkOS matches domain to organization
   |
-  +-- User's org allows multiple domains
-        --> Email domain lookup works for any verified domain
-        --> Guest domain testing scenario (see Step 6)
+  +-- Direct OAuth provider (Google, Microsoft)
+  |     --> Use provider parameter
+  |
+  +-- Specific connection known
+        --> Use connection parameter
 ```
 
-Check fetched docs for SDK method to look up organization by domain.
+Check fetched docs for exact parameter names and supported providers.
 
-## Step 6: Testing Strategy
+### Callback Handler
 
-### Test Identity Provider (Built-in, Use This First)
-
-WorkOS provides a staging Test IdP that simulates real SSO without external IdP setup.
-
-**Advantage:** No Azure AD / Okta / Google Workspace account required for initial testing.
-
-To use:
-1. Login to Dashboard
-2. Navigate to Test SSO page
-3. Use provided test organization ID and test user credentials
-4. Test both SP-initiated and IdP-initiated flows
-
-**Test scenarios to verify:**
-
-1. **SP-initiated with valid email** — user enters test email, redirects to Test IdP, authenticates, returns to app
-2. **IdP-initiated** — start from Test IdP portal, select your app, redirects to callback without state
-3. **Guest email domain** — email domain differs from organization's verified domain (tests guest user handling)
-4. **Error response** — Test IdP simulates IdP error, callback receives `error=access_denied`
-
-**Verification command:**
-
-```bash
-# After callback processes code, user session should exist
-# Replace with your session check command
-curl -b cookies.txt https://localhost:3000/api/user | grep authenticated
-```
-
-### Real Identity Provider Testing (Optional, for IdP-specific behavior)
-
-If Test IdP passes but you need to verify specific IdP behavior:
-
-1. Create organization in Dashboard
-2. Invite admin to organization with "Single Sign-On" feature
-3. Copy setup link from invitation
-4. Follow Admin Portal instructions for target IdP (Okta, Azure AD, etc.)
-5. Complete IdP configuration using Admin Portal's step-by-step guide
-6. Test both login flows with real IdP credentials
-
-**When to use real IdP testing:**
-- Customer reports IdP-specific issue
-- Testing attribute mapping for specific IdP
-- Verifying SAML signing certificate handling
-
-Check fetched docs for complete Admin Portal integration guide.
-
-## Step 7: Error Handling (CRITICAL)
-
-Callback route MUST handle error responses from IdP. User is redirected to callback with `error` and `error_description` query parameters.
-
-### Error Parameter Pattern
+Handle redirect at your callback URL:
 
 ```
-https://your-app.com/callback?error=access_denied&error_description=User%20cancelled&state=xyz
+// Extract parameters from callback URL
+code = request.query.code
+state = request.query.state
+error = request.query.error
+
+// CRITICAL: Verify state matches session
+if state != stored_state:
+  return error("Invalid state - possible CSRF")
+
+// Error handling (user or IdP error)
+if error:
+  if error == "signin_consent_denied":
+    return "You declined sign-in. Contact your admin if this was unexpected."
+  else:
+    return "Authentication failed: " + error_description
+
+// Exchange code for profile
+profile = workos.sso.getProfileAndToken({
+  code: code,
+  clientId: WORKOS_CLIENT_ID
+})
+
+// Create session with profile data
+session.user = {
+  id: profile.id,
+  email: profile.email,
+  firstName: profile.firstName,
+  lastName: profile.lastName,
+  organizationId: profile.organizationId,
+  connectionId: profile.connectionId
+}
 ```
 
-### Error Code Decision Tree
+**Critical checks:**
+
+- Always verify `state` parameter (CSRF protection)
+- Handle `error` parameter before attempting code exchange
+- IdP-initiated flow may not include `state` — check if it's optional in your session validation
+- Never expose raw error messages to users (log them server-side)
+
+## Step 6: Testing with Real Identity Providers (Optional)
+
+If you need to test with a real IdP (Okta, Azure AD, Google, etc.):
+
+### Create Test Organization
+
+Dashboard → Organizations → Create organization → enter customer company name
+
+### Send Setup Link
+
+Organization page → _Invite admin_ → Select _Single Sign-On_ → enter email or copy link
+
+**Two integration paths:**
 
 ```
-error parameter?
+How will customers set up SSO?
   |
-  +-- "access_denied" --> User cancelled at IdP, show "Sign-in cancelled" message
+  +-- Self-serve
+  |     --> Integrate Admin Portal into your app
+  |     --> Customers follow guided setup
   |
-  +-- "signin_consent_denied" --> User rejected sign-in consent prompt
-  |                               (IdP asked "Allow YourApp to access profile?", user said no)
-  |                               --> Show: "Contact your admin if this was unexpected"
-  |                               --> Possible phishing attempt - user didn't recognize your app
-  |
-  +-- Other error codes --> Check fetched docs for complete error code table
+  +-- Support-assisted
+        --> Send setup link via email
+        --> Walk customer through Admin Portal steps
 ```
 
-**Critical for consent denial:** User explicitly rejected your app at IdP. This may indicate:
-- User doesn't recognize your app name (branding mismatch)
-- Possible phishing attempt
-- Admin needs to pre-approve app in IdP
+### Complete IdP Configuration
 
-Display actionable message with support contact, not generic "authentication failed".
+Follow Admin Portal instructions for chosen IdP. You'll need:
 
-Check fetched docs for complete error code reference.
+- IdP account (Okta, Azure AD, etc.)
+- Admin access to create applications
+- Ability to configure SAML/OIDC settings
 
-## Step 8: Single Logout (Optional)
+Check fetched docs for provider-specific setup guides.
 
-Standard logout clears session in YOUR app only. Single Logout (SLO) clears session in YOUR app AND the IdP.
+## Step 7: Single Logout (Optional)
 
-**Important limitations (as of latest docs):**
-- Only supported for OpenID Connect (OIDC) connections
-- NOT supported for SAML connections yet
-- Limited IdP support even for OIDC
+**Supported for OpenID Connect connections only.** SAML support is limited — contact WorkOS support if needed.
 
-**Decision:** Implement SLO or not?
+### RP-Initiated Logout
+
+Logs user out of your app AND all other apps via the IdP:
 
 ```
-Do you need SLO?
-  |
-  +-- Users share devices (kiosks, public terminals)
-  |     --> YES, implement SLO to prevent session hijacking
-  |
-  +-- Users only access via personal devices
-  |     --> MAYBE, consider UX trade-off (logs user out of all SSO apps)
-  |
-  +-- Connections are SAML-based
-        --> NO, SLO not supported for SAML (as of current docs)
+// Redirect user to logout endpoint
+logoutUrl = workos.sso.getLogoutUrl({
+  sessionId: session.id  // From profile after authentication
+})
+
+// Clear local session
+session.destroy()
+
+// Redirect to logoutUrl
 ```
 
-If implementing SLO, redirect user to Logout Redirect endpoint after clearing local session. Check fetched docs for:
-- OIDC connection requirements
-- Logout Redirect endpoint URL
-- Post-logout redirect URI configuration
-
-**Note:** If SLO is critical and connections are SAML, contact WorkOS support for roadmap.
+User will be logged out globally across all SSO-enabled apps.
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these checks before marking integration complete:
+Run these checks to confirm integration:
 
 ```bash
-# 1. Environment variables exist
-grep -q "WORKOS_API_KEY=sk_" .env && echo "PASS: API key" || echo "FAIL: API key missing or wrong prefix"
-grep -q "WORKOS_CLIENT_ID=client_" .env && echo "PASS: Client ID" || echo "FAIL: Client ID missing or wrong prefix"
+# 1. Environment variables are set
+echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ API key valid"
+echo $WORKOS_CLIENT_ID | grep '^client_' && echo "✓ Client ID valid"
 
-# 2. Callback route exists (adjust path to your framework)
-test -f app/auth/callback/route.ts && echo "PASS: Callback route" || echo "FAIL: Callback route missing"
+# 2. Dashboard has test organization
+# Manual: Go to dashboard.workos.com/organizations
+# Confirm "Test Organization" exists with domain example.com
 
-# 3. Test organization exists in Dashboard
-# Manual check: Dashboard > Organizations > count > 0
+# 3. Test scenarios pass (run from your app)
+# - SP-initiated: Enter email → redirects to IdP → returns with code
+# - IdP-initiated: Start from Test IdP page → lands at callback with code
+# - Guest domain: Use non-example.com email → succeeds
+# - Error handling: Trigger error → displays user-friendly message
 
-# 4. Redirect URI registered in Dashboard
-# Manual check: Dashboard > Redirects > contains your callback URL
+# 4. Callback handles both flows
+curl "http://localhost:3000/callback?code=test&state=123"  # SP-initiated
+curl "http://localhost:3000/callback?code=test"           # IdP-initiated (no state)
 
-# 5. SP-initiated flow works (replace with your test URL)
-curl -I "http://localhost:3000/login" | grep -q "302\|301" && echo "PASS: Login redirects" || echo "FAIL: Login broken"
-
-# 6. Error handling exists in callback
-grep -q "error.*error_description" app/auth/callback/route.ts && echo "PASS: Error handling" || echo "FAIL: No error handling"
+# 5. State validation works
+# Try callback with mismatched state → should reject
 ```
 
-**Manual test checklist:**
+**Manual verification:**
 
-- [ ] Test IdP SP-initiated flow completes successfully
-- [ ] Test IdP IdP-initiated flow completes successfully (start from Test IdP portal)
-- [ ] Guest email domain test works (email domain ≠ verified domain)
-- [ ] Error response shows user-friendly message (not stack trace)
-- [ ] `signin_consent_denied` error shows specific guidance (not generic error)
+- Test SSO page in dashboard shows all scenarios green
+- Error responses show user-friendly messages (not stack traces)
+- IdP-initiated flow works WITHOUT user starting from your app
 
 ## Error Recovery
 
-### "redirect_uri_mismatch"
+### "Invalid state" or "State mismatch"
 
-**Cause:** Callback URL in code doesn't match registered redirect URI in Dashboard.
+**Root cause:** CSRF protection detecting mismatched state parameter.
 
-**Fix:**
-1. Check registered URIs: Dashboard > Redirects
-2. Compare with callback URL used in authorization URL generation
-3. Look for: trailing slash, http vs https, subdomain differences
-4. Update Dashboard to match code OR update code to match Dashboard
-5. Redeploy if production URL changed
+**Fixes:**
 
-### "invalid_grant" or "code already used"
+- Verify state is stored in session BEFORE redirect
+- Check session persists across redirect (cookie settings)
+- Confirm state comparison is string equality (not object comparison)
+- For IdP-initiated flow: state may be absent — make validation conditional
 
-**Cause:** Authorization code expired or reused (codes are single-use, 10-minute expiration).
+### "Invalid authorization code" or "Code expired"
 
-**Common scenarios:**
-- User clicked back button after callback
-- Callback route ran twice (duplicate request)
-- Code exchange took > 10 minutes (network issue)
+**Root cause:** Code already used or took too long to exchange.
 
-**Fix:**
-1. Redirect user back to login page to generate fresh authorization URL
-2. Add idempotency check in callback (track processed codes)
-3. Ensure callback route doesn't execute twice on same request
+**Fixes:**
 
-### "Organization not found" or "Domain not found"
+- Exchange code IMMEDIATELY in callback (codes expire in 10 minutes)
+- Never retry code exchange — code is single-use
+- Check system clock is synchronized (time drift causes expiration)
+- Verify callback URL in dashboard matches actual redirect
 
-**Cause:** Email domain not associated with any organization, or organization lookup failed.
+### "signin_consent_denied" error
 
-**Fix:**
-1. Check Dashboard: Organizations > domain is listed under verified domains
-2. If user is guest (email domain ≠ company domain): Implement org selection UI instead of domain lookup
-3. If domain should work: Verify API key environment matches Dashboard environment (staging vs prod)
+**Root cause:** User clicked "Cancel" or "Deny" on consent screen.
 
-### IdP-initiated flow fails with "state parameter missing"
+**Fix:** Display helpful message:
 
-**Cause:** Callback expects `state` parameter for CSRF validation, but IdP-initiated flow doesn't include it.
+```
+"You declined to sign in. If this was unexpected, contact your IT admin —
+they may need to review your access settings or investigate potential phishing."
+```
 
-**Fix:**
-1. Make `state` validation conditional: if `state` is present, validate it; if absent, allow (IdP-initiated)
-2. Check SDK documentation for IdP-initiated flag or alternative validation method
-3. Never skip validation entirely — use alternative CSRF protection for IdP-initiated requests
+Do NOT treat as system error. This is a user action.
 
-### "signin_consent_denied" — User rejects app at IdP
+### "Organization not found" or "Domain not recognized"
 
-**Cause:** IdP prompted "Allow [YourApp] to access your profile?" and user clicked "Deny".
+**Root cause:** Email domain doesn't match any organization's verified domains.
 
-**Why this happens:**
-- User doesn't recognize your app name at IdP (branding mismatch)
-- Possible phishing attempt (user got suspicious)
-- Admin needs to pre-consent app for all users in IdP
+**Fixes:**
 
-**Fix:**
-1. Display specific message: "You rejected sign-in consent. If this was unexpected, contact your admin or [support email]."
-2. Check IdP configuration: Does app name match your brand?
-3. For enterprise customers: Ask admin to enable admin consent (pre-approve app) in IdP settings
+- Verify organization has domain added in dashboard
+- Check domain verification status (must be verified)
+- For guest domains: confirm organization has guest access enabled
+- Try connection/organization ID instead of domainHint
 
-### Connection test fails but Test IdP works
+### Callback receives error page instead of code
 
-**Cause:** Real IdP configuration issue (metadata incorrect, cert expired, URL mismatch).
+**Root cause:** Redirect URI mismatch or IdP misconfiguration.
 
-**Fix:**
-1. Check Dashboard > Organizations > [org] > Connections > [connection] for warning icons
-2. Verify IdP metadata matches connection settings: Entity ID, SSO URL, signing certificate
-3. Use Admin Portal to re-verify connection setup steps
-4. Check IdP's audit logs for failed authentication attempts (may show root cause)
-5. Contact WorkOS support with connection ID if issue persists
+**Fixes:**
 
-**Common real IdP issues:**
-- SAML signing certificate expired (IdP rotated cert, WorkOS has old one)
-- ACS URL in IdP doesn't match WorkOS's expected URL
-- IdP requires specific NameID format not configured in connection
+- Dashboard → Redirect URIs → verify exact match (including protocol, port, path)
+- Check for trailing slashes (http://app.com/callback ≠ http://app.com/callback/)
+- If using ngrok: update redirect URI to current ngrok URL
+- For IdP issues: regenerate connection in dashboard (some IdPs cache old config)
 
-## Related Skills
+### IdP-initiated flow fails but SP-initiated works
 
-For complete authentication systems with SSO:
-- workos-authkit-nextjs
-- workos-authkit-react
-- workos-authkit-vanilla-js
+**Root cause:** Callback assumes state parameter exists.
+
+**Fix:** Make state validation conditional:
+
+```
+if request.query.state:  // SP-initiated includes state
+  verify_state_matches_session()
+else:  // IdP-initiated may omit state
+  log_idp_initiated_attempt()
+```
+
+Check fetched docs for state handling recommendations.
+
+## Launch Checklist
+
+Before production launch:
+
+- [ ] Both SP-initiated and IdP-initiated flows tested
+- [ ] Error responses display user-friendly messages
+- [ ] State validation prevents CSRF attacks
+- [ ] Redirect URIs in dashboard match production URLs
+- [ ] Guest domain policy decided (allow/deny external emails)
+- [ ] Support process for "signin_consent_denied" errors
+- [ ] Session timeout matches IdP session lifetime
+- [ ] Single logout tested (if using OIDC)
+
+Check fetched docs for complete launch checklist with security considerations.

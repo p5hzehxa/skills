@@ -9,27 +9,15 @@ description: WorkOS AuthKit API endpoints — users, sessions, authentication, M
 
 ## When to Use
 
-Use this API reference when you need direct REST endpoint access for AuthKit features beyond what SDK wrappers provide. This includes low-level session management, custom authentication flows, API key operations, and programmatic user/organization membership control. Reach for this when framework-specific AuthKit skills (React, Next.js, etc.) don't expose the exact endpoint you need.
-
-## Documentation
-
-- https://workos.com/docs/reference/authkit
-- https://workos.com/docs/reference/authkit/api-keys
-- https://workos.com/docs/reference/authkit/api-keys/create-for-organization
-- https://workos.com/docs/reference/authkit/api-keys/delete
-- https://workos.com/docs/reference/authkit/api-keys/list-for-organization
+Use this skill when you need direct HTTP API access to WorkOS AuthKit endpoints — user authentication, session management, MFA enrollment, organization memberships, invitations, and password resets. Prefer framework-specific skills (workos-authkit-react, workos-authkit-nextjs) for frontend flows; use this for backend services, CLI tools, or non-JavaScript environments.
 
 ## Key Vocabulary
 
-- **User** `user_` — end-user identity entity
-- **Session** `session_` — authenticated user session
-- **Organization Membership** `om_` — user-to-organization relationship
-- **Invitation** `invitation_` — pending organization invite
-- **Magic Auth** `magic_auth_` — passwordless authentication code
-- **Email Verification** `email_verification_` — email confirmation token
-- **Authentication Factor** `auth_factor_` — MFA enrollment record
-- **Authentication Challenge** `auth_challenge_` — MFA verification attempt
-- **Password Reset** `password_reset_` — password recovery token
+- **User** `user_` — authenticated identity with email, password, and profile data
+- **Session** `session_` — active authentication session with access/refresh tokens
+- **Invitation** `invitation_` — pending invite to join an organization
+- **OrganizationMembership** `org_membership_` — user's role and status within an organization
+- **AuthenticationFactor** `auth_factor_` — enrolled MFA method (TOTP, SMS)
 
 ## Implementation Guide
 
@@ -39,7 +27,7 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-authkit-react
-- workos-authkit-nextjs
-- workos-authkit-vanilla-js
-- workos-authkit-base
+- **workos-authkit-react** — React hooks and components for AuthKit flows
+- **workos-authkit-nextjs** — Next.js App Router integration with server actions
+- **workos-authkit-vanilla-js** — Framework-agnostic browser JavaScript integration
+- **workos-authkit-base** — Core authentication concepts shared across all AuthKit skills

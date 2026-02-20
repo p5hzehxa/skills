@@ -9,30 +9,17 @@ description: WorkOS RBAC API endpoints — roles, permissions, and role assignme
 
 ## When to Use
 
-Use this API to define and manage permission systems for multi-tenant applications. Create granular permissions, bundle them into roles, and assign those roles at the organization level. This is the foundation for implementing RBAC (Role-Based Access Control) across your WorkOS-powered application.
-
-## Documentation
-
-- https://workos.com/docs/reference/roles
-- https://workos.com/docs/reference/roles/organization-role
-- https://workos.com/docs/reference/roles/organization-role/add-permission
-- https://workos.com/docs/reference/roles/organization-role/create
-- https://workos.com/docs/reference/roles/organization-role/delete
+Use this API to define and manage fine-grained permissions across your application. Roles and permissions can be scoped globally (account-wide) or per-organization, enabling multi-tenant RBAC without rebuilding authorization logic for each tenant.
 
 ## Key Vocabulary
 
-- **Role** `role_` — reusable permission bundles defined at the environment level
-- **Permission** `perm_` — atomic access grants (e.g., `documents:read`, `billing:write`)
-- **Organization Role** `orgrole_` — role assignments scoped to a specific organization
-- **Organization** `org_` — tenant entity that receives role assignments
+- **Role `role_`** — reusable permission container (e.g., "Admin", "Viewer")
+- **Permission `perm_`** — atomic action grant (e.g., "billing:read")
+- **OrganizationRole `orgrole_`** — tenant-specific role instance with custom permissions
+- **Resource** — dot-separated scope identifier (e.g., `billing`, `users.profile`)
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-api-roles.guide.md`
-
-## Related Skills
-
-- workos-user-management (for assigning roles to users)
-- workos-organizations (for managing tenant entities)

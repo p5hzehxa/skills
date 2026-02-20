@@ -9,21 +9,15 @@ description: Migrate to WorkOS from Supabase Auth.
 
 ## When to Use
 
-Migrate existing users from Supabase Auth to WorkOS User Management while preserving authentication credentials. Use this skill when you need to transfer user accounts, email/password hashes, and metadata from Supabase to WorkOS without forcing password resets.
-
-## Documentation
-
-- https://workos.com/docs/migrate/supabase
+Migrate existing user authentication from Supabase Auth to WorkOS AuthKit when you need centralized identity management, SSO, or directory sync capabilities. This skill covers both password-based users (with bcrypt hash migration) and OAuth-linked users (email-only migration). Choose this over other migration skills when your source system is specifically Supabase Auth.
 
 ## Key Vocabulary
 
-- **User `user_`** — WorkOS user entity created from Supabase user data
-- **Authentication Factor `auth_factor_`** — WorkOS entity storing migrated password hash
-- **Organization `org_`** — WorkOS organization entity for multi-tenant migrations
-- **`bcrypt` hash format** — Supabase's password hashing algorithm, supported by WorkOS
-- **`email_verified` flag** — Supabase user verification status to preserve during migration
-- **`user_metadata`** — Supabase custom user data to map to WorkOS user attributes
-- **`app_metadata`** — Supabase application-level metadata for role/permission mapping
+- **User Management User `user_`** — WorkOS entity created for each migrated Supabase user
+- **Password Hash `$2a$` or `$2b$`** — bcrypt format exported from Supabase `auth.users.encrypted_password`
+- **Migration `migration_`** — WorkOS entity representing a bulk user import operation
+- **Email Verification State** — `email_confirmed_at` in Supabase maps to WorkOS email verification status
+- **OAuth Identity** — Supabase users with `identities` array (Google, GitHub, etc.) migrate email-only without password
 
 ## Implementation Guide
 
@@ -33,5 +27,5 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- workos-authkit-nextjs
-- workos-authkit-react
+- **workos-user-management** — target system for migrated users
+- **workos-authkit-nextjs** — post-migration authentication integration

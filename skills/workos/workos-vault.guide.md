@@ -7,238 +7,287 @@
 **STOP. Do not proceed until complete.**
 
 WebFetch these URLs in order:
-1. https://workos.com/docs/vault/quick-start
-2. https://workos.com/docs/vault/key-context
-3. https://workos.com/docs/vault/index
-4. https://workos.com/docs/vault/byok
 
-The docs are the source of truth. If this skill conflicts with docs, follow docs.
+1. `https://workos.com/docs/vault/quick-start`
+2. `https://workos.com/docs/vault/key-context`
+3. `https://workos.com/docs/vault/index`
+4. `https://workos.com/docs/vault/byok`
+
+The fetched docs are the source of truth. If this skill conflicts with docs, follow docs.
 
 ## Step 2: Pre-Flight Validation
 
-### WorkOS Credentials
+### Environment Variables
 
-Check environment for:
-- `WORKOS_API_KEY` - must start with `sk_`
-- `WORKOS_CLIENT_ID` - must start with `client_`
+Check for:
 
-**Do not proceed without valid credentials.**
+- `WORKOS_API_KEY` - starts with `sk_`
+- `WORKOS_CLIENT_ID` - starts with `client_`
 
-### SDK Availability
+### Dashboard Configuration
 
-Verify SDK installed:
-```bash
-# Check SDK exists in package.json or requirements.txt or equivalent
-grep -E "(workos|@workos)" package.json requirements.txt Gemfile go.mod composer.json 2>/dev/null
-```
+Verify in WorkOS Dashboard:
 
-If missing, install SDK before continuing. Check fetched docs for language-specific installation.
+- At least one Organization exists (Vault operations require an organization context)
+- For BYOK: Customer key configurations are complete
 
-## Step 3: Organization Setup (REQUIRED)
+## Step 3: Install SDK
 
-### Create Organization in Dashboard
+Detect package manager, install WorkOS SDK package from fetched docs.
 
-Navigate to WorkOS Dashboard → Organizations → Create Organization.
+**Verify:** SDK package exists in node_modules/site-packages before continuing.
 
-**Critical:** Every Vault object MUST be associated with an organization. Do not attempt Vault operations without an org.
+## Step 4: Encryption Strategy (Decision Tree)
 
-Note the `organization_id` - starts with `org_`. You'll use this in key context.
-
-## Step 4: Key Context Strategy (Decision Tree)
-
-Key context determines encryption key cardinality. Choose a strategy:
+Choose based on your data isolation requirements:
 
 ```
-Data isolation level?
+Data isolation need?
   |
-  +-- Per organization only
-  |     → Context: {"organization_id": "org_xxx"}
-  |     → One KEK per org
+  +-- Per-organization only
+  |     --> Key context: {"organization_id": "org_123"}
+  |     --> Single KEK per org
   |
-  +-- Per organization + environment
-  |     → Context: {"organization_id": "org_xxx", "environment": "production"}
-  |     → Separate keys for prod/staging per org
+  +-- Per-organization + per-user
+  |     --> Key context: {"organization_id": "org_123", "user_id": "user_456"}
+  |     --> Separate KEK per user within org
   |
-  +-- Per organization + user
-  |     → Context: {"organization_id": "org_xxx", "user_id": "user_xxx"}
-  |     → User-level isolation within org
+  +-- Per-organization + per-resource-type
+  |     --> Key context: {"organization_id": "org_123", "resource_type": "documents"}
+  |     --> Separate KEK per resource type within org
   |
-  +-- Custom dimensions (max 10 pairs)
-        → Add any string key-value pairs
-        → Example: {"organization_id": "org_xxx", "region": "us-east-1", "tenant": "acme"}
+  +-- Custom multi-tenant isolation
+        --> Key context: {"tenant_id": "...", "environment": "...", ...}
+        --> Maximum 10 key-value pairs allowed
 ```
 
-**Trap warning:** Key context is IMMUTABLE after object creation. You cannot change context - only the encrypted value. Choose your cardinality strategy carefully.
+**Critical:** Key context is immutable after object creation. Plan your isolation strategy before writing data.
 
-**Limitations from docs:**
-- Maximum 10 key-value pairs per context
-- All values must be strings (no numbers, booleans, null)
+## Step 5: BYOK vs Managed Keys (Decision Tree)
 
-## Step 5: Basic Operations Pattern
-
-### Create Encrypted Object
-
-Use SDK method for creating vault object with:
-- Object name (unique identifier)
-- Key context (strategy from Step 4)
-- Value to encrypt (arbitrary binary/text data)
-
-Check fetched docs for exact SDK method signature.
-
-**Pattern:**
 ```
-vault.create_object(
-  name: unique_identifier,
-  context: {"organization_id": "org_xxx"},
-  value: plaintext_data
+Who owns the encryption keys?
+  |
+  +-- WorkOS manages keys
+  |     --> Use standard Vault API
+  |     --> KEKs stored in WorkOS HSMs
+  |     --> No additional setup required
+  |
+  +-- Customer manages keys (BYOK)
+        --> Configure CMK in Dashboard per organization
+        --> Supported: AWS KMS, Azure Key Vault, Google Cloud KMS
+        --> Check fetched BYOK docs for IAM permission requirements
+        --> Key context still determines which CMK to use
+```
+
+**BYOK matching logic:** If CMK exists for organization in key context, it's used automatically. Otherwise, falls back to WorkOS-managed KEK.
+
+**Trap:** BYOK setup requires customer IAM permissions to allow WorkOS access. Test with a non-production key first.
+
+## Step 6: Object Lifecycle Implementation
+
+### Create Object
+
+Use SDK method for creating vault object. Required parameters:
+
+- `organization_id` - WorkOS organization ID
+- `object_name` - unique identifier within organization
+- `key_context` - metadata determining which KEK to use (see Step 4)
+- `value` - data to encrypt (string or bytes)
+
+**Example (language-agnostic):**
+
+```
+workos.vault.object.create(
+  organization_id: "org_123",
+  object_name: "user_456_ssn",
+  key_context: {
+    "organization_id": "org_123",
+    "user_id": "user_456",
+    "data_type": "pii"
+  },
+  value: "123-45-6789"
 )
 ```
 
-### Retrieve Object Value
+**Returns:** Object metadata including version number and encrypted value reference.
 
-Use SDK method for retrieving vault object by name.
+### Update Object (Version Control Pattern)
 
-**Critical:** Retrieval requires matching organization in key context. If you created with `org_abc`, you must retrieve with `org_abc`.
+Objects are versioned. For consistency, provide expected version when updating:
 
-### Update Object Value
+```
+workos.vault.object.update(
+  organization_id: "org_123",
+  object_name: "user_456_ssn",
+  version: 2,  // Fails if current version != 2
+  value: "new-value"
+)
+```
 
-Use SDK method for updating vault object. Optionally pass expected version for optimistic locking.
+**Trap:** Omitting version allows concurrent updates to overwrite each other. Always pass version for write-after-read patterns.
 
-**Trap warning:** You CANNOT change key context during update. Only the encrypted value can change.
+### Retrieve Object
+
+Two retrieval modes:
+
+1. **Metadata only** (no decryption): List objects or get object metadata
+2. **Full object** (with decryption): Get object value
+
+Check fetched docs for exact method names. Metadata retrieval is faster and doesn't require decryption.
 
 ### Delete Object
 
-Use SDK method for deleting vault object by name.
+Deletion is soft-delete by default. Object becomes unavailable to API but data persists for recovery period.
 
-**Note:** Deletion is asynchronous. Object becomes immediately unavailable but data is not instantly purged.
+Check fetched docs for:
 
-## Step 6: BYOK Integration (Optional)
+- Soft vs hard delete options
+- Recovery period duration
+- Permanent deletion method
 
-If customer requires their own encryption keys:
+## Step 7: Key Context Design Patterns
 
-### Prerequisites
-
-Customer must have KMS in one of:
-- AWS KMS
-- Azure Key Vault  
-- Google Cloud KMS
-
-### Setup Pattern
-
-1. Customer provisions CMK in their KMS
-2. Customer grants WorkOS Vault IAM permissions to use the key
-3. Customer provides CMK identifier to WorkOS Dashboard
-4. WorkOS Dashboard → Vault Settings → Configure BYOK with CMK details
-
-### Key Matching Behavior
-
-Once BYOK configured for an organization:
+### Pattern 1: Hierarchical Isolation
 
 ```
-Encryption operation with context {"organization_id": "org_with_byok"}
-  → Uses customer's CMK automatically
-
-Encryption operation with context {"organization_id": "org_without_byok"}
-  → Uses WorkOS managed KEK
+Key context for multi-level isolation:
+{
+  "organization_id": "org_123",
+  "environment": "production",
+  "service": "payments",
+  "data_classification": "pci"
+}
 ```
 
-Matching is automatic based on key context. No code changes required.
+Each key-value pair adds another KEK to the encryption chain. Compromising one key doesn't expose data from other contexts.
 
-**Trap warning:** CMK must remain accessible to WorkOS Vault. If IAM permissions are revoked, decryption will fail.
+### Pattern 2: Time-Based Key Rotation
 
-## Step 7: Key Lifecycle Understanding (Read-Only Knowledge)
+```
+Key context with rotation period:
+{
+  "organization_id": "org_123",
+  "key_rotation_period": "2024-Q1"
+}
+```
 
-You do NOT manage these manually - understanding the architecture helps debug issues:
+Change rotation period value to force new KEK usage without re-encrypting existing data.
 
-### KEK (Key-Encrypting Key)
-- Long-lived key in HSM
-- Identified by key context
-- Created just-in-time on first use
-- Cannot be exported to plaintext
+### Pattern 3: Compliance Boundaries
 
-### DEK (Data-Encrypting Key)
-- Random key generated per encryption operation
-- Used to encrypt actual data
-- DEK itself is encrypted by KEK(s)
-- Encrypted DEK stored with encrypted data
+```
+Key context for regulatory isolation:
+{
+  "organization_id": "org_123",
+  "data_residency": "eu-west-1",
+  "compliance_framework": "gdpr"
+}
+```
 
-**Why this matters:** If you see multiple encrypted key blobs in metadata, this is expected - one DEK encrypted by each KEK from key context.
+Ensures data under different compliance regimes uses separate keys.
+
+**Limitations:**
+
+- Maximum 10 key-value pairs per context
+- All values must be strings (no nested objects, numbers, or booleans)
+- Keys are case-sensitive
 
 ## Verification Checklist (ALL MUST PASS)
 
 Run these commands to confirm integration:
 
 ```bash
-# 1. Check SDK installed
-grep -E "(workos|@workos)" package.json requirements.txt Gemfile go.mod composer.json 2>/dev/null || echo "FAIL: SDK not found"
+# 1. Check environment variables exist
+env | grep "WORKOS_API_KEY\|WORKOS_CLIENT_ID" || echo "FAIL: Missing env vars"
 
-# 2. Check environment variables set
-env | grep -E "WORKOS_API_KEY|WORKOS_CLIENT_ID" || echo "FAIL: Missing credentials"
+# 2. Verify SDK installed
+npm list @workos-inc/node 2>/dev/null || pip show workos 2>/dev/null || gem list workos 2>/dev/null || echo "FAIL: SDK not installed"
 
-# 3. Verify API key format
-echo $WORKOS_API_KEY | grep -q "^sk_" || echo "FAIL: API key invalid format"
+# 3. Test API connectivity (replace with actual org ID)
+curl -H "Authorization: Bearer $WORKOS_API_KEY" \
+  "https://api.workos.com/vault/objects?organization_id=org_test" \
+  && echo "PASS: API reachable" || echo "FAIL: API unreachable"
 
-# 4. Test SDK import (language-specific, adjust for your stack)
-# Node.js:
-node -e "require('@workos-inc/node')" 2>/dev/null && echo "PASS: SDK imports" || echo "FAIL: SDK import error"
-# Python:
-python -c "import workos" 2>/dev/null && echo "PASS: SDK imports" || echo "FAIL: SDK import error"
+# 4. Verify application builds
+npm run build || python -m py_compile *.py || ruby -c *.rb
 ```
-
-All checks must pass before deploying Vault operations.
 
 ## Error Recovery
 
-### "organization not found" during create/retrieve
+### "organization_id not found"
 
-**Root cause:** Missing or invalid `organization_id` in key context.
-
-**Fix:**
-1. List organizations in Dashboard to verify ID
-2. Ensure ID starts with `org_`
-3. Verify org exists before Vault operations
-
-### "key context validation failed"
-
-**Root cause:** Context violates constraints (>10 items, non-string values, or immutability violation).
+**Cause:** No organization created in WorkOS Dashboard.
 
 **Fix:**
-- Count key-value pairs - must be ≤10
-- Stringify all values: `{"count": "5"}` not `{"count": 5}`
-- For updates: do NOT change context - only value
 
-### "decryption failed" with BYOK enabled
+1. Go to dashboard.workos.com
+2. Create organization
+3. Use returned `organization_id` in API calls
 
-**Root cause:** WorkOS Vault lost access to customer CMK.
+### "invalid key context: non-string value"
+
+**Cause:** Key context contains numbers, booleans, or nested objects.
+
+**Fix:** Convert all values to strings:
+
+```
+// WRONG
+{"organization_id": "org_123", "tier": 2}
+
+// CORRECT
+{"organization_id": "org_123", "tier": "2"}
+```
+
+### "maximum key context size exceeded"
+
+**Cause:** More than 10 key-value pairs in context.
+
+**Fix:** Reduce context granularity. Combine related fields:
+
+```
+// WRONG (11 pairs)
+{"org": "...", "user": "...", "dept": "...", "team": "...", ...}
+
+// CORRECT (consolidate)
+{"org": "...", "user": "...", "scope": "dept_engineering_team_backend"}
+```
+
+### "version mismatch" on update
+
+**Cause:** Object was updated between read and write (optimistic locking failure).
+
+**Fix:** Fetch current version and retry:
+
+```
+1. Get object metadata → version = N
+2. Update with version = N
+3. If fails, repeat from step 1
+```
+
+Do NOT retry without fetching new version — this causes infinite loops.
+
+### BYOK: "customer key not accessible"
+
+**Cause:** WorkOS lacks IAM permissions to customer-managed key.
 
 **Fix:**
-1. Verify CMK exists in customer's KMS
-2. Check IAM permissions grant WorkOS access
-3. Test CMK accessibility from WorkOS Dashboard → Vault Settings
-4. If CMK was rotated, update Dashboard configuration
 
-### "version mismatch" during update
+1. Check fetched BYOK docs for exact IAM policy required
+2. Verify policy is attached to WorkOS service role
+3. Test with AWS KMS DescribeKey / Azure KeyVault Get / GCP GetKeyRing
+4. Check key is in same region as WorkOS Vault configuration
 
-**Root cause:** Optimistic locking failed - object changed since last read.
+**Trap:** Some cloud providers have eventual consistency for IAM changes. Wait 60 seconds and retry.
 
-**Fix:**
-1. Re-fetch object to get current version
-2. Retry update with new version number
-3. Or omit version parameter if consistency not critical
+### "object marked for deletion"
 
-### SDK import errors
+**Cause:** Object was soft-deleted and is in recovery period.
 
-**Node.js:** Verify `@workos-inc/node` installed, not `workos`
-
-**Python:** Verify `workos` package installed via pip
-
-**Ruby:** Verify `workos` gem in Gemfile
-
-**Go:** Verify `github.com/workos/workos-go` in go.mod
-
-Check fetched docs for language-specific package names - they vary.
+**Fix:** Check fetched docs for object restoration method, or wait for permanent deletion to reuse object name.
 
 ## Related Skills
 
-- workos-authkit-base - For integrating authentication before Vault usage
-- workos-authkit-nextjs - If building Vault UI in Next.js app
+For authentication context when using Vault with AuthKit:
+
+- workos-authkit-base

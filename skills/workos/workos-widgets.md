@@ -9,31 +9,20 @@ description: Embed WorkOS UI widgets in your application.
 
 ## When to Use
 
-Use this skill when you need to embed pre-built UI components for user account management, security settings, or profile editing into your application. Widgets provide browser-based interfaces that users interact with directly, powered by server-side tokens you generate. Choose this over custom UI when you want WorkOS-managed experiences for common user self-service flows.
-
-## Documentation
-
-- https://workos.com/docs/widgets/user-sessions
-- https://workos.com/docs/widgets/user-security
-- https://workos.com/docs/widgets/user-profile
-- https://workos.com/docs/widgets/user-management
-- https://workos.com/docs/widgets/tokens
+Use this skill when you need to embed pre-built WorkOS UI components (like user management, organization settings, or SSO configuration flows) directly into your application. Widgets provide authenticated, ready-to-use interfaces without requiring custom frontend implementation. They're ideal when you want WorkOS-managed UI consistency across your product.
 
 ## Key Vocabulary
 
-- **Widget Token** — short-lived JWT (`wgt_`) that authorizes a widget session
-- **User Sessions Widget** — displays active sessions with revocation controls
-- **User Security Widget** — MFA enrollment and authentication method management
-- **User Profile Widget** — editable user profile fields (name, email)
-- **User Management Widget** — organization membership and role management
-
+- **Widget Token** — Short-lived JWT required to load any Widget (expires in 10 minutes)
+- **Session Token** — The User Management session JWT passed when generating Widget tokens for authenticated contexts
+- **Widget Scope** — Defines which Widget type to load (`sso-config`, `log-streams`, etc.)
+- **Redirect URI** — Where the Widget redirects after completion (must match Dashboard configuration)
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `skills/workos/workos-widgets.guide.md`
-
 
 ## Related Skills
 

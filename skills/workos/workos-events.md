@@ -9,24 +9,15 @@ description: Subscribe to and handle WorkOS webhook events.
 
 ## When to Use
 
-Use this skill when you need to consume WorkOS events via webhooks or the Events API. Events notify your application of changes across WorkOS resources (users, organizations, connections, etc.) in real-time or via polling. Choose webhooks for push-based notification and the Events API for pull-based polling or event replay.
-
-## Documentation
-
-- https://workos.com/docs/events/index
-- https://workos.com/docs/events/observability/datadog
-- https://workos.com/docs/events/data-syncing/webhooks
-- https://workos.com/docs/events/data-syncing/index
-- https://workos.com/docs/events/data-syncing/events-api
+Use this skill when you need to subscribe to real-time notifications about changes in WorkOS resources (users, organizations, directory sync events, etc.). Events provide a webhook-based alternative to polling APIs, allowing your application to react immediately when WorkOS state changes.
 
 ## Key Vocabulary
 
-- **Event** `event_` — a notification of a state change in a WorkOS resource
-- Event types follow pattern `{resource}.{action}` (e.g., `dsync.user.created`, `connection.activated`)
-- **Webhook Endpoint** — the URL WorkOS POSTs events to
-- **Events API** — pull-based endpoint for fetching events by filters or pagination
-- **Webhook Secret** — used to verify webhook signature in `WorkOS-Signature` header
-- **After cursor** — pagination token for fetching events chronologically
+- **Event** `event_` — a notification payload describing a state change
+- **Event type** — the action that occurred (e.g., `dsync.user.created`, `organization.updated`)
+- **Webhook endpoint** — your application's HTTPS URL that receives event POST requests
+- **Event payload** — the JSON body containing the event object and associated data
+- **Delivery attempt** — a single POST request to your webhook endpoint (WorkOS retries on failure)
 
 ## Implementation Guide
 

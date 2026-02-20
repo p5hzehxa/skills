@@ -9,20 +9,14 @@ description: Migrate to WorkOS from AWS Cognito.
 
 ## When to Use
 
-Migrate existing AWS Cognito user pools to WorkOS User Management when consolidating identity providers or switching auth systems. Use this skill when you need to preserve user identities, handle Cognito's export limitations (no password hash exports), and implement JIT password migration flows.
-
-## Documentation
-
-- https://workos.com/docs/migrate/aws-cognito
+Migrate existing user accounts from AWS Cognito User Pools to WorkOS Authentication. Use this when you need to preserve user credentials and metadata during a platform transition, or when consolidating authentication systems.
 
 ## Key Vocabulary
 
-- **User** `user_` — WorkOS identity entity created during migration
-- **Organization** `org_` — workspace container for migrated enterprise users
-- **Password Hash** — NOT exported by Cognito; requires JIT migration flow
-- **JIT Migration** — just-in-time password capture during first WorkOS login
-- **User Pool** — source Cognito container for users being migrated
-- **MFA Settings** — must be reconfigured in WorkOS (not migrated automatically)
+- **User `user_`** — WorkOS user entity created during migration
+- **Password Hash Migration** — Cognito does not export password hashes; users must reset passwords or use JIT migration
+- **User Attributes** — Custom Cognito attributes mapped to WorkOS user metadata
+- **JIT (Just-In-Time) Migration** — Migrate users on first login attempt using Cognito as fallback
 
 ## Implementation Guide
 
@@ -32,5 +26,5 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- `workos-user-management` — target system for migrated Cognito users
-- `workos-mfa` — reconfigure MFA after migration (Cognito MFA settings don't transfer)
+- `workos-authkit-base` — Core authentication setup after migration
+- `workos-user-management` — Managing migrated users in WorkOS

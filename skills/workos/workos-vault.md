@@ -9,21 +9,14 @@ description: Encrypt, store, and manage sensitive data with WorkOS Vault.
 
 ## When to Use
 
-Use this skill when you need to store and retrieve sensitive data (API keys, tokens, database credentials) with encryption at rest and optional Bring Your Own Key (BYOK) control. Vault provides secure key-value storage with version history and audit trails, designed for secrets that applications need to fetch at runtime.
-
-## Documentation
-
-- https://workos.com/docs/vault/quick-start
-- https://workos.com/docs/vault/key-context
-- https://workos.com/docs/vault/index
-- https://workos.com/docs/vault/byok
+Use Vault when you need to store sensitive data (API keys, tokens, credentials) with encryption at rest and granular access controls. Vault is designed for applications that handle third-party credentials on behalf of users or need to meet compliance requirements for secrets management.
 
 ## Key Vocabulary
 
-- **Vault Item** `vault_item_` — encrypted key-value pair with version history
-- **Key Context** — application-specific namespace for organizing vault items
-- **BYOK (Bring Your Own Key)** — customer-managed encryption keys stored in external KMS
-- **Vault Version** — immutable snapshot of a vault item at a point in time
+- **Vault Item** `vitem_` — encrypted key-value store entry
+- **Vault Key** `vkey_` — encryption key for vault items
+- **Secret Type** — predefined schema for common credential types (e.g., `api_key`, `oauth_token`)
+- **Access Policy** — rules defining which users/services can decrypt specific vault items
 
 ## Implementation Guide
 
