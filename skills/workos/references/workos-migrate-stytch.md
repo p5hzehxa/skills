@@ -1,8 +1,3 @@
----
-name: workos-migrate-stytch
-description: Migrate to WorkOS from Stytch.
----
-
 <!-- refined:sha256:336287048df7 -->
 
 # WorkOS Migration: Stytch

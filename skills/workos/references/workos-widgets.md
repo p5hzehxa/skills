@@ -1,8 +1,3 @@
----
-name: workos-widgets
-description: Embed WorkOS UI widgets in your application.
----
-
 <!-- refined:sha256:883decb5b1de -->
 
 # WorkOS Widgets

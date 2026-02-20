@@ -1,8 +1,3 @@
----
-name: workos-api-widgets
-description: WorkOS Widgets API endpoints — generate widget tokens and manage widget configuration.
----
-
 <!-- refined:sha256:eda510c1c51f -->
 
 # WorkOS Widgets API Reference

@@ -1,8 +1,3 @@
----
-name: workos-api-vault
-description: WorkOS Vault API endpoints — create, read, update, delete encrypted objects.
----
-
 <!-- refined:sha256:59789ab29ba2 -->
 
 # WorkOS Vault API Reference

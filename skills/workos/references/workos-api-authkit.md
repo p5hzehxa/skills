@@ -1,8 +1,3 @@
----
-name: workos-api-authkit
-description: WorkOS AuthKit API endpoints — users, sessions, authentication, MFA, and organization memberships.
----
-
 <!-- refined:sha256:5f44c1949409 -->
 
 # WorkOS AuthKit API Reference

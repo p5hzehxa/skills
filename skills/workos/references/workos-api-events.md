@@ -1,8 +1,3 @@
----
-name: workos-api-events
-description: WorkOS Events/Webhooks API endpoints — list events, manage webhook endpoints.
----
-
 <!-- refined:sha256:d9fd0f698320 -->
 
 # WorkOS Events API Reference

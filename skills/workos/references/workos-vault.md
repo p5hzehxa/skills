@@ -1,8 +1,3 @@
----
-name: workos-vault
-description: Encrypt, store, and manage sensitive data with WorkOS Vault.
----
-
 <!-- refined:sha256:b0e35dadd589 -->
 
 # WorkOS Vault

@@ -1,8 +1,3 @@
----
-name: workos-api-organization
-description: WorkOS Organizations API endpoints — create, update, list, and manage organizations.
----
-
 <!-- refined:sha256:b8333364728d -->
 
 # WorkOS Organizations API Reference

@@ -1,8 +1,3 @@
----
-name: workos-migrate-descope
-description: Migrate to WorkOS from Descope.
----
-
 <!-- refined:sha256:52a3356a17a8 -->
 
 # WorkOS Migration: Descope

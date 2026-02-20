@@ -1,8 +1,3 @@
----
-name: workos-migrate-other-services
-description: Migrate to WorkOS from other services.
----
-
 <!-- refined:sha256:aac9aa69edce -->
 
 # WorkOS Migration: other services

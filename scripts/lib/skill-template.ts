@@ -11,8 +11,6 @@ export function renderFrontmatter(spec: SkillSpec): string {
 export function renderSummary(spec: SkillSpec, sourceHash?: string): string {
   const parts: string[] = [];
 
-  parts.push(renderFrontmatter(spec));
-  parts.push("");
   parts.push(
     sourceHash
       ? `<!-- generated:sha256:${sourceHash} -->`

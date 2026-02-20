@@ -47,11 +47,9 @@ describe("generateSkill", () => {
     expect(guide.sourceHash).toBe(summary.sourceHash);
   });
 
-  it("summary has frontmatter", () => {
+  it("summary does not have frontmatter", () => {
     const [summary] = generateSkill(makeSpec());
-    expect(summary.content).toStartWith("---\n");
-    expect(summary.content).toContain("name: workos-sso");
-    expect(summary.content).toContain("description: Configure Single Sign-On.");
+    expect(summary.content).not.toStartWith("---\n");
   });
 
   it("guide does not have frontmatter", () => {

@@ -1,8 +1,3 @@
----
-name: workos-api-admin-portal
-description: WorkOS Admin Portal API endpoints — generate portal links for customer self-service.
----
-
 <!-- refined:sha256:cd9b112c355b -->
 
 # WorkOS Admin Portal API Reference

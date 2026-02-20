@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "workos-skills",
-  "description": "Official WorkOS skills for AI coding agents — AuthKit, SSO, Directory Sync, RBAC, Vault, Migrations, and API references",
+  "description": "Official WorkOS skills for AI coding agents. AuthKit, SSO, Directory Sync, RBAC, Vault, Migrations, and API references.",
   "owner": {
     "name": "WorkOS",
     "email": "support@workos.com"
@@ -103,7 +103,7 @@
     },
     {
       "name": "workos",
-      "description": "Identify which WorkOS skill to load based on the user's task — covers AuthKit, SSO, RBAC, migrations, and all API references.",
+      "description": "Identify which WorkOS skill to load based on the user's task. Covers AuthKit, SSO, RBAC, migrations, and all API references.",
       "version": "0.1.0",
       "author": {
         "name": "WorkOS",

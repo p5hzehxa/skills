@@ -48,12 +48,7 @@ Check fetched docs for current API requirements.
 function makeSummary(overrides: Partial<GeneratedSkill> = {}): GeneratedSkill {
   const content =
     overrides.content ??
-    `---
-name: workos-test-skill
-description: Test skill for quality gate
----
-
-<!-- generated:sha256:abc123def456 -->
+    `<!-- generated:sha256:abc123def456 -->
 
 # WorkOS Test Skill
 
@@ -339,12 +334,7 @@ describe("summary scoring", () => {
   });
 
   it("fails summary missing guide pointer", async () => {
-    const content = `---
-name: workos-test
-description: test
----
-
-<!-- generated:sha256:abc123def456 -->
+    const content = `<!-- generated:sha256:abc123def456 -->
 
 ## When to Use
 
@@ -366,12 +356,7 @@ Some concepts.
 
   it("flags summary over 1KB", async () => {
     const content =
-      `---
-name: workos-test
-description: test
----
-
-<!-- generated:sha256:abc123def456 -->
+      `<!-- generated:sha256:abc123def456 -->
 
 ## When to Use
 

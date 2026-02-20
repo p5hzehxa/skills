@@ -1,8 +1,3 @@
----
-name: workos-audit-logs
-description: Implement audit logging for compliance and security.
----
-
 <!-- refined:sha256:ac9f8f303b5d -->
 
 # WorkOS Audit Logs

@@ -86,20 +86,11 @@ async function scoreSummary(
   let score = 0;
   const content = skill.content;
 
-  // 1. Valid frontmatter (20 pts)
-  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-  if (frontmatterMatch) {
-    const fm = frontmatterMatch[1];
-    if (fm.includes("name:") && fm.includes("description:")) {
-      score += 20;
-    } else {
-      score += 10;
-      if (!fm.includes("name:")) issues.push("Frontmatter missing 'name'");
-      if (!fm.includes("description:"))
-        issues.push("Frontmatter missing 'description'");
-    }
+  // 1. No frontmatter (20 pts) — frontmatter in reference files confuses plugin skill discovery
+  if (!content.match(/^---\n([\s\S]*?)\n---/)) {
+    score += 20;
   } else {
-    issues.push("No valid frontmatter found");
+    issues.push("Summary should not have frontmatter (interferes with plugin skill discovery)");
   }
 
   // 2. Generated/refined marker (5 pts)

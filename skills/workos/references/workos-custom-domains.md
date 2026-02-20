@@ -1,8 +1,3 @@
----
-name: workos-custom-domains
-description: Configure custom domains for WorkOS-hosted pages.
----
-
 <!-- refined:sha256:65da0f370d28 -->
 
 # WorkOS Custom Domains

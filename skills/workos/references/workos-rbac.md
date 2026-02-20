@@ -1,8 +1,3 @@
----
-name: workos-rbac
-description: Set up role-based access control for your application.
----
-
 <!-- refined:sha256:7b0523b5590f -->
 
 # WorkOS Role-Based Access Control

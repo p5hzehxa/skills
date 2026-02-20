@@ -1,8 +1,3 @@
----
-name: workos-events
-description: Subscribe to and handle WorkOS webhook events.
----
-
 <!-- refined:sha256:96424db5567d -->
 
 # WorkOS Events

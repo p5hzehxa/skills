@@ -1,8 +1,3 @@
----
-name: workos-migrate-better-auth
-description: Migrate to WorkOS from Better Auth.
----
-
 <!-- refined:sha256:3b6983312415 -->
 
 # WorkOS Migration: Better Auth

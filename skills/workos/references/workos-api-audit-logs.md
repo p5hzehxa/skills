@@ -1,8 +1,3 @@
----
-name: workos-api-audit-logs
-description: WorkOS Audit Logs API endpoints — create events, manage schemas, exports, and retention.
----
-
 <!-- refined:sha256:0064ec42049e -->
 
 # WorkOS Audit Logs API Reference

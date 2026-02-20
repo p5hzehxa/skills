@@ -1,8 +1,3 @@
----
-name: workos-migrate-auth0
-description: Migrate to WorkOS from Auth0.
----
-
 <!-- refined:sha256:a091402053a2 -->
 
 # WorkOS Migration: Auth0

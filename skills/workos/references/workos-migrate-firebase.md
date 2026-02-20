@@ -1,8 +1,3 @@
----
-name: workos-migrate-firebase
-description: Migrate to WorkOS from Firebase.
----
-
 <!-- refined:sha256:bdf357fa5da5 -->
 
 # WorkOS Migration: Firebase

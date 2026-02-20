@@ -1,8 +1,3 @@
----
-name: workos-sso
-description: Configure Single Sign-On with SAML and OIDC identity providers.
----
-
 <!-- refined:sha256:1ef5b36e75cb -->
 
 # WorkOS Single Sign-On

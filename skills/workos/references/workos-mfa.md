@@ -1,8 +1,3 @@
----
-name: workos-mfa
-description: Add multi-factor authentication to your application.
----
-
 <!-- refined:sha256:ef9462b4b924 -->
 
 # WorkOS Multi-Factor Authentication

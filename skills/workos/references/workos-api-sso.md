@@ -1,8 +1,3 @@
----
-name: workos-api-sso
-description: WorkOS SSO API endpoints — connections, profiles, authorization URLs, and logout.
----
-
 <!-- refined:sha256:ddc720812ac2 -->
 
 # WorkOS SSO API Reference

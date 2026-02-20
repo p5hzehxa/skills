@@ -1,8 +1,3 @@
----
-name: workos-migrate-aws-cognito
-description: Migrate to WorkOS from AWS Cognito.
----
-
 <!-- refined:sha256:643d575f22eb -->
 
 # WorkOS Migration: AWS Cognito

@@ -1,8 +1,3 @@
----
-name: workos-email
-description: Configure email delivery for WorkOS authentication flows.
----
-
 <!-- refined:sha256:1f3ac3b3b606 -->
 
 # WorkOS Email Delivery

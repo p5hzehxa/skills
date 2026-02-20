@@ -1,8 +1,3 @@
----
-name: workos-api-roles
-description: WorkOS RBAC API endpoints — roles, permissions, and role assignments.
----
-
 <!-- refined:sha256:7daeec70196c -->
 
 # WorkOS Roles & Permissions API Reference

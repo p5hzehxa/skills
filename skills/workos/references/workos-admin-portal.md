@@ -1,8 +1,3 @@
----
-name: workos-admin-portal
-description: Enable self-service admin portal for your enterprise customers.
----
-
 <!-- refined:sha256:479288befe44 -->
 
 # WorkOS Admin Portal

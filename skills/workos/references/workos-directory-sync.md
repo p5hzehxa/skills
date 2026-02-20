@@ -1,8 +1,3 @@
----
-name: workos-directory-sync
-description: Sync user directories from identity providers like Okta, Azure AD, and Google.
----
-
 <!-- refined:sha256:a3a31bdb28d7 -->
 
 # WorkOS Directory Sync

@@ -1,8 +1,3 @@
----
-name: workos-api-directory-sync
-description: WorkOS Directory Sync API endpoints — directories, users, groups, and sync events.
----
-
 <!-- refined:sha256:6a702a85e175 -->
 
 # WorkOS Directory Sync API Reference

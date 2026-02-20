@@ -1,8 +1,3 @@
----
-name: workos-migrate-the-standalone-sso-api
-description: Migrate to WorkOS from the standalone SSO API.
----
-
 <!-- refined:sha256:aec7c2c0f8e0 -->
 
 # WorkOS Migration: the standalone SSO API

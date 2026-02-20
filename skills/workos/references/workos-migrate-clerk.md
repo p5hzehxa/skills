@@ -1,8 +1,3 @@
----
-name: workos-migrate-clerk
-description: Migrate to WorkOS from Clerk.
----
-
 <!-- refined:sha256:2336f8fb2339 -->
 
 # WorkOS Migration: Clerk
