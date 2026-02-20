@@ -77,16 +77,20 @@ description: Configure Single Sign-On with SAML and OIDC identity providers.
 ---
 
 ## When to Use
+
 2-3 sentences positioning the feature.
 
 ## Key Vocabulary
+
 - **Organization** `org_` — tenant entity
 - **Connection** `conn_` — link to an identity provider
 
 ## Implementation Guide
+
 → Read `skills/workos/workos-sso.guide.md`
 
 ## Related Skills
+
 - **workos-rbac**: Role-based access after SSO
 ```
 

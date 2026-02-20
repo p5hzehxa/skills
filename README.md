@@ -140,10 +140,12 @@ Per-skill `.feedback.md` files encode domain expert corrections:
 # Feedback for workos-directory-sync
 
 ## Corrections
+
 - WorkOS supports both webhooks AND the Events API for directory sync.
   Do not claim webhooks are mandatory or that polling is not supported.
 
 ## Emphasis
+
 - The dsync.deleted event does NOT trigger individual user/group delete
   events. This is a common trap — emphasize it.
 ```
