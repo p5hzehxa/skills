@@ -34,7 +34,8 @@ Check fetched docs for current API requirements.
 `;
   return {
     name: overrides.name ?? "workos-test-skill",
-    path: overrides.path ?? "skills/workos/references/workos-test-skill.guide.md",
+    path:
+      overrides.path ?? "skills/workos/references/workos-test-skill.guide.md",
     content,
     sizeBytes: overrides.sizeBytes ?? Buffer.byteLength(content, "utf8"),
     generated: overrides.generated ?? true,
