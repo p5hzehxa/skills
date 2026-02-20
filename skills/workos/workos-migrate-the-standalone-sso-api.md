@@ -9,15 +9,14 @@ description: Migrate to WorkOS from the standalone SSO API.
 
 ## When to Use
 
-You have an existing WorkOS integration using the standalone SSO API (`client.sso.*` methods) and need to migrate to AuthKit. This guide covers the code changes, session management differences, and deployment considerations for moving from SSO API authentication flows to AuthKit's session-based model.
+Use this skill when you have an existing WorkOS integration using the standalone SSO API (`sso.getAuthorizationUrl()`, `sso.getProfileAndToken()`) and want to migrate to AuthKit for better security, simpler session management, and built-in UI components. This migration applies to production workloads where you need to preserve existing SSO connections and user sessions without downtime.
 
 ## Key Vocabulary
 
-- **Connection** `conn_` — SSO connection entity (carries over unchanged from standalone SSO API to AuthKit)
-- **Organization** `org_` — organization entity (carries over unchanged)
-- **User** `user_` — WorkOS user entity (new in AuthKit; replaces standalone SSO API's transient user objects)
-- **Profile** — user attributes returned by standalone SSO API (replaced by AuthKit session `user` object)
-- **AuthKit session** — browser session managed by AuthKit (replaces custom session handling in standalone SSO API)
+- **Organization** `org_` — entity that manages SSO connections
+- **Connection** `conn_` — SSO provider link (SAML, Google OAuth, Microsoft OAuth)
+- **Profile** — user identity returned after authentication
+- **Session** — authenticated state managed by AuthKit (replaces manual token handling)
 
 ## Implementation Guide
 
@@ -27,6 +26,6 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- `workos-authkit-nextjs` — if migrating a Next.js app
-- `workos-authkit-react` — if migrating a React SPA
-- `workos-authkit-vanilla-js` — if migrating a vanilla JS app
+- `workos-authkit-nextjs` — if migrating a Next.js app to AuthKit
+- `workos-authkit-react` — if migrating a React SPA to AuthKit
+- `workos-authkit-base` — core AuthKit concepts and session management
