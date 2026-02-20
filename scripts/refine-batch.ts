@@ -65,7 +65,7 @@ function parseArgs() {
 }
 
 async function readSkillFromDisk(name: string): Promise<GeneratedSkill> {
-  const path = `skills/${name}/SKILL.md`;
+  const path = `plugins/workos/skills/${name}/SKILL.md`;
   const fullPath = join(process.cwd(), path);
   const content = await Bun.file(fullPath).text();
   return {
@@ -125,7 +125,7 @@ async function main() {
 
   const goldStandardPath = join(
     process.cwd(),
-    "skills/workos-authkit-nextjs/SKILL.md",
+    "plugins/workos/skills/workos-authkit-nextjs/SKILL.md",
   );
   const goldStandard = await Bun.file(goldStandardPath).text();
 

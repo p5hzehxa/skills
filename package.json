@@ -4,11 +4,10 @@
   "type": "module",
   "description": "WorkOS Skills for AI coding agents — AuthKit, SSO, Directory Sync, RBAC, and more",
   "files": [
-    "skills"
+    "plugins"
   ],
   "scripts": {
     "generate": "bun run scripts/generate.ts",
-    "sync": "bun run scripts/sync-marketplace.ts",
     "test": "bun test",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

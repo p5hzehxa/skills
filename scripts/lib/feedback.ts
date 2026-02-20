@@ -3,12 +3,14 @@ import { join } from "path";
 import type { SkillFeedback } from "./types.ts";
 
 /**
- * Load feedback from skills/workos/references/{skillName}.feedback.md.
+ * Load feedback from plugins/workos/skills/workos/references/{skillName}.feedback.md.
  * Returns empty feedback if no file exists.
  */
 export function loadFeedback(skillName: string): SkillFeedback {
   const feedbackPath = join(
     process.cwd(),
+    "plugins",
+    "workos",
     "skills",
     "workos",
     "references",

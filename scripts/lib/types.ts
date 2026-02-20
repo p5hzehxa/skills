@@ -41,7 +41,7 @@ export interface SkillSpec {
 /** A generated skill ready to write to disk */
 export interface GeneratedSkill {
   name: string;
-  /** Relative write path, e.g. "skills/workos/references/workos-sso.md" — used by generator to write files */
+  /** Relative write path, e.g. "plugins/workos/skills/workos/references/workos-sso.md" — used by generator to write files */
   path: string;
   content: string;
   sizeBytes: number;

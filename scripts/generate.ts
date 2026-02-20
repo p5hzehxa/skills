@@ -171,7 +171,7 @@ async function main() {
 
     const goldStandardPath = join(
       process.cwd(),
-      "skills/workos-authkit-nextjs/SKILL.md",
+      "plugins/workos/skills/workos-authkit-nextjs/SKILL.md",
     );
     const goldStandard = await Bun.file(goldStandardPath).text();
     console.log(

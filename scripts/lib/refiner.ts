@@ -7,7 +7,7 @@ import { loadFeedback, formatFeedbackForPrompt } from "./feedback.ts";
 /** Read valid skill names from disk to prevent phantom references */
 function getValidSkillNames(): string[] {
   try {
-    const skillsDir = join(process.cwd(), "skills");
+    const skillsDir = join(process.cwd(), "plugins", "workos", "skills");
     return readdirSync(skillsDir).filter((d) => d.startsWith("workos-"));
   } catch {
     return [];

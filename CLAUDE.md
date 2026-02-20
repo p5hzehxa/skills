@@ -16,14 +16,17 @@ bun run format:check          # prettier --check
 
 ## Project Structure
 
-- `skills/` — skill files consumed by Claude Code at runtime
-  - **Hand-crafted** (never overwrite): `workos-authkit-base`, `workos-authkit-nextjs`, `workos-authkit-react`, `workos-authkit-react-router`, `workos-authkit-tanstack-start`, `workos-authkit-vanilla-js`
-  - **Generated** — everything else; produced by `scripts/generate.ts`
-    - **Summary** (`workos-sso.md`) — routing doc with frontmatter, <1KB
-    - **Guide** (`workos-sso.guide.md`) — implementation, 7-11KB, no frontmatter
-    - **API ref stub** (`workos-api-sso.guide.md`) — deterministic endpoint table, ~1KB
-    - **Feedback** (`workos-sso.feedback.md`) — domain expert corrections for refiner
-- `scripts/` — generation pipeline
+- `.claude-plugin/marketplace.json` — marketplace catalog (source: `./plugins/workos`)
+- `plugins/workos/` — installable plugin (only this gets cached)
+  - `.claude-plugin/plugin.json` — plugin manifest
+  - `skills/` — skill directories, each with `SKILL.md`
+    - **Hand-crafted** (never overwrite): `workos-authkit-base`, `workos-authkit-nextjs`, `workos-authkit-react`, `workos-authkit-react-router`, `workos-authkit-tanstack-start`, `workos-authkit-vanilla-js`
+    - **Generated** — everything in `workos/references/`; produced by `scripts/generate.ts`
+      - **Summary** (`workos-sso.md`) — routing doc, <1KB
+      - **Guide** (`workos-sso.guide.md`) — implementation, 7-11KB, no frontmatter
+      - **API ref stub** (`workos-api-sso.guide.md`) — deterministic endpoint table, ~1KB
+      - **Feedback** (`workos-sso.feedback.md`) — domain expert corrections for refiner
+- `scripts/` — generation pipeline (not cached with plugin)
   - `generate.ts` — orchestrator: fetch → parse → split → generate → refine → quality gate → write
   - `lib/` — pipeline modules: `fetcher`, `parser`, `validator`, `splitter`, `api-ref-splitter`, `generator`, `skill-template`, `refiner`, `quality-gate`, `feedback`, `hasher`, `config`, `types`
   - `tests/` — `*.spec.ts` files using `bun:test`

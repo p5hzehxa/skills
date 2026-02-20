@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
 
-const PLUGIN_DIR = join(import.meta.dir, "../../skills/workos");
+const PLUGIN_DIR = join(import.meta.dir, "../../plugins/workos/skills/workos");
 const REFS_DIR = join(PLUGIN_DIR, "references");
 
 function listRefFiles(): string[] {

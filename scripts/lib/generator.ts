@@ -24,7 +24,7 @@ export function generateSkill(
 
   const summary: GeneratedSkill = {
     name: spec.name,
-    path: `skills/workos/references/${spec.name}.md`,
+    path: `plugins/workos/skills/workos/references/${spec.name}.md`,
     content: summaryContent,
     sizeBytes: Buffer.byteLength(summaryContent, "utf8"),
     generated: true,
@@ -34,7 +34,7 @@ export function generateSkill(
 
   const guide: GeneratedSkill = {
     name: spec.name,
-    path: `skills/workos/references/${spec.name}.guide.md`,
+    path: `plugins/workos/skills/workos/references/${spec.name}.guide.md`,
     content: guideContent,
     sizeBytes: Buffer.byteLength(guideContent, "utf8"),
     generated: true,
@@ -201,7 +201,7 @@ Then WebFetch the specific section URL for the user's topic.
 
   return {
     name: "workos",
-    path: "skills/workos/SKILL.md",
+    path: "plugins/workos/skills/workos/SKILL.md",
     content,
     sizeBytes: Buffer.byteLength(content, "utf8"),
     generated: true,
@@ -432,7 +432,7 @@ Connection not working?
 
   return {
     name: "workos-integrations",
-    path: "skills/workos/references/workos-integrations.md",
+    path: "plugins/workos/skills/workos/references/workos-integrations.md",
     content,
     sizeBytes: Buffer.byteLength(content, "utf8"),
     generated: true,

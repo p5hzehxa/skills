@@ -1,120 +1,18 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "workos-skills",
-  "description": "Official WorkOS skills for AI coding agents. AuthKit, SSO, Directory Sync, RBAC, Vault, Migrations, and API references.",
+  "name": "workos",
   "owner": {
     "name": "WorkOS",
     "email": "support@workos.com"
   },
   "metadata": {
-    "version": "0.1.0",
-    "description": "WorkOS plugin with router + AuthKit framework skills for authentication, enterprise features, migrations, and API integration"
+    "description": "Official WorkOS skills for AI coding agents",
+    "version": "1.0.0"
   },
   "plugins": [
     {
-      "name": "workos-authkit-react",
-      "description": "Integrate WorkOS AuthKit with React single-page applications. Client-side only authentication. Use when the project is a React SPA without Next.js or React Router.",
-      "version": "0.1.0",
-      "author": {
-        "name": "WorkOS",
-        "email": "support@workos.com"
-      },
-      "source": "./skills/workos-authkit-react",
-      "homepage": "https://workos.com/docs",
-      "repository": "https://github.com/workos/skills",
-      "license": "MIT",
-      "category": "authentication",
-      "keywords": ["workos", "authkit", "react", "authentication"]
-    },
-    {
-      "name": "workos-authkit-nextjs",
-      "description": "Integrate WorkOS AuthKit with Next.js App Router (13+). Server-side rendering required.",
-      "version": "0.1.0",
-      "author": {
-        "name": "WorkOS",
-        "email": "support@workos.com"
-      },
-      "source": "./skills/workos-authkit-nextjs",
-      "homepage": "https://workos.com/docs",
-      "repository": "https://github.com/workos/skills",
-      "license": "MIT",
-      "category": "authentication",
-      "keywords": ["workos", "authkit", "nextjs", "authentication"]
-    },
-    {
-      "name": "workos-authkit-vanilla-js",
-      "description": "Integrate WorkOS AuthKit with vanilla JavaScript applications. No framework required, browser-only. Use when project is plain HTML/JS, doesn't use React/Vue/etc, or mentions vanilla JavaScript authentication.",
-      "version": "0.1.0",
-      "author": {
-        "name": "WorkOS",
-        "email": "support@workos.com"
-      },
-      "source": "./skills/workos-authkit-vanilla-js",
-      "homepage": "https://workos.com/docs",
-      "repository": "https://github.com/workos/skills",
-      "license": "MIT",
-      "category": "authentication",
-      "keywords": ["workos", "authkit", "vanilla", "js", "authentication"]
-    },
-    {
-      "name": "workos-authkit-base",
-      "description": "Architectural reference for WorkOS AuthKit integrations. Fetch README first for implementation details.",
-      "version": "0.1.0",
-      "author": {
-        "name": "WorkOS",
-        "email": "support@workos.com"
-      },
-      "source": "./skills/workos-authkit-base",
-      "homepage": "https://workos.com/docs",
-      "repository": "https://github.com/workos/skills",
-      "license": "MIT",
-      "category": "authentication",
-      "keywords": ["workos", "authkit", "base", "authentication"]
-    },
-    {
-      "name": "workos-authkit-react-router",
-      "description": "Integrate WorkOS AuthKit with React Router applications. Supports v6 and v7 (Framework, Data, Declarative modes). Use when project uses react-router, react-router-dom, or mentions React Router authentication.",
-      "version": "0.1.0",
-      "author": {
-        "name": "WorkOS",
-        "email": "support@workos.com"
-      },
-      "source": "./skills/workos-authkit-react-router",
-      "homepage": "https://workos.com/docs",
-      "repository": "https://github.com/workos/skills",
-      "license": "MIT",
-      "category": "authentication",
-      "keywords": ["workos", "authkit", "react", "router", "authentication"]
-    },
-    {
-      "name": "workos-authkit-tanstack-start",
-      "description": "Integrate WorkOS AuthKit with TanStack Start applications. Full-stack TypeScript with server functions. Use when project uses TanStack Start, @tanstack/start, or vinxi.",
-      "version": "0.1.0",
-      "author": {
-        "name": "WorkOS",
-        "email": "support@workos.com"
-      },
-      "source": "./skills/workos-authkit-tanstack-start",
-      "homepage": "https://workos.com/docs",
-      "repository": "https://github.com/workos/skills",
-      "license": "MIT",
-      "category": "authentication",
-      "keywords": ["workos", "authkit", "tanstack", "start", "authentication"]
-    },
-    {
       "name": "workos",
-      "description": "Identify which WorkOS skill to load based on the user's task. Covers AuthKit, SSO, RBAC, migrations, and all API references.",
-      "version": "0.1.0",
-      "author": {
-        "name": "WorkOS",
-        "email": "support@workos.com"
-      },
-      "source": "./skills/workos",
-      "homepage": "https://workos.com/docs",
-      "repository": "https://github.com/workos/skills",
-      "license": "MIT",
-      "category": "enterprise",
-      "keywords": ["workos"]
+      "source": "./plugins/workos",
+      "description": "WorkOS integration skills for AuthKit, SSO, Directory Sync, RBAC, Vault, Audit Logs, migrations, and API references."
     }
   ]
 }
