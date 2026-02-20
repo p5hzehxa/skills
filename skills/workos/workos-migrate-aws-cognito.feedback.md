@@ -24,5 +24,5 @@
   to the migration process in general. Use phrasing like "Cognito limitation"
   or "Cognito does not export" to make the source of the constraint clear.
 - The migration strategy is: export user attributes via `aws cognito-idp
-  list-users`, import into WorkOS via Create User API (no password), then
+list-users`, import into WorkOS via Create User API (no password), then
   force password reset for all migrated users.

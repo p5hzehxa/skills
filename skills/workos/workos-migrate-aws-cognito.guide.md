@@ -66,12 +66,14 @@ aws cognito-idp list-users \
 ```
 
 **What gets exported:**
+
 - User identifiers (username, email)
 - Profile attributes (name, phone, custom attributes)
 - Account status (enabled/disabled)
 - Creation/modification timestamps
 
 **What does NOT export:**
+
 - Password hashes (Cognito limitation)
 - MFA secrets (Cognito limitation)
 - OAuth tokens (expire anyway)
@@ -81,6 +83,7 @@ aws cognito-idp list-users \
 Map Cognito attributes to WorkOS User fields. Check fetched docs for complete User object schema.
 
 Common mappings:
+
 - `Username` → `email` (if email-based) or custom identifier
 - `Attributes` array → WorkOS top-level fields
 - `Enabled` status → account active/inactive flag
@@ -92,6 +95,7 @@ Common mappings:
 Use WorkOS Create User API for each exported user. Check fetched docs for exact endpoint and request schema.
 
 **Request pattern (language-agnostic):**
+
 ```
 for each cognito_user:
   workos.user_management.users.create({
@@ -122,6 +126,7 @@ For users who authenticated via Google, GitHub, Microsoft, etc.:
 3. **Add WorkOS redirect URI** to the OAuth provider
 
 **Example for Google OAuth:**
+
 - Original Cognito callback: `https://your-domain.auth.region.amazoncognito.com/oauth2/idpresponse`
 - New WorkOS callback: Check fetched docs for WorkOS redirect URI format
 - Add BOTH to Google OAuth app (keep Cognito active during migration)
@@ -131,6 +136,7 @@ Check fetched docs for WorkOS redirect URI patterns and provider-specific setup.
 ### SAML Connections
 
 For enterprise SAML connections:
+
 - Export SAML metadata from Cognito connection
 - Create equivalent connection in WorkOS Dashboard
 - Update IdP with new WorkOS ACS URL and Entity ID
@@ -171,6 +177,7 @@ for each imported_user:
 ```
 
 **Add user metadata** during import to track migration status:
+
 ```
 {
   "migrated_from": "cognito",
@@ -237,6 +244,7 @@ jq 'length' cognito_users.json # Should show user count
 **Cause:** Email collision with existing WorkOS user.
 
 **Fix:**
+
 1. Check if existing user is from previous migration attempt
 2. If yes: Use Update User API instead of Create User
 3. If no: Resolve email conflict (different identifier, merge accounts, or fail)
@@ -244,11 +252,13 @@ jq 'length' cognito_users.json # Should show user count
 ### Password reset email not received
 
 **Causes:**
+
 - Email marked as spam (WorkOS uses SendGrid)
 - Invalid email in user record
 - Email delivery rate limiting
 
 **Fix:**
+
 1. Check user's email field in WorkOS Dashboard
 2. Verify email domain accepts mail from WorkOS (SPF/DKIM)
 3. Check SendGrid delivery logs in WorkOS Dashboard (if available)
@@ -259,6 +269,7 @@ jq 'length' cognito_users.json # Should show user count
 **Cause:** WorkOS callback URL not added to OAuth provider.
 
 **Fix:**
+
 1. Get WorkOS redirect URI from fetched docs
 2. Add to provider's allowed redirect URIs (Google Console, GitHub Settings, etc.)
 3. Keep old Cognito URI active until migration complete
@@ -267,11 +278,13 @@ jq 'length' cognito_users.json # Should show user count
 ### Users can't authenticate after migration
 
 **Likely causes:**
+
 - Password reset flow not implemented (migrated users have no password)
 - AuthKit not integrated (still using Cognito SDK)
 - Session cookies pointing to old Cognito domain
 
 **Fix checklist:**
+
 1. Confirm password reset flow triggers for migrated users
 2. Confirm AuthKit integration replaced Cognito SDK calls
 3. Clear all user sessions (force re-authentication)
@@ -284,6 +297,7 @@ jq 'length' cognito_users.json # Should show user count
 **Expected behavior:** Users must re-enroll MFA in WorkOS.
 
 **Fix:**
+
 1. Document MFA re-enrollment requirement in user communication
 2. Provide MFA setup instructions after password reset
 3. Check fetched docs for WorkOS MFA enrollment API
@@ -293,6 +307,7 @@ jq 'length' cognito_users.json # Should show user count
 **Cause:** Exceeded WorkOS API rate limits.
 
 **Fix:**
+
 1. Implement exponential backoff: start with 1s delay, double on each 429 response
 2. Batch users into smaller groups (e.g., 100 users per batch)
 3. Check fetched docs for current rate limits
