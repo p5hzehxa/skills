@@ -2,24 +2,28 @@ import { describe, expect, it } from "bun:test";
 import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
 
-const SKILLS_DIR = join(import.meta.dir, "../../skills/workos");
+const PLUGIN_DIR = join(import.meta.dir, "../../skills/workos");
+const REFS_DIR = join(PLUGIN_DIR, "references");
 
-function listSkillFiles(): string[] {
-  return readdirSync(SKILLS_DIR);
+function listRefFiles(): string[] {
+  return readdirSync(REFS_DIR);
 }
 
-function readSkill(filename: string): string {
-  return readFileSync(join(SKILLS_DIR, filename), "utf-8");
+function readRef(filename: string): string {
+  return readFileSync(join(REFS_DIR, filename), "utf-8");
+}
+
+function readPluginFile(filename: string): string {
+  return readFileSync(join(PLUGIN_DIR, filename), "utf-8");
 }
 
 describe("path resolution", () => {
-  const files = listSkillFiles();
+  const files = listRefFiles();
   const summaries = files.filter(
     (f) =>
       f.endsWith(".md") &&
       !f.endsWith(".guide.md") &&
       !f.endsWith(".feedback.md") &&
-      f !== "SKILL.md" &&
       f !== "workos-integrations.md",
   );
   const guides = files.filter((f) => f.endsWith(".guide.md"));
@@ -50,9 +54,9 @@ describe("path resolution", () => {
   it("guide pointers resolve to existing files", () => {
     const broken: string[] = [];
     for (const summary of summaries) {
-      const content = readSkill(summary);
+      const content = readRef(summary);
       const match = content.match(
-        /Read\s+`?skills\/workos\/([^`\s]+\.guide\.md)`?/,
+        /Read\s+`?(?:(?:skills\/workos\/)?references\/)?([^`\s]+\.guide\.md)`?/,
       );
       if (match && !allMdFiles.has(match[1])) {
         broken.push(`${summary} → ${match[1]}`);
@@ -62,9 +66,9 @@ describe("path resolution", () => {
   });
 
   it("router references resolve to existing summaries", () => {
-    const router = readSkill("SKILL.md");
+    const router = readPluginFile("SKILL.md");
     const broken: string[] = [];
-    for (const match of router.matchAll(/skills\/workos\/([^\s`|]+\.md)/g)) {
+    for (const match of router.matchAll(/references\/([^\s`|]+\.md)/g)) {
       const ref = match[1];
       // Skip template patterns like {name}.md, workos-[feature].md
       if (ref.includes("{") || ref.includes("[")) continue;
@@ -92,7 +96,7 @@ describe("path resolution", () => {
     ]);
     const broken: string[] = [];
     for (const file of files.filter((f) => f.endsWith(".md"))) {
-      const content = readSkill(file);
+      const content = readRef(file);
       const section = content.match(/## Related Skills\n([\s\S]*?)(?=\n## |$)/);
       if (!section) continue;
       for (const ref of section[1].matchAll(/\*\*(workos-[a-z0-9-]+)\*\*/g)) {

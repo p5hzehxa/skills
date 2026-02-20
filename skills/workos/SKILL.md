@@ -15,7 +15,7 @@ When a user needs help with WorkOS, consult the tables below to route to the rig
 
 **AuthKit skills** are registered plugins — load them directly via the Skill tool.
 
-**All other skills** are bundled files. To load one, Read `skills/workos/{name}.md` from this plugin directory and follow its instructions.
+**All other skills** are bundled files. To load one, Read `references/{name}.md` from this plugin directory and follow its instructions.
 
 ## Topic → Skill Map
 
@@ -30,52 +30,52 @@ When a user needs help with WorkOS, consult the tables below to route to the rig
 | Install AuthKit in vanilla JS                 | workos-authkit-vanilla-js           |
 | AuthKit architecture reference                | workos-authkit-base                 |
 
-### Features (Read `skills/workos/{name}.md`)
+### Features (Read `references/{name}.md`)
 
 | User wants to...                              | Read file                                       |
 | --------------------------------------------- | ----------------------------------------------- |
-| Configure email delivery                      | `skills/workos/workos-email.md` |
-| Add WorkOS Widgets                            | `skills/workos/workos-widgets.md` |
-| Encrypt data with Vault                       | `skills/workos/workos-vault.md` |
-| Configure Single Sign-On                      | `skills/workos/workos-sso.md` |
-| Implement RBAC / roles                        | `skills/workos/workos-rbac.md` |
-| Add Multi-Factor Auth                         | `skills/workos/workos-mfa.md` |
-| Set up IdP integration                        | `skills/workos/workos-integrations.md` |
-| Handle WorkOS Events / webhooks               | `skills/workos/workos-events.md` |
-| Set up Directory Sync                         | `skills/workos/workos-directory-sync.md` |
-| Set up Custom Domains                         | `skills/workos/workos-custom-domains.md` |
-| Set up Audit Logs                             | `skills/workos/workos-audit-logs.md` |
-| Enable Admin Portal                           | `skills/workos/workos-admin-portal.md` |
+| Configure email delivery                      | `references/workos-email.md` |
+| Add WorkOS Widgets                            | `references/workos-widgets.md` |
+| Encrypt data with Vault                       | `references/workos-vault.md` |
+| Configure Single Sign-On                      | `references/workos-sso.md` |
+| Implement RBAC / roles                        | `references/workos-rbac.md` |
+| Add Multi-Factor Auth                         | `references/workos-mfa.md` |
+| Set up IdP integration                        | `references/workos-integrations.md` |
+| Handle WorkOS Events / webhooks               | `references/workos-events.md` |
+| Set up Directory Sync                         | `references/workos-directory-sync.md` |
+| Set up Custom Domains                         | `references/workos-custom-domains.md` |
+| Set up Audit Logs                             | `references/workos-audit-logs.md` |
+| Enable Admin Portal                           | `references/workos-admin-portal.md` |
 
-### API References (Read `skills/workos/{name}.md`)
-
-| User wants to...                              | Read file                                       |
-| --------------------------------------------- | ----------------------------------------------- |
-| Admin portal API Reference                    | `skills/workos/workos-api-admin-portal.md` |
-| Audit logs API Reference                      | `skills/workos/workos-api-audit-logs.md` |
-| Authkit API Reference                         | `skills/workos/workos-api-authkit.md` |
-| Directory sync API Reference                  | `skills/workos/workos-api-directory-sync.md` |
-| Events API Reference                          | `skills/workos/workos-api-events.md` |
-| Organization API Reference                    | `skills/workos/workos-api-organization.md` |
-| Roles API Reference                           | `skills/workos/workos-api-roles.md` |
-| Sso API Reference                             | `skills/workos/workos-api-sso.md` |
-| Vault API Reference                           | `skills/workos/workos-api-vault.md` |
-| Widgets API Reference                         | `skills/workos/workos-api-widgets.md` |
-
-### Migrations (Read `skills/workos/{name}.md`)
+### API References (Read `references/{name}.md`)
 
 | User wants to...                              | Read file                                       |
 | --------------------------------------------- | ----------------------------------------------- |
-| Migrate from Supabase Auth                   | `skills/workos/workos-migrate-supabase-auth.md` |
-| Migrate from Stytch                          | `skills/workos/workos-migrate-stytch.md` |
-| Migrate from the standalone SSO API          | `skills/workos/workos-migrate-the-standalone-sso-api.md` |
-| Migrate from other services                  | `skills/workos/workos-migrate-other-services.md` |
-| Migrate from Firebase                        | `skills/workos/workos-migrate-firebase.md` |
-| Migrate from Descope                         | `skills/workos/workos-migrate-descope.md` |
-| Migrate from Clerk                           | `skills/workos/workos-migrate-clerk.md` |
-| Migrate from Better Auth                     | `skills/workos/workos-migrate-better-auth.md` |
-| Migrate from AWS Cognito                     | `skills/workos/workos-migrate-aws-cognito.md` |
-| Migrate from Auth0                           | `skills/workos/workos-migrate-auth0.md` |
+| Admin portal API Reference                    | `references/workos-api-admin-portal.md` |
+| Audit logs API Reference                      | `references/workos-api-audit-logs.md` |
+| Authkit API Reference                         | `references/workos-api-authkit.md` |
+| Directory sync API Reference                  | `references/workos-api-directory-sync.md` |
+| Events API Reference                          | `references/workos-api-events.md` |
+| Organization API Reference                    | `references/workos-api-organization.md` |
+| Roles API Reference                           | `references/workos-api-roles.md` |
+| Sso API Reference                             | `references/workos-api-sso.md` |
+| Vault API Reference                           | `references/workos-api-vault.md` |
+| Widgets API Reference                         | `references/workos-api-widgets.md` |
+
+### Migrations (Read `references/{name}.md`)
+
+| User wants to...                              | Read file                                       |
+| --------------------------------------------- | ----------------------------------------------- |
+| Migrate from Supabase Auth                   | `references/workos-migrate-supabase-auth.md` |
+| Migrate from Stytch                          | `references/workos-migrate-stytch.md` |
+| Migrate from the standalone SSO API          | `references/workos-migrate-the-standalone-sso-api.md` |
+| Migrate from other services                  | `references/workos-migrate-other-services.md` |
+| Migrate from Firebase                        | `references/workos-migrate-firebase.md` |
+| Migrate from Descope                         | `references/workos-migrate-descope.md` |
+| Migrate from Clerk                           | `references/workos-migrate-clerk.md` |
+| Migrate from Better Auth                     | `references/workos-migrate-better-auth.md` |
+| Migrate from AWS Cognito                     | `references/workos-migrate-aws-cognito.md` |
+| Migrate from Auth0                           | `references/workos-migrate-auth0.md` |
 
 ## Disambiguation Rules
 
@@ -139,15 +139,15 @@ Do NOT guess if framework detection fails. Ask the user explicitly.
 User request about WorkOS
   |
   ├─ Mentions "migrate from [provider]"?
-  │    YES → Read skills/workos/workos-migrate-[provider].md
+  │    YES → Read references/workos-migrate-[provider].md
   │    NO  → Continue
   |
   ├─ Says "API docs", "endpoint", "API reference", or "request/response"?
-  │    YES → Read skills/workos/workos-api-[feature].md
+  │    YES → Read references/workos-api-[feature].md
   │    NO  → Continue
   |
   ├─ Mentions specific feature (SSO, MFA, Directory Sync, etc.)?
-  │    YES → Read skills/workos/workos-[feature].md
+  │    YES → Read references/workos-[feature].md
   │    NO  → Continue
   |
   ├─ Mentions "authentication", "login", "sign-up", or "AuthKit"?
@@ -155,7 +155,7 @@ User request about WorkOS
   │    NO  → Continue
   |
   ├─ Mentions "integration" or "IdP connection"?
-  │    YES → Read skills/workos/workos-integrations.md
+  │    YES → Read references/workos-integrations.md
   │    NO  → Continue
   |
   ├─ Request is vague ("I need WorkOS", "WorkOS setup")?

@@ -135,10 +135,10 @@ async function scoreSummary(
   }
 
   // 5. Guide pointer (15 pts)
-  if (/Read\s+`?skills\/workos\/.*\.guide\.md`?/.test(content)) {
+  if (/Read\s+`?(?:(?:skills\/workos\/)?references\/)?.*\.guide\.md`?/.test(content)) {
     score += 15;
   } else {
-    issues.push("Missing guide pointer (Read skills/workos/*.guide.md)");
+    issues.push("Missing guide pointer (Read references/*.guide.md)");
   }
 
   // 6. Related Skills section (5 pts)
@@ -407,7 +407,7 @@ async function scoreApiRefStub(skill: GeneratedSkill): Promise<QualityResult> {
   }
 
   // 5. Feature guide pointer (20 pts)
-  if (/Read\s+`?skills\/workos\/.*\.guide\.md`?/.test(content)) {
+  if (/Read\s+`?(?:(?:skills\/workos\/)?references\/)?.*\.guide\.md`?/.test(content)) {
     score += 20;
   } else {
     issues.push("Missing feature guide pointer");

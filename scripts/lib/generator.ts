@@ -24,7 +24,7 @@ export function generateSkill(
 
   const summary: GeneratedSkill = {
     name: spec.name,
-    path: `skills/workos/${spec.name}.md`,
+    path: `skills/workos/references/${spec.name}.md`,
     content: summaryContent,
     sizeBytes: Buffer.byteLength(summaryContent, "utf8"),
     generated: true,
@@ -34,7 +34,7 @@ export function generateSkill(
 
   const guide: GeneratedSkill = {
     name: spec.name,
-    path: `skills/workos/${spec.name}.guide.md`,
+    path: `skills/workos/references/${spec.name}.guide.md`,
     content: guideContent,
     sizeBytes: Buffer.byteLength(guideContent, "utf8"),
     generated: true,
@@ -85,19 +85,19 @@ export function generateRouter(
     if (spec.anchor === "migrate") {
       const provider = spec.title.replace("WorkOS Migration: ", "");
       migrateRows.push(
-        `| Migrate from ${provider.padEnd(31)} | \`skills/workos/${spec.name}.md\` |`,
+        `| Migrate from ${provider.padEnd(31)} | \`references/${spec.name}.md\` |`,
       );
     } else if (spec.name.startsWith("workos-api-")) {
       const domain = spec.name.replace("workos-api-", "").replace(/-/g, " ");
       const label =
         domain.charAt(0).toUpperCase() + domain.slice(1) + " API Reference";
       apiRefRows.push(
-        `| ${label.padEnd(45)} | \`skills/workos/${spec.name}.md\` |`,
+        `| ${label.padEnd(45)} | \`references/${spec.name}.md\` |`,
       );
     } else {
       const intent = intentFromSpec(spec);
       featureRows.push(
-        `| ${intent.padEnd(45)} | \`skills/workos/${spec.name}.md\` |`,
+        `| ${intent.padEnd(45)} | \`references/${spec.name}.md\` |`,
       );
     }
   }
@@ -127,7 +127,7 @@ When a user needs help with WorkOS, consult the tables below to route to the rig
 
 **AuthKit skills** are registered plugins — load them directly via the Skill tool.
 
-**All other skills** are bundled files. To load one, Read \`skills/workos/{name}.md\` from this plugin directory and follow its instructions.
+**All other skills** are bundled in the \`references/\` directory. To load one, Read \`references/{name}.md\` and follow its instructions.
 
 ## Disambiguation Rules
 
@@ -143,19 +143,19 @@ When a user needs help with WorkOS, consult the tables below to route to the rig
 | --------------------------------------------- | ----------------------------------- |
 ${authkitRows}
 
-### Features (Read \`skills/workos/{name}.md\`)
+### Features (Read \`references/{name}.md\`)
 
 | User wants to...                              | Read file                                       |
 | --------------------------------------------- | ----------------------------------------------- |
 ${featureRows.join("\n")}
 
-### API References (Read \`skills/workos/{name}.md\`)
+### API References (Read \`references/{name}.md\`)
 
 | User wants to...                              | Read file                                       |
 | --------------------------------------------- | ----------------------------------------------- |
 ${apiRefRows.join("\n")}
 
-### Migrations (Read \`skills/workos/{name}.md\`)
+### Migrations (Read \`references/{name}.md\`)
 
 | User wants to...                              | Read file                                       |
 | --------------------------------------------- | ----------------------------------------------- |
@@ -180,15 +180,15 @@ Note: Check framework-specific deps (TanStack, React Router) BEFORE generic ones
 \`\`\`
 User request about WorkOS?
   |
-  +-- Migration context? → Read skills/workos/workos-migrate-[provider].md
+  +-- Migration context? → Read references/workos-migrate-[provider].md
   |
-  +-- Mentions specific feature? → Read skills/workos/workos-[feature].md
+  +-- Mentions specific feature? → Read references/workos-[feature].md
   |
-  +-- Wants API reference? → Read skills/workos/workos-api-[feature].md
+  +-- Wants API reference? → Read references/workos-api-[feature].md
   |
   +-- Wants AuthKit/auth setup? → Detect framework → Skill tool: workos-authkit-[framework]
   |
-  +-- Wants integration setup? → Read skills/workos/workos-integrations.md
+  +-- Wants integration setup? → Read references/workos-integrations.md
   |
   +-- Not sure? → WebFetch https://workos.com/docs/llms.txt → Find matching section
 \`\`\`
@@ -432,7 +432,7 @@ Connection not working?
 
   return {
     name: "workos-integrations",
-    path: "skills/workos/workos-integrations.md",
+    path: "skills/workos/references/workos-integrations.md",
     content,
     sizeBytes: Buffer.byteLength(content, "utf8"),
     generated: true,

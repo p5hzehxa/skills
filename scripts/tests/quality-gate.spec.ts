@@ -34,7 +34,7 @@ Check fetched docs for current API requirements.
 `;
   return {
     name: overrides.name ?? "workos-test-skill",
-    path: overrides.path ?? "skills/workos/workos-test-skill.guide.md",
+    path: overrides.path ?? "skills/workos/references/workos-test-skill.guide.md",
     content,
     sizeBytes: overrides.sizeBytes ?? Buffer.byteLength(content, "utf8"),
     generated: overrides.generated ?? true,
@@ -68,7 +68,7 @@ Key structural vocabulary for the test domain including identifiers and patterns
 
 For step-by-step implementation, verification commands, and error recovery:
 
-→ Read \`skills/workos/workos-test-skill.guide.md\`
+→ Read \`references/workos-test-skill.guide.md\`
 
 ## Related Skills
 
@@ -76,7 +76,7 @@ For step-by-step implementation, verification commands, and error recovery:
 `;
   return {
     name: overrides.name ?? "workos-test-skill",
-    path: overrides.path ?? "skills/workos/workos-test-skill.md",
+    path: overrides.path ?? "skills/workos/references/workos-test-skill.md",
     content,
     sizeBytes: overrides.sizeBytes ?? Buffer.byteLength(content, "utf8"),
     generated: overrides.generated ?? true,
@@ -382,7 +382,7 @@ Concepts here.
 
 ## Implementation Guide
 
-→ Read \`skills/workos/workos-test.guide.md\`
+→ Read \`references/workos-test.guide.md\`
 
 ` + "x".repeat(2200);
     const summary = makeSummary({
@@ -461,7 +461,7 @@ describe("API ref stub scoring", () => {
 
 ## Implementation
 
-> Read \`skills/workos/workos-sso.guide.md\`
+> Read \`references/workos-sso.guide.md\`
 `;
     const stub = makeSkill({
       name: "workos-api-sso",

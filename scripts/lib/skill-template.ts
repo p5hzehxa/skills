@@ -79,7 +79,7 @@ export function renderGuidePointer(skillName: string): string {
 
 For step-by-step implementation, verification commands, and error recovery:
 
-→ Read \`skills/workos/${skillName}.guide.md\`
+→ Read \`references/${skillName}.guide.md\`
 
 `;
 }
@@ -119,7 +119,7 @@ export function renderApiRefStub(spec: SkillSpec, sourceHash?: string): string {
   parts.push("");
   parts.push("For integration patterns, error recovery, and verification:");
   parts.push("");
-  parts.push(`> Read \`skills/workos/${featureName}.guide.md\``);
+  parts.push(`> Read \`references/${featureName}.guide.md\``);
   parts.push("");
   return parts.join("\n");
 }
