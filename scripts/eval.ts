@@ -13,7 +13,7 @@ function parseArgs(): EvalOptions {
     noCache: args.includes("--no-cache"),
     dryRun: args.includes("--dry-run"),
     concurrency: parseInt(
-      args.find((a) => a.startsWith("--concurrency="))?.split("=")[1] ?? "1",
+      args.find((a) => a.startsWith("--concurrency="))?.split("=")[1] ?? "3",
     ),
     apiKey: process.env.ANTHROPIC_API_KEY ?? "",
   };

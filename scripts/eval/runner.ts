@@ -2,7 +2,7 @@ import { join } from "path";
 import { readdirSync, readFileSync } from "fs";
 import { parse } from "yaml";
 import { HAND_CRAFTED_SKILLS } from "../lib/config.ts";
-import { generateCode, rateLimitDelay } from "./api.ts";
+import { generateCode } from "./api.ts";
 import { getCacheKey, readCache, writeCache } from "./cache.ts";
 import { scoreOutput, categorizeErrors } from "./scorer.ts";
 import type {
@@ -134,6 +134,92 @@ export function aggregateResults(results: EvalResult[]): ProductSummary[] {
   return summaries.sort((a, b) => b.avgDelta - a.avgDelta);
 }
 
+/** Evaluate a single case (both arms) */
+async function evalCase(
+  c: EvalCase,
+  index: number,
+  total: number,
+  options: EvalOptions,
+): Promise<EvalResult | null> {
+  console.log(`[${index}/${total}] Evaluating ${c.id}...`);
+
+  try {
+    const skillContent = loadSkillContent(c.skill);
+
+    const systemWith =
+      "You have access to the following WorkOS integration skill. " +
+      "Use it to inform your implementation.\n\n" +
+      skillContent +
+      "\n\nYou are a software engineer implementing a WorkOS integration. Write working code. Include imports, environment variable setup, and error handling. Use the WorkOS SDK appropriate for the requested language.";
+    const systemWithout =
+      "You are a software engineer implementing a WorkOS integration. Write working code. Include imports, environment variable setup, and error handling. Use the WorkOS SDK appropriate for the requested language.";
+
+    // Run both arms in parallel — they're independent API calls
+    const [withResult, withoutResult] = await Promise.all([
+      getOrGenerate(c.prompt, skillContent, systemWith, options),
+      getOrGenerate(c.prompt, null, systemWithout, options),
+    ]);
+
+    const withScores = scoreOutput(withResult.output, c.expected);
+    const withoutScores = scoreOutput(withoutResult.output, c.expected);
+    const errors = categorizeErrors(withoutResult.output, c.expected);
+
+    const result: EvalResult = {
+      caseId: c.id,
+      product: c.product,
+      language: c.language,
+      skillType: c.skillType,
+      withSkill: {
+        output: withResult.output,
+        scores: withScores,
+        tokenUsage: withResult.usage,
+      },
+      withoutSkill: {
+        output: withoutResult.output,
+        scores: withoutScores,
+        tokenUsage: withoutResult.usage,
+      },
+      delta: withScores.composite - withoutScores.composite,
+      topErrors: errors,
+    };
+
+    console.log(
+      `  ↳ with: ${withScores.composite}% | without: ${withoutScores.composite}% | delta: ${result.delta > 0 ? "+" : ""}${result.delta}%`,
+    );
+    return result;
+  } catch (err) {
+    console.error(`  ✗ ${c.id} failed: ${(err as Error).message}`);
+    return null;
+  }
+}
+
+/** Check cache, generate if miss */
+async function getOrGenerate(
+  prompt: string,
+  skillContent: string | null,
+  systemPrompt: string,
+  options: EvalOptions,
+): Promise<{ output: string; usage: { input: number; output: number } }> {
+  const cacheKey = getCacheKey(options.model, systemPrompt, prompt);
+  const cached = options.noCache ? null : await readCache(cacheKey);
+
+  if (cached) return cached;
+
+  const gen = await generateCode(prompt, skillContent, {
+    apiKey: options.apiKey,
+    model: options.model,
+  });
+
+  await writeCache(cacheKey, {
+    output: gen.output,
+    usage: gen.usage,
+    model: options.model,
+    cachedAt: new Date().toISOString(),
+  });
+
+  return gen;
+}
+
 /** Run the full eval */
 export async function runEval(options: EvalOptions): Promise<EvalReport> {
   const cases = loadCases(CASES_DIR, {
@@ -173,104 +259,28 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
     };
   }
 
+  const concurrency = Math.max(1, options.concurrency);
+  console.log(
+    concurrency > 1
+      ? `\nRunning ${cases.length} cases with concurrency ${concurrency}\n`
+      : "",
+  );
+
   const results: EvalResult[] = [];
 
-  for (let i = 0; i < cases.length; i++) {
-    const c = cases[i];
-    console.log(`[${i + 1}/${cases.length}] Evaluating ${c.id}...`);
+  // Process in batches of `concurrency`
+  for (let batch = 0; batch < cases.length; batch += concurrency) {
+    const batchCases = cases.slice(batch, batch + concurrency);
+    const batchResults = await Promise.allSettled(
+      batchCases.map((c, idx) =>
+        evalCase(c, batch + idx + 1, cases.length, options),
+      ),
+    );
 
-    try {
-      const skillContent = loadSkillContent(c.skill);
-
-      // Build system prompts for cache keys
-      const systemWith =
-        "You have access to the following WorkOS integration skill. " +
-        "Use it to inform your implementation.\n\n" +
-        skillContent +
-        "\n\nYou are a software engineer implementing a WorkOS integration. Write working code. Include imports, environment variable setup, and error handling. Use the WorkOS SDK appropriate for the requested language.";
-      const systemWithout =
-        "You are a software engineer implementing a WorkOS integration. Write working code. Include imports, environment variable setup, and error handling. Use the WorkOS SDK appropriate for the requested language.";
-
-      // With skill
-      const withCacheKey = getCacheKey(options.model, systemWith, c.prompt);
-      let withResult = options.noCache
-        ? null
-        : await readCache(withCacheKey);
-
-      if (!withResult) {
-        const gen = await generateCode(c.prompt, skillContent, {
-          apiKey: options.apiKey,
-          model: options.model,
-        });
-        withResult = {
-          output: gen.output,
-          usage: gen.usage,
-          model: options.model,
-          cachedAt: new Date().toISOString(),
-        };
-        await writeCache(withCacheKey, withResult);
-        await rateLimitDelay();
-      } else {
-        console.log(`  ↳ with-skill: cached`);
+    for (const r of batchResults) {
+      if (r.status === "fulfilled" && r.value) {
+        results.push(r.value);
       }
-
-      // Without skill
-      const withoutCacheKey = getCacheKey(
-        options.model,
-        systemWithout,
-        c.prompt,
-      );
-      let withoutResult = options.noCache
-        ? null
-        : await readCache(withoutCacheKey);
-
-      if (!withoutResult) {
-        const gen = await generateCode(c.prompt, null, {
-          apiKey: options.apiKey,
-          model: options.model,
-        });
-        withoutResult = {
-          output: gen.output,
-          usage: gen.usage,
-          model: options.model,
-          cachedAt: new Date().toISOString(),
-        };
-        await writeCache(withoutCacheKey, withoutResult);
-        await rateLimitDelay();
-      } else {
-        console.log(`  ↳ without-skill: cached`);
-      }
-
-      // Score both
-      const withScores = scoreOutput(withResult.output, c.expected);
-      const withoutScores = scoreOutput(withoutResult.output, c.expected);
-      const errors = categorizeErrors(withoutResult.output, c.expected);
-
-      const result: EvalResult = {
-        caseId: c.id,
-        product: c.product,
-        language: c.language,
-        skillType: c.skillType,
-        withSkill: {
-          output: withResult.output,
-          scores: withScores,
-          tokenUsage: withResult.usage,
-        },
-        withoutSkill: {
-          output: withoutResult.output,
-          scores: withoutScores,
-          tokenUsage: withoutResult.usage,
-        },
-        delta: withScores.composite - withoutScores.composite,
-        topErrors: errors,
-      };
-
-      results.push(result);
-      console.log(
-        `  ↳ with: ${withScores.composite}% | without: ${withoutScores.composite}% | delta: ${result.delta > 0 ? "+" : ""}${result.delta}%`,
-      );
-    } catch (err) {
-      console.error(`  ✗ Failed: ${(err as Error).message}`);
     }
   }
 

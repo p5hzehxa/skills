@@ -1,0 +1,62 @@
+- id: rbac-node-check-permission
+  product: rbac
+  skill: workos-rbac
+  skillType: generated
+  language: node
+  prompt: |
+    I need to check if the current user has the "videos.create" permission
+    before allowing them to upload a video in my Node.js app. I'm using WorkOS
+    AuthKit with organization-level roles. Show me the authorization check pattern.
+  expected:
+    methods:
+      - getUser
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - "@workos-inc/node"
+    params:
+      - permissions
+      - role
+      - organizationId
+    flowSteps:
+      - get user role from organization membership
+      - check permissions array for required permission
+      - deny access if permission missing
+      - scope check to specific organization
+    antiPatterns:
+      - check role name instead of permission
+      - skip organization context
+    hallucinations:
+      - workos.rbac.checkPermission
+      - workos.rbac.authorize
+      - workos.permissions.check
+
+- id: rbac-node-role-assignment
+  product: rbac
+  skill: workos-rbac
+  skillType: generated
+  language: node
+  prompt: |
+    I need to assign the "billing-admin" role to a user in their organization
+    using the WorkOS Node.js SDK. The role was configured in the WorkOS Dashboard.
+  expected:
+    methods:
+      - workos.userManagement.getOrganizationMembership
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - "@workos-inc/node"
+    params:
+      - role
+      - organizationId
+      - userId
+    flowSteps:
+      - get or create organization membership
+      - assign role slug to membership
+      - verify role exists in Dashboard
+    antiPatterns:
+      - create role via API instead of Dashboard
+    hallucinations:
+      - workos.rbac.assignRole
+      - workos.roles.assign
+      - workos.rbac.createRole

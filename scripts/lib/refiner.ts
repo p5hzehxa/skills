@@ -130,7 +130,9 @@ export async function refineSkill(
             options.goldStandard,
           );
 
-  const refined = await callAnthropic(prompt, options);
+  // Feature guides get a tighter token cap to enforce leaner output
+  const maxTokens = skill.type === "guide" && !isApiRef ? 4096 : MAX_TOKENS;
+  const refined = await callAnthropic(prompt, options, maxTokens);
   // Guides have no frontmatter — use ensureGuideMarkers for them
   const content =
     skill.type === "guide"
@@ -339,8 +341,23 @@ Key patterns:
 7. REMOVE marketing prose, feature descriptions, and baked-in doc content.
 8. NO SDK method names — they vary by language. Use "SDK method for [operation]" instead.
 9. NO behavioral claims ("X is required", "Y is mandatory") — defer to fetched docs.
-10. Aim for 80-150 lines. If you're over 200 lines, you're restating docs.
-11. Include ONE primary code example (10-25 lines) in the Implementation Guide section. Use language-agnostic SDK syntax: workos.{domain}.{method}() with generic variable names. Show the most common integration pattern — what every developer does first. Do NOT use TypeScript/Python/Ruby-specific syntax (no const, no type annotations, no imports). For alternative patterns, use pseudocode.
+10. Your output MUST be under 150 lines total. This is a HARD LIMIT.
+    If you're approaching 150 lines, cut these sections first (in order):
+    - Dashboard navigation instructions (agents can find these)
+    - Real IdP testing steps (deferred to docs)
+    - Launch checklists (redundant with verification)
+    - Generic prerequisite sections (SDK install, env var setup — Claude knows these)
+    Keep: ONE decision tree, verification bash commands, error recovery (3 cases max), ONE code example.
+11. Decision trees MUST end at a CODE DECISION — which parameter to pass, which method to call, which file to create.
+    BAD: "Choose between SP-initiated and IdP-initiated" (feature-level — describes the product, not what to code)
+    GOOD: "How does your app identify the user's org? → email domain: use domainHint param → org selector: use organization param → known connection: use connection param"
+    Each leaf of the tree should map to a specific SDK parameter, method, or code pattern.
+12. Verification commands MUST be copy-paste bash one-liners with grep/test/echo for pass/fail:
+    GOOD: echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid" || echo "✗ missing"
+    GOOD: grep -r "getAuthorizationUrl" src/ || echo "FAIL: No SSO implementation found"
+    BAD: "Confirm environment variables are set"
+    BAD: "Test the callback URL works"
+13. Include ONE primary code example (10-25 lines) in the Implementation Guide section. Use language-agnostic SDK syntax: workos.{domain}.{method}() with generic variable names. Show the most common integration pattern — what every developer does first. Do NOT use TypeScript/Python/Ruby-specific syntax (no const, no type annotations, no imports). For alternative patterns, use pseudocode.
 ${getContentTaxonomyBlock()}
 ${getAttributionBlock()}${feedbackContext}`;
 
@@ -359,6 +376,7 @@ Output ONLY the refined skill body markdown. No frontmatter, no \`<!-- generated
 async function callAnthropic(
   prompt: { system: string; user: string },
   options: RefineOptions,
+  maxTokens?: number,
 ): Promise<string> {
   const response = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
@@ -369,7 +387,7 @@ async function callAnthropic(
     },
     body: JSON.stringify({
       model: options.model ?? DEFAULT_MODEL,
-      max_tokens: MAX_TOKENS,
+      max_tokens: maxTokens ?? MAX_TOKENS,
       system: prompt.system,
       messages: [{ role: "user", content: prompt.user }],
     }),

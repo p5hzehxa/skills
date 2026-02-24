@@ -7,6 +7,8 @@ import {
   weightedScore,
   scoreOutput,
   categorizeErrors,
+  isNegated,
+  negationAwareRatioFound,
 } from "../eval/scorer.ts";
 import type { ExpectedSignals } from "../eval/types.ts";
 
@@ -234,6 +236,65 @@ describe("weightedScore", () => {
         hallucinationCount: 10,
       }),
     ).toBe(0);
+  });
+});
+
+describe("isNegated", () => {
+  it("detects don't before match", () => {
+    const text = "don't reject requests without state";
+    const idx = text.indexOf("reject");
+    expect(isNegated(text, idx)).toBe(true);
+  });
+
+  it("detects do not before match", () => {
+    const text = "do not use hardcoded keys";
+    const idx = text.indexOf("use hardcoded");
+    expect(isNegated(text, idx)).toBe(true);
+  });
+
+  it("detects never before match", () => {
+    const text = "never hardcode API keys";
+    const idx = text.indexOf("hardcode");
+    expect(isNegated(text, idx)).toBe(true);
+  });
+
+  it("detects avoid before match", () => {
+    const text = "avoid hardcoded API key patterns";
+    const idx = text.indexOf("hardcoded");
+    expect(isNegated(text, idx)).toBe(true);
+  });
+
+  it("returns false for non-negated match", () => {
+    const text = "uses hardcoded key sk_live_xxx";
+    const idx = text.indexOf("hardcoded");
+    expect(isNegated(text, idx)).toBe(false);
+  });
+
+  it("returns false at start of text", () => {
+    const text = "hardcoded API key found";
+    expect(isNegated(text, 0)).toBe(false);
+  });
+});
+
+describe("negationAwareRatioFound", () => {
+  it("returns 0 when anti-pattern is negated", () => {
+    const output = "Don't reject requests without state parameter";
+    expect(negationAwareRatioFound(["reject requests without state"], output)).toBe(0);
+  });
+
+  it("returns 1 when anti-pattern is present without negation", () => {
+    const output = "You should reject requests without state";
+    expect(negationAwareRatioFound(["reject requests without state"], output)).toBe(1);
+  });
+
+  it("returns 0 for empty expected array", () => {
+    expect(negationAwareRatioFound([], "any output")).toBe(0);
+  });
+
+  it("handles mix of negated and non-negated", () => {
+    const output = "Don't use hardcoded API key but sk_live_123 is fine";
+    // "hardcoded API key" is negated, "sk_live" is not
+    expect(negationAwareRatioFound(["hardcoded API key", "sk_live"], output)).toBe(0.5);
   });
 });
 

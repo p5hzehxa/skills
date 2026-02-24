@@ -1,0 +1,101 @@
+- id: sso-node-basic
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    Implement SSO login flow for a Node.js Express app using the WorkOS SDK.
+    Include the authorization URL generation and callback handler that exchanges
+    the code for a user profile. Handle both SP-initiated and IdP-initiated flows.
+  expected:
+    methods:
+      - workos.sso.getAuthorizationUrl
+      - workos.sso.getProfileAndToken
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - "@workos-inc/node"
+    params:
+      - clientId
+      - redirectUri
+      - code
+      - state
+    flowSteps:
+      - generate authorization URL
+      - redirect user to IdP
+      - handle callback
+      - verify state
+      - exchange code for profile
+      - create session
+    antiPatterns:
+      - hardcoded API key
+      - sk_live
+      - sk_test
+    hallucinations:
+      - workos.sso.authenticate
+      - workos.sso.login
+      - workos.sso.verifyToken
+      - "@workos/node"
+
+- id: sso-node-org-level
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    I have a multi-tenant SaaS app where each customer organization has its own
+    SSO connection (some use Okta, some use Azure AD). When a user enters their
+    email on my login page, I need to route them to the correct IdP. Implement
+    this using the WorkOS Node.js SDK.
+  expected:
+    methods:
+      - workos.sso.getAuthorizationUrl
+      - workos.sso.getProfileAndToken
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - "@workos-inc/node"
+    params:
+      - organization
+      - domainHint
+      - redirectUri
+      - state
+    flowSteps:
+      - identify organization from email
+      - generate authorization URL with organization
+      - redirect to IdP
+      - handle callback
+      - extract organizationId from profile
+    antiPatterns:
+      - hardcoded API key
+    hallucinations:
+      - workos.sso.authenticate
+      - workos.sso.getConnection
+      - workos.organizations.getByDomain
+
+- id: sso-node-idp-initiated
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    My SSO callback handler works for SP-initiated flow but breaks when users
+    click our app tile in their Okta dashboard (IdP-initiated flow). The error
+    is "Invalid state". How do I fix this?
+  expected:
+    methods: []
+    envVars: []
+    imports: []
+    params:
+      - state
+    flowSteps:
+      - check if state parameter is present
+      - handle missing state for IdP-initiated
+      - validate state only when present
+      - log IdP-initiated attempt
+    antiPatterns:
+      - always require state
+      - reject requests without state
+    hallucinations: []

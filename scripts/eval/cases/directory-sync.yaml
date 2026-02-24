@@ -1,0 +1,65 @@
+- id: dsync-node-webhook
+  product: directory-sync
+  skill: workos-directory-sync
+  skillType: generated
+  language: node
+  prompt: |
+    Implement a webhook handler for WorkOS Directory Sync events in my Node.js
+    Express app. I need to handle user provisioning (dsync.user.created) and
+    deprovisioning (dsync.user.deleted / state:inactive). Include signature
+    verification.
+  expected:
+    methods:
+      - workos.webhooks.verifyEvent
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_WEBHOOK_SECRET
+    imports:
+      - "@workos-inc/node"
+    params:
+      - payload
+      - signature
+      - secret
+    flowSteps:
+      - verify webhook signature
+      - return 200 immediately
+      - process event asynchronously
+      - handle dsync.user.created
+      - handle dsync.user.updated with state inactive
+      - upsert pattern for idempotency
+    antiPatterns:
+      - no signature verification
+      - process synchronously before returning
+    hallucinations:
+      - workos.directorySync.verifyWebhook
+      - workos.webhooks.validate
+
+- id: dsync-node-events-api
+  product: directory-sync
+  skill: workos-directory-sync
+  skillType: generated
+  language: node
+  prompt: |
+    I need to poll for directory sync events using the WorkOS Events API instead
+    of webhooks. Show me how to list events with cursor-based pagination and
+    process them in a background job.
+  expected:
+    methods:
+      - workos.events.listEvents
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - "@workos-inc/node"
+    params:
+      - events
+      - after
+    flowSteps:
+      - call listEvents with event type filter
+      - process events in batch
+      - store cursor for next poll
+      - handle dsync event types
+    antiPatterns: []
+    hallucinations:
+      - workos.directorySync.listEvents
+      - workos.directorySync.pollEvents
+      - workos.events.subscribe

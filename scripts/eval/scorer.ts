@@ -99,6 +99,52 @@ export function countFound(items: string[], output: string): number {
 }
 
 /**
+ * Check if a match at the given index is preceded by a negation word.
+ * Looks back up to 60 chars for words like don't, not, never, avoid.
+ */
+export function isNegated(output: string, matchIndex: number): boolean {
+  const prefix = output
+    .slice(Math.max(0, matchIndex - 30), matchIndex)
+    .toLowerCase()
+    .trim();
+  // Check for negation word in the 30-char prefix.
+  // Uses word boundaries to avoid matching "note", "cannot", etc.
+  return /\b(don'?t|do not|never|avoid|shouldn'?t|should not|not)\b/.test(
+    prefix,
+  );
+}
+
+/**
+ * Negation-aware ratio of anti-patterns found in output.
+ * Returns 0 if expected is empty (no anti-patterns to check = 0 found).
+ * Skips matches preceded by negation words.
+ */
+export function negationAwareRatioFound(
+  expected: string[],
+  output: string,
+): number {
+  if (expected.length === 0) return 0;
+
+  const normalizedOutput = normalizeForMatch(output);
+  const lowerOutput = output.toLowerCase();
+  let found = 0;
+
+  for (const item of expected) {
+    const normalizedItem = normalizeForMatch(item);
+    const idx = normalizedOutput.indexOf(normalizedItem);
+    if (idx !== -1) {
+      // Check negation on original (lowercased) text, not normalized,
+      // because normalizeForMatch converts spaces to underscores in some cases
+      if (!isNegated(lowerOutput, idx)) {
+        found++;
+      }
+    }
+  }
+
+  return found / expected.length;
+}
+
+/**
  * Compute weighted composite score (0-100).
  * Weights: methods(25) + flow(25) + params(15) + envVars(15) + antiPatterns(15) + clean(5)
  * Clean bonus: 5 points for zero hallucinations.
@@ -130,7 +176,8 @@ export function scoreOutput(
   const paramAccuracy = ratioFound(expected.params, output);
   const envVarCoverage = ratioFound(expected.envVars, output);
   const flowCorrectness = scoreFlowOrder(expected.flowSteps, output);
-  const antiPatternAvoidance = 1 - ratioFound(expected.antiPatterns, output);
+  const antiPatternAvoidance =
+    1 - negationAwareRatioFound(expected.antiPatterns, output);
   const hallucinationCount = countFound(expected.hallucinations ?? [], output);
 
   const dimensions = {
@@ -172,7 +219,7 @@ export function categorizeErrors(
   if (scoreFlowOrder(expected.flowSteps, output) < 0.8) {
     errors.push("wrong_flow_order");
   }
-  if (ratioFound(expected.antiPatterns, output) > 0) {
+  if (negationAwareRatioFound(expected.antiPatterns, output) > 0) {
     errors.push("security_issue");
   }
 

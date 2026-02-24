@@ -1,0 +1,60 @@
+- id: audit-logs-node-create
+  product: audit-logs
+  skill: workos-audit-logs
+  skillType: generated
+  language: node
+  prompt: |
+    I need to create an audit log event in WorkOS when a user updates their
+    organization settings in my Node.js app. The event should include who did
+    it (actor), what was changed (target), and the organization context.
+  expected:
+    methods:
+      - workos.auditLogs.createEvent
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - "@workos-inc/node"
+    params:
+      - organization_id
+      - action
+      - actor
+      - targets
+      - occurred_at
+    flowSteps:
+      - construct event with actor and target
+      - include organization_id for scoping
+      - format action as domain.resource.verb
+      - call createEvent
+      - return immediately without waiting for delivery
+    antiPatterns:
+      - hardcoded API key
+      - wait for delivery confirmation
+    hallucinations:
+      - workos.auditLogs.log
+      - workos.auditLogs.emit
+      - workos.auditLogs.send
+
+- id: audit-logs-node-log-streams
+  product: audit-logs
+  skill: workos-audit-logs
+  skillType: generated
+  language: node
+  prompt: |
+    I need to set up log streams to export WorkOS audit log events to our
+    Datadog instance. How do I configure this and what do I need to watch out for?
+  expected:
+    methods: []
+    envVars:
+      - WORKOS_API_KEY
+    imports: []
+    params: []
+    flowSteps:
+      - configure log stream in Dashboard
+      - select Datadog as destination
+      - choose correct regional endpoint
+      - add WorkOS IPs to allowlist
+      - verify events arrive
+    antiPatterns: []
+    hallucinations:
+      - workos.auditLogs.createLogStream
+      - workos.logStreams.create

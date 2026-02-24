@@ -1,22 +1,27 @@
+
+
 <!-- refined:sha256:1ef5b36e75cb -->
 
 # WorkOS Single Sign-On
 
 ## When to Use
 
-Use this skill when you need to let users authenticate through their company's identity provider (Okta, Azure AD, Google Workspace, etc.) instead of managing passwords yourself. This enables enterprise customers to use their existing SSO infrastructure and enforces their security policies in your app.
+Use this skill when you need to let users authenticate through their company's identity provider (Okta, Azure AD, Google Workspace, etc.) instead of managing passwords yourself. SSO is the right choice when selling to enterprises that require centralized identity management or when you want to offload authentication infrastructure.
 
 ## Key Vocabulary
 
-- **Organization** `org_` — represents a company/tenant using SSO
-- **Connection** `conn_` — links an Organization to a specific IdP (one per provider type)
-- **Profile** `prof_` — the authenticated user identity returned after SSO
+- **Organization** (`org_`) — represents a customer company with SSO configured
+- **Connection** (`conn_`) — links an Organization to a specific identity provider
+- **Profile** — the user data returned after successful SSO authentication
+- **AuthKit** — WorkOS's hosted authentication UI that handles the SSO flow
+
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `references/workos-sso.guide.md`
+
 
 ## Related Skills
 
