@@ -1,0 +1,32 @@
+- id: sso-node-basic
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    Implement SSO login flow for a Node.js Express app using the WorkOS SDK.
+    Include the authorization URL generation and callback handler.
+  expected:
+    methods:
+      - workos.sso.getAuthorizationUrl
+      - workos.sso.getProfileAndToken
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - "@workos-inc/node"
+    params:
+      - clientId
+      - redirectUri
+      - code
+    flowSteps:
+      - generate authorization URL
+      - redirect user
+      - handle callback
+      - exchange code for profile
+    antiPatterns:
+      - hardcoded API key
+    hallucinations:
+      - workos.sso.authenticate
+      - workos.sso.login
+      - "@workos/node"

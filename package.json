@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "generate": "npx tsx scripts/generate.ts",
+    "eval": "npx tsx scripts/eval.ts",
     "test": "vitest run",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
