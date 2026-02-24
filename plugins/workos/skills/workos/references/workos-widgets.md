@@ -1,23 +1,26 @@
+
+
 <!-- refined:sha256:883decb5b1de -->
 
 # WorkOS Widgets
 
 ## When to Use
 
-Use this skill when you need to embed pre-built WorkOS UI components (like user management, organization settings, or SSO configuration flows) directly into your application. Widgets provide authenticated, ready-to-use interfaces without requiring custom frontend implementation. They're ideal when you want WorkOS-managed UI consistency across your product.
+Use this skill when you need to generate secure, short-lived tokens for embedding WorkOS UI components (Admin Portal, Log Streams) directly into your application. Widgets tokens provide scoped access to specific WorkOS resources without requiring full API key management in the frontend.
 
 ## Key Vocabulary
 
-- **Widget Token** — Short-lived JWT required to load any Widget (expires in 10 minutes)
-- **Session Token** — The User Management session JWT passed when generating Widget tokens for authenticated contexts
-- **Widget Scope** — Defines which Widget type to load (`sso-config`, `log-streams`, etc.)
-- **Redirect URI** — Where the Widget redirects after completion (must match Dashboard configuration)
+- **Widget Token** — short-lived JWT (15-60 minutes) authorizing access to a specific WorkOS UI component
+- **Organization `org_`** — the entity whose resources the widget will display (Admin Portal, Log Streams)
+- **User `user_`** — optional identifier for tracking which user accessed the widget
+
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `references/workos-widgets.guide.md`
+
 
 ## Related Skills
 

@@ -20,181 +20,181 @@ If this skill conflicts with fetched docs, follow the docs.
 
 ## Step 2: Pre-Flight Validation
 
-Check environment for:
-- `WORKOS_API_KEY` — starts with `sk_`
-- `WORKOS_CLIENT_ID` — starts with `client_`
-- SDK package installed
-
-**Verify:**
+Check environment variables exist:
 ```bash
-echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid" || echo "✗ missing sk_ prefix"
+echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid" || echo "✗ API key missing or invalid"
+echo $WORKOS_CLIENT_ID | grep '^client_' && echo "✓ valid" || echo "✗ Client ID missing or invalid"
 ```
 
-## Step 3: Login Flow Decision Tree (CRITICAL)
+Confirm SDK installed:
+```bash
+ls node_modules/@workos-inc 2>/dev/null || echo "FAIL: SDK not installed"
+```
 
-How does your app identify the user's organization?
+## Step 3: User Identification Strategy (Decision Tree)
+
+How does your app identify which organization a user belongs to?
 
 ```
 User identification method?
   |
-  +-- Email domain (user@acme.com → acme.com org)
-  |     → Use: domainHint parameter in getAuthorizationUrl()
-  |     → Pattern: Extract domain from email, pass as domainHint
+  +-- Email domain (user@company.com) --> Use domainHint parameter
+  |   Example: domainHint: "company.com"
   |
-  +-- Organization selector (dropdown/list before login)
-  |     → Use: organization parameter with org_id
-  |     → Pattern: User picks org → get org_id → pass to getAuthorizationUrl()
+  +-- Org selector UI (dropdown) --> Use organization parameter
+  |   Example: organization: "org_123"
   |
-  +-- Known connection (direct link from org admin panel)
-        → Use: connection parameter with conn_id
-        → Pattern: Pre-select connection → pass conn_id to getAuthorizationUrl()
+  +-- Known connection ID --> Use connection parameter
+      Example: connection: "conn_123"
 ```
 
-**Trap:** Do NOT combine domainHint + organization parameters — use ONE.
+**Critical:** Choose ONE. Mixing methods causes auth loops.
 
-**Implementation pattern:**
-```
-authorization_url = workos.sso.getAuthorizationUrl({
+## Step 4: Authorization URL Generation
+
+Construct authorization URL with chosen identification parameter:
+
+```javascript
+const authUrl = workos.sso.getAuthorizationUrl({
   clientId: WORKOS_CLIENT_ID,
-  redirectUri: "https://yourapp.com/callback",
-  state: random_state_string,
-  
-  // Pick ONE based on decision tree above:
-  domainHint: "acme.com"          // OR
-  organization: "org_123"         // OR  
-  connection: "conn_456"
-})
-
-// Redirect user to authorization_url
+  redirectUri: "https://your-app.com/callback",
+  state: generateRandomState(), // CSRF token - verify in callback
+  // Add ONE of these based on Step 3:
+  domainHint: "company.com",     // OR
+  organization: "org_123",       // OR
+  connection: "conn_123"
+});
 ```
 
-## Step 4: Implement Callback Handler
+Redirect user to `authUrl`. IdP handles authentication.
 
-**Critical:** Your callback route MUST handle BOTH success and error cases.
+## Step 5: Callback Handler
 
-Success response parameters:
-- `code` — exchange this for user profile
-- `state` — verify matches your original state
+Create callback endpoint at the redirect URI from Step 4.
 
-Error response parameters:
-- `error` — error code (see Error Recovery)
-- `error_description` — human-readable message
-- `state` — verify matches your original state
+**Critical operations (in order):**
 
-**Pattern:**
+1. Verify `state` parameter matches original (CSRF protection)
+2. Exchange `code` for user profile
+3. Extract user data and create session
+
+```javascript
+// In your callback handler
+const { code, state } = parseCallbackParams();
+
+// 1. Verify state
+if (state !== storedState) {
+  throw new Error("Invalid state - possible CSRF");
+}
+
+// 2. Exchange code for profile
+const profile = await workos.sso.getProfileAndToken({
+  code: code,
+  clientId: WORKOS_CLIENT_ID
+});
+
+// 3. Create session
+const user = {
+  id: profile.id,
+  email: profile.email,
+  organizationId: profile.organizationId
+};
 ```
-callback_handler(request):
-  received_state = request.query.state
-  
-  // ALWAYS verify state first
-  if received_state != session.stored_state:
-    return error("Invalid state - possible CSRF")
-  
-  if request.query.error:
-    return handle_error(request.query.error, request.query.error_description)
-  
-  code = request.query.code
-  profile = workos.sso.getProfileAndToken({ code })
-  
-  // profile contains: user.id, user.email, user.firstName, user.lastName, organizationId
-  return create_session(profile)
-```
 
-## Step 5: IdP-Initiated Flow Support (TRAP WARNING)
+Check fetched docs for exact `getProfileAndToken` response schema.
 
-**Most agents forget this:** Users can start login FROM their IdP dashboard, not your app.
+## Step 6: Login Flow Support (Decision Tree)
 
-Your callback handler from Step 4 MUST work without your app creating the initial state:
+Your app must handle BOTH flows:
 
 ```
-IdP-initiated flow?
+Login initiated from?
   |
-  +-- YES: state will be empty string ("") in callback
-  |     → Verify state is empty, not missing
-  |     → Create session normally — code exchange still works
+  +-- Your app (SP-initiated)
+  |   User → Your login page → getAuthorizationUrl() → IdP → Callback
+  |   Status: Handled by Steps 4-5
   |
-  +-- NO (SP-initiated): state matches your generated value
-        → Proceed with normal state verification
+  +-- IdP portal (IdP-initiated)
+      User → IdP portal → Callback (no state parameter)
+      TRAP: State verification will fail - handle missing state
 ```
 
-**Verification command:**
-```bash
-# Simulate IdP-initiated callback (no state)
-curl "http://localhost:3000/callback?code=test_code&state=" && echo "✓ handles empty state" || echo "✗ rejects empty state"
+**IdP-initiated trap:** Callback receives no `state` parameter. Modify Step 5 handler:
+
+```javascript
+if (!state && code) {
+  // IdP-initiated - skip state verification
+  const profile = await workos.sso.getProfileAndToken({ code, clientId });
+  // Proceed to session creation
+}
 ```
 
-## Step 6: Single Logout Integration (Optional)
+## Step 7: Guest Email Domain Handling
 
-If your app needs logout propagation to the IdP, implement this pattern:
+Users may authenticate with emails outside the org's verified domain (contractors, consultants).
 
-1. User clicks logout in your app
-2. Call SDK method for logout URL
-3. Redirect user to logout URL
-4. IdP terminates their session
-5. IdP redirects back to your app
+**Example:** Org verified domain = `company.com`, user email = `freelancer@gmail.com`
 
-Check fetched docs for exact logout URL generation method and parameters.
+Check fetched docs for whether your connection config needs "Allow profiles outside organization domains" enabled.
+
+Test this scenario with WorkOS Test IdP before production.
 
 ## Verification Checklist (ALL MUST PASS)
 
 Run these commands to confirm integration:
 
 ```bash
-# 1. Verify authorization URL contains required parameters
-grep -r "getAuthorizationUrl" src/ || echo "✗ No SSO implementation found"
+# 1. Environment configured
+echo $WORKOS_API_KEY | grep '^sk_' && echo "✓" || echo "✗ API key invalid"
 
-# 2. Verify callback handler checks state parameter
-grep -r "state.*==" src/ | grep -i callback || echo "✗ No state verification in callback"
+# 2. Authorization URL generation exists
+grep -r "getAuthorizationUrl" src/ || echo "FAIL: No SSO implementation found"
 
-# 3. Verify callback handles error parameter
-grep -r "error.*query" src/ | grep -i callback || echo "✗ No error handling in callback"
+# 3. Callback handler exists
+grep -r "getProfileAndToken" src/ || echo "FAIL: No callback handler found"
 
-# 4. Confirm env vars configured
-env | grep WORKOS && echo "✓ WorkOS env vars present" || echo "✗ Missing WorkOS env vars"
+# 4. State verification exists (CSRF protection)
+grep -r "state" src/ | grep -i "verif\|check\|match" || echo "WARN: No state verification found"
+
+# 5. Build succeeds
+npm run build || echo "FAIL: Build errors"
 ```
+
+**If check #4 fails:** Go back to Step 5. Missing state verification is a security vulnerability.
 
 ## Error Recovery
 
-### `signin_consent_denied` (User cancelled at IdP)
+### "signin_consent_denied" in callback
 
-**Cause:** User clicked "Cancel" or "Deny" at IdP consent screen.
+**Cause:** User declined auth consent prompt at IdP.
 
-**Recovery:**
-1. Display: "Authentication cancelled. Contact your IT admin if this was unexpected."
-2. Log: organization_id + user_email for support investigation
-3. Provide: Link back to login page
-4. DO NOT retry automatically — user explicitly denied
-
-### `invalid_grant` (Code expired or reused)
-
-**Cause:** Callback code exchanged >10 minutes after generation, or exchanged twice.
-
-**Recovery:**
-1. Clear stored state
-2. Redirect user back to login flow — generate new authorization URL
-3. DO NOT reuse the same code
-
-### `signin_disabled` (Connection inactive)
-
-**Cause:** Organization admin deactivated SSO connection in WorkOS Dashboard.
-
-**Recovery:**
-1. Display: "SSO login unavailable. Contact your admin or use email/password login."
-2. Alert internal team — customer may be churning
-3. Provide fallback login method if available
-
-### Generic error response structure
-
-All SSO errors arrive as URL parameters:
+**Callback receives:**
 ```
-?error=error_code&error_description=Human+message&state=original_state
+?error=signin_consent_denied&error_description=User%20cancelled%20the%20authentication%20request
 ```
 
-Check fetched docs for complete error code list — there are 10+ codes with specific meanings.
+**Fix:** Display user-friendly message: "Sign-in cancelled. Contact your IT admin if this was unexpected."
+
+Do NOT retry automatically - user intentionally declined.
+
+### "invalid_grant" error during token exchange
+
+**Causes (in order of frequency):**
+1. Authorization code already used (replay attempt)
+2. Code expired (>10 min between auth and callback)
+3. Redirect URI mismatch between Step 4 and Step 5
+
+**Fix:** Check code is used exactly once. If persisting, verify redirect URI matches exactly (trailing slash matters).
+
+### User authenticated but wrong organization
+
+**Cause:** User has SSO connections with multiple orgs, authenticated with wrong one.
+
+**Fix:** Add organization hint in Step 4 if you know which org the user should auth with. Do NOT rely on email domain alone for multi-org users.
 
 ## Related Skills
 
-For AuthKit-based SSO implementations (managed auth UI):
+For frontend integration patterns:
 - workos-authkit-nextjs
 - workos-authkit-react
 - workos-authkit-vanilla-js

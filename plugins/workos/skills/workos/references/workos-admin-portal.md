@@ -1,16 +1,18 @@
+
+
 <!-- refined:sha256:479288befe44 -->
 
 # WorkOS Admin Portal
 
 ## When to Use
 
-Use this skill when you need to provide end-user self-service configuration UI for SSO connections, Directory Sync connections, or other enterprise features. The Admin Portal eliminates the need to build custom configuration UIs by providing a hosted, embeddable interface where your customers' IT admins can set up integrations directly.
+Use this skill when you need to provide self-service configuration UIs for SSO connections, Directory Sync, or Domain Verification without building custom admin interfaces. The Admin Portal generates short-lived, scoped links that give customers secure access to configure their organization's settings.
 
 ## Key Vocabulary
 
-- **Organization** `org_` — the tenant entity that owns SSO/Directory Sync configurations
-- **Portal Link** `portal_link_` — time-limited URL granting access to the Admin Portal
-- **Intent** — specifies which configuration flow to show (`sso`, `dsync`, `log_streams`, `audit_logs`)
+- **Organization** `org_` — tenant container for connections and directories
+- **Portal Link** `portal_link_` — time-limited URL for customer access
+- **Intent** — scope of portal access (`sso`, `dsync`, `audit_logs`, `log_streams`, `domain_verification`)
 
 ## Implementation Guide
 

@@ -11,9 +11,9 @@
 
 ## Endpoints
 
-| Endpoint     | Description         |
-| ------------ | ------------------- |
-| `/widgets`   | widgets             |
+| Endpoint | Description |
+| -------- | ----------- |
+| `/widgets` | widgets |
 | `/get-token` | widgets - get-token |
 
 ## Implementation

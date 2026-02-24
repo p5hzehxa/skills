@@ -1,16 +1,18 @@
+
+
 <!-- refined:sha256:ddc720812ac2 -->
 
 # WorkOS SSO API Reference
 
 ## When to Use
 
-Use this skill when you need to integrate enterprise Single Sign-On (SAML, OIDC, or other identity providers) into your application. This API handles the OAuth-style authorization flow that redirects users to their company's identity provider and returns authenticated user profiles. Reach for this when your app needs to support corporate login systems rather than individual social logins.
+Use this skill when you need to implement enterprise Single Sign-On flows (SAML, OAuth, OIDC) for your application. This API handles the authorization flow, token exchange, and user profile retrieval from identity providers. It's the right choice when building B2B authentication or when customers require SSO integration with their corporate identity systems.
 
 ## Key Vocabulary
 
-- **Connection** `conn_` — represents a configured SSO provider for an organization
-- **Organization** `org_` — the business entity whose employees authenticate via SSO
-- **Profile** — the authenticated user object returned after successful SSO login
+- **Connection** `conn_` — represents a configured SSO integration with an identity provider
+- **Profile** — the user identity object returned after successful SSO authentication
+- **Authorization URL** — the redirect URL that initiates the SSO flow with the identity provider
 
 ## Implementation Guide
 
@@ -20,6 +22,6 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- `workos-authkit-base` — pre-built UI components for SSO flows
-- `workos-authkit-nextjs` — Next.js-specific SSO integration patterns
-- `workos-authkit-react` — React SSO UI components
+- workos-authkit-base — for pre-built authentication UI with SSO support
+- workos-authkit-nextjs — for Next.js-specific SSO integration patterns
+- workos-authkit-react — for React-based SSO implementations

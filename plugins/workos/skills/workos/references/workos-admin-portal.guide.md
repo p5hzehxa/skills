@@ -6,8 +6,7 @@
 
 **STOP. Do not proceed until complete.**
 
-WebFetch these URLs — they are the source of truth:
-
+WebFetch these docs — they are the source of truth:
 - https://workos.com/docs/admin-portal/index
 - https://workos.com/docs/admin-portal/example-apps
 - https://workos.com/docs/admin-portal/custom-branding
@@ -16,230 +15,142 @@ If this skill conflicts with fetched docs, follow the docs.
 
 ## Step 2: Pre-Flight Validation
 
-### Environment Variables
-
-Check for these env vars:
-
+Check `.env` or environment for:
 - `WORKOS_API_KEY` - starts with `sk_`
 - `WORKOS_CLIENT_ID` - starts with `client_`
 
-**Do not proceed without both.**
+**Verify API key:**
+```bash
+echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid" || echo "✗ invalid/missing"
+```
 
-### WorkOS SDK
+## Step 3: Integration Path (Decision Tree)
 
-Verify SDK is installed:
+```
+Who creates the setup link?
+  |
+  +-- Dashboard admin manually --> Go to Step 4 (Dashboard Setup)
+  |
+  +-- Your app programmatically --> Go to Step 5 (SDK Setup)
+```
+
+Most B2B apps generate setup links programmatically. Manual dashboard setup is for testing or low-volume scenarios.
+
+## Step 4: Dashboard Setup (Manual Path)
+
+This path is for **testing only** — production apps should use Step 5.
+
+Navigate: Dashboard → Organizations → Create Organization
+
+Dashboard generates setup link automatically. Copy and share with IT admin.
+
+**Link properties:**
+- One active link per organization at a time
+- Revoke via "Manage" button before creating new link
+- Check fetched docs for expiration policy
+
+Skip to Step 6.
+
+## Step 5: SDK Setup (Programmatic Path)
+
+### Create Organization via SDK
+
+Use SDK method for organization creation. Check fetched docs for exact method signature and required parameters.
+
+**Common pattern (language-agnostic):**
+```
+org = workos.organizations.create(
+  name: "Customer Corp",
+  domains: ["customercorp.com"]
+)
+```
+
+Store `org.id` — you'll need it for setup link generation.
+
+### Generate Setup Link
+
+```
+What features does the admin configure?
+  |
+  +-- SSO only --> portal.generate_link(org_id, intent: "sso")
+  |
+  +-- Directory Sync only --> portal.generate_link(org_id, intent: "dsync")
+  |
+  +-- Multiple features --> portal.generate_link(org_id, intent: "sso dsync")
+```
+
+**CRITICAL:** Intent parameter determines which configuration screens appear in the portal. Check fetched docs for available intent values.
+
+The SDK returns a `{ link, expires_at }` object. The link is single-use and time-limited.
+
+### Deliver Setup Link
+
+**Trap warning:** Do NOT email the link directly from your backend. Instead:
+
+1. Store link in your database with organization context
+2. Send notification to IT admin: "Configure SSO → [Your App Settings Page]"
+3. Your settings page retrieves stored link and redirects
+
+**Why:** Prevents link exposure in email logs. Your app controls access and can track completion.
+
+## Step 6: Verification
+
+Run these commands to confirm integration:
 
 ```bash
-# Check package manager lockfile for workos package
-ls package-lock.json yarn.lock pnpm-lock.yaml 2>/dev/null | xargs grep -l "workos" || echo "SDK not installed"
+# 1. Check SDK installed
+npm list @workos-inc/node || pip show workos || echo "SDK not found"
+
+# 2. Check environment variables set
+env | grep WORKOS_ || echo "FAIL: WorkOS env vars missing"
+
+# 3. Test organization creation (if using SDK path)
+# Run your org creation function and check for org_id in output
+
+# 4. Test link generation (if using SDK path)
+# Run your link generation function and verify link starts with expected URL
 ```
 
-If not found, install SDK first — see fetched docs for installation command.
-
-## Step 3: Workflow Decision Tree
-
-Admin Portal has two distinct workflows. Choose based on your integration needs:
-
-```
-How will IT admins access the portal?
-  |
-  +-- Shareable link (email/Slack/SMS)
-  |     |
-  |     +-- Go to WorkOS Dashboard
-  |     +-- Create organization (if not exists)
-  |     +-- Click "Invite admin" → Copy setup link
-  |     +-- Share link directly
-  |     +-- SKIP Steps 4-7 (no code integration needed)
-  |
-  +-- In-app redirect (seamless UX)
-        |
-        +-- CONTINUE to Step 4 (SDK integration required)
-```
-
-**Link expiration trap:** Portal links expire 5 minutes after creation. Do NOT email generated links — redirect immediately. For email workflows, use Dashboard-generated links instead.
-
-## Step 4: Dashboard Configuration (In-App Integration Only)
-
-Navigate to WorkOS Dashboard → Redirects tab.
-
-### Required: Default Return URI
-
-Set where users land when clicking "Back to [YourApp]" in the portal.
-
-**Must use HTTPS** — localhost allowed for development only.
-
-### Optional: Success URIs
-
-Set specific redirects after completing each feature:
-
-- SSO setup complete → Custom success page
-- Directory Sync complete → Custom success page
-- Log Streams complete → Custom success page
-
-**Decision:** If NOT set, users return to Default Return URI after any action.
-
-## Step 5: Organization ID Mapping (CRITICAL)
-
-Each customer that needs Admin Portal access MUST have a WorkOS organization.
-
-**Timing decision tree:**
-
-```
-When to create WorkOS organization?
-  |
-  +-- New customer signup
-  |     → Create org immediately, store org_id in customer record
-  |
-  +-- Existing customer enables SSO
-  |     → Create org on-demand when they click "Configure SSO"
-  |
-  +-- Migration from another auth provider
-        → Create org during migration, map old provider ID → WorkOS org_id
-```
-
-**Storage requirement:** Your database MUST maintain `workos_org_id` for each customer. Portal links require this ID.
-
-Check fetched docs for SDK method to create organizations — it returns an org ID to store.
-
-## Step 6: Generate Portal Link
-
-**Security model:** Portal links are single-use, expire in 5 minutes, scoped to one organization.
-
-### Intent Parameter (Required)
-
-Specify what the IT admin can configure:
-
-- `sso` - SSO connection setup
-- `dsync` - Directory Sync setup
-- `audit_logs` - Audit log configuration
-- `log_streams` - Log streaming setup
-- `domain_verification` - Domain ownership verification
-- `certificate_renewal` - SAML certificate renewal
-
-**Multi-intent trap:** One link = one intent. To enable multiple features, generate separate links or use a settings dashboard with multiple buttons.
-
-### Implementation Pattern
-
-```
-workos.portal.generateLink({
-  organization: org_id_from_database,
-  intent: "sso",
-  return_url: "https://yourapp.com/settings/sso/complete"  // Optional
-})
-→ Returns: { link: "https://id.workos.com/portal/launch?token=..." }
-→ Redirect user immediately to link
-```
-
-**return_url override:** If provided, overrides Dashboard default. Useful for feature-specific success pages.
-
-Check fetched docs for exact SDK method signature in your language.
-
-## Step 7: Route Protection (CRITICAL)
-
-The endpoint that generates portal links MUST be:
-
-1. **Behind authentication** - Verify user is logged in
-2. **Admin-only** - Verify user has IT admin role for their org
-3. **Org-scoped** - Verify user belongs to the org they're configuring
-
-**Security trap:** Do NOT expose portal link generation to regular users. IT admins only.
-
-Example protection pattern:
-
-```
-Route: POST /api/admin/portal/sso
-  |
-  +-- Check: User authenticated?
-  +-- Check: User role includes "IT_ADMIN"?
-  +-- Check: User.org_id matches requested org_id?
-  +-- Generate portal link for User.org_id
-  +-- Return redirect to portal link
-```
-
-## Verification Checklist (ALL MUST PASS)
-
-```bash
-# 1. Env vars exist
-env | grep -E "WORKOS_(API_KEY|CLIENT_ID)" || echo "FAIL: Missing env vars"
-
-# 2. Dashboard redirect URI configured (manual check)
-# Visit: https://dashboard.workos.com/redirects
-# Confirm: At least one redirect URI exists and uses HTTPS
-
-# 3. Organization exists for test customer
-# Use WorkOS Dashboard or SDK to verify org creation
-
-# 4. Portal link generates without error
-# Test: Call your portal link endpoint with test org_id
-# Expected: Receive URL starting with https://id.workos.com/portal/launch
-
-# 5. Link expires after 5 minutes
-# Generate link, wait 6 minutes, try to access
-# Expected: "Link expired" error page
-```
+**All must pass before marking complete.**
 
 ## Error Recovery
 
-### "Invalid API key" / 401 Unauthorized
+### "Unauthorized" on API call
 
-**Root cause:** API key wrong, expired, or missing.
+**Root cause:** API key invalid or missing permissions.
 
-Fix:
+**Fix:**
+1. Check key starts with `sk_` (not `pk_` — that's publishable key)
+2. Regenerate key in Dashboard → API Keys if needed
+3. Verify key has Admin Portal permissions enabled
 
-1. Verify `WORKOS_API_KEY` starts with `sk_`
-2. Check key is for correct environment (test vs. prod)
-3. Regenerate key in Dashboard if needed — update env var immediately
+### Setup link 404s when visited
 
-### "Organization not found" / 404
+**Root cause:** Link expired or already used (single-use).
 
-**Root cause:** org_id doesn't exist or typo in stored ID.
+**Fix:**
+1. Check `expires_at` timestamp from link generation
+2. Generate new link — do NOT reuse old links
+3. For frequent regeneration, implement link refresh flow in your app
 
-Fix:
+### IT admin sees wrong features in portal
 
-1. Query WorkOS for organization by external reference: `workos.organizations.list({ domains: ["customer.com"] })`
-2. If not found, create organization, update customer record with returned org_id
-3. If found, verify stored org_id matches returned ID — fix database if mismatch
+**Root cause:** Intent parameter mismatch.
 
-### "Redirect URI not configured" / Portal link fails
+**Fix:**
+1. Check intent value passed to `generate_link()` matches enabled features
+2. Valid intents documented in fetched docs (typically `"sso"`, `"dsync"`, or combined)
+3. Intent cannot be changed after link generation — must generate new link
 
-**Root cause:** Dashboard has no redirect URIs OR provided return_url not allowlisted.
+### Organization domains not verified
 
-Fix:
+**Root cause:** Domain verification required before SSO works.
 
-1. Visit Dashboard → Redirects tab
-2. Add redirect URI using HTTPS (or http://localhost for dev)
-3. If using `return_url` parameter, ensure it's a subpath of configured URI
-
-### "Link expired" immediately after generation
-
-**Root cause:** Clock skew between your server and WorkOS, OR delay in redirect.
-
-Fix:
-
-1. Verify server clock is accurate: `date` should match real time
-2. Profile link generation → redirect latency. Must be under 60 seconds.
-3. If generating link in webhook/background job, store link and redirect immediately when user requests it (bad pattern — generate on-demand instead)
-
-### Portal shows wrong organization name
-
-**Root cause:** Organization `name` field set incorrectly during creation.
-
-Fix:
-
-1. Update organization name: Check fetched docs for SDK update method
-2. Organization name should match customer-facing company name, not internal ID
-
-### User stuck in portal after completion
-
-**Root cause:** No return URI configured and no success URI for the intent.
-
-Fix:
-
-1. Set default return URI in Dashboard → Redirects
-2. OR provide `return_url` parameter when generating link
-3. Verify URL uses HTTPS and is accessible to user
+**Fix:**
+Check fetched docs for domain verification requirements. Some configurations require DNS TXT record or email verification before SSO activation.
 
 ## Related Skills
 
-- workos-authkit-nextjs - For pairing Admin Portal with AuthKit authentication
-- workos-authkit-react - For React-based settings pages that launch Admin Portal
+For embedding Admin Portal in your auth flow:
+- workos-authkit-nextjs
+- workos-authkit-react

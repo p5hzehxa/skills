@@ -6,14 +6,13 @@
 
 ## When to Use
 
-Use this skill when you need to let users authenticate through their company's identity provider (Okta, Azure AD, Google Workspace, etc.) instead of managing passwords yourself. SSO is the right choice when selling to enterprises that require centralized identity management or when you want to offload authentication infrastructure.
+Use this skill when you need to let users sign in using their organization's identity provider (Okta, Azure AD, Google Workspace, etc.) instead of managing passwords yourself. This skill handles the OAuth/SAML flow for enterprise SSO, returning authenticated user profiles to your application.
 
 ## Key Vocabulary
 
-- **Organization** (`org_`) — represents a customer company with SSO configured
-- **Connection** (`conn_`) — links an Organization to a specific identity provider
-- **Profile** — the user data returned after successful SSO authentication
-- **AuthKit** — WorkOS's hosted authentication UI that handles the SSO flow
+- **Organization** `org_` — the company/tenant whose IdP users authenticate through
+- **Connection** `conn_` — the configured link between an Organization and their IdP (e.g., `conn_okta_123`)
+- **Profile** `profile_` — the authenticated user object returned after SSO, containing email/name/IdP metadata
 
 
 ## Implementation Guide

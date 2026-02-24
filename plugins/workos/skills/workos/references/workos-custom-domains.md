@@ -1,16 +1,18 @@
+
+
 <!-- refined:sha256:65da0f370d28 -->
 
 # WorkOS Custom Domains
 
 ## When to Use
 
-Use this skill when you need to white-label WorkOS authentication flows (AuthKit UI, email links, magic links) under your own domain instead of `id.workos.com`. This improves brand consistency and user trust by keeping users on your domain throughout the auth flow.
+Use this skill when you need to white-label WorkOS-hosted authentication flows (AuthKit) under your own domain instead of the default `auth.workos.com`. This skill enables customers to see `auth.yourcompany.com` in their browser during login, improving brand consistency and user trust.
 
 ## Key Vocabulary
 
-- **Custom Domain** `domain_` — A verified domain configuration that replaces `id.workos.com` in AuthKit URLs
-- **Domain Verification Record** — DNS TXT record proving domain ownership
-- **SSL Certificate** — Auto-provisioned by WorkOS after DNS verification completes
+- **Custom Domain** `custom_domain_` — a verified DNS hostname that replaces `auth.workos.com`
+- **SSL Certificate** `ssl_certificate_` — TLS certificate issued for the custom domain
+- **Domain Verification** — DNS CNAME record proving domain ownership
 
 ## Implementation Guide
 

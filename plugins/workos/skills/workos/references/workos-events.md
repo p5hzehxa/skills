@@ -1,18 +1,18 @@
-<!-- refined:sha256:96424db5567d -->
+
+
+<!-- refined:sha256:106ca62de786 -->
 
 # WorkOS Events
 
 ## When to Use
 
-Use this skill when you need to subscribe to real-time notifications about changes in WorkOS resources (users, organizations, directory sync events, etc.). Events provide a webhook-based alternative to polling APIs, allowing your application to react immediately when WorkOS state changes.
+Use this skill when you need to receive real-time notifications about changes to WorkOS resources in your application. Events let you build integrations that react to user provisioning changes, authentication events, organization updates, and other WorkOS resource lifecycle changes without polling.
 
 ## Key Vocabulary
 
-- **Event** `event_` — a notification payload describing a state change
-- **Event type** — the action that occurred (e.g., `dsync.user.created`, `organization.updated`)
+- **Event** `event_` — a notification payload representing a change to a WorkOS resource
 - **Webhook endpoint** — your application's HTTPS URL that receives event POST requests
-- **Event payload** — the JSON body containing the event object and associated data
-- **Delivery attempt** — a single POST request to your webhook endpoint (WorkOS retries on failure)
+- **Event types** — dot-separated strings like `dsync.user.created`, `connection.activated`, `organization.updated`
 
 ## Implementation Guide
 

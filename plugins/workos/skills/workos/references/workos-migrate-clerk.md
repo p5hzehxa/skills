@@ -1,21 +1,32 @@
+
+
 <!-- refined:sha256:2336f8fb2339 -->
 
 # WorkOS Migration: Clerk
 
 ## When to Use
 
-Use this skill when migrating an existing application from Clerk to WorkOS for authentication and user management. This migration preserves user identities, organization structures, and SSO connections without requiring users to re-authenticate or re-enroll.
+Use this skill when migrating an existing Clerk-based authentication system to WorkOS AuthKit. This covers moving user accounts, organization structures, and SSO connections while maintaining user access during the transition.
 
 ## Key Vocabulary
 
-- **User Migration** — bulk import of Clerk user records into WorkOS User Management
-- **Organization `org_`** — WorkOS entity representing a tenant or workspace
-- **Organization Membership `om_`** — links users to organizations with roles
-- **Connection `conn_`** — SSO or Directory Sync configuration attached to an organization
-- **Password Hash Import** — transferring bcrypt hashes from Clerk exports to preserve existing credentials
+- **User `user_`** — WorkOS user entity mapped from Clerk user data
+- **Organization `org_`** — WorkOS organization entity mapped from Clerk organizations
+- **Organization Membership `om_`** — user-to-organization association
+- **Connection `conn_`** — SSO connection configuration migrated from Clerk
+- **Directory `directory_`** — directory sync configuration for SCIM provisioning
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `references/workos-migrate-clerk.guide.md`
+
+## Related Skills
+
+- **workos-authkit-nextjs** — integrate AuthKit after migration
+- **workos-authkit-react** — integrate AuthKit in React apps
+- **workos-user-management** — manage migrated users
+- **workos-organizations** — manage migrated organizations
+- **workos-sso** — configure SSO connections
+- **workos-directory-sync** — set up directory sync

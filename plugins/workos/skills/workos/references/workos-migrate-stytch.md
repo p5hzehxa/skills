@@ -1,21 +1,29 @@
+
+
 <!-- refined:sha256:336287048df7 -->
 
 # WorkOS Migration: Stytch
 
 ## When to Use
 
-Use this skill when migrating an existing authentication system from Stytch to WorkOS. This guide covers user and organization data export, password hash migration, and SSO connection transfer. Choose this over generic migration when you have Stytch-specific export formats and need to preserve existing user credentials.
+Migrate existing user accounts and organization structures from Stytch to WorkOS while preserving authentication sessions and user identity. Use this when transitioning a production app from Stytch's authentication platform to WorkOS's unified auth system.
 
 ## Key Vocabulary
 
-- **Organization** `org_` — WorkOS tenant container for users and SSO connections
-- **User** `user_` — WorkOS identity record migrated from Stytch user objects
-- **Connection** `conn_` — SSO configuration migrated from Stytch's SAML/OIDC setup
-- **Password Hash** — bcrypt digest exported from Stytch, imported to WorkOS via User Management API
-- **Stytch Export Format** — JSON structure containing `user_id`, `email`, `password_hash`, and organization metadata
+- **User `user_`** — WorkOS user entity created from Stytch user data
+- **Organization `org_`** — WorkOS organization mapped from Stytch organization
+- **Password Hash Migration** — Stytch exports bcrypt hashes; WorkOS imports them directly
+- **Magic Link Migration** — Stytch passwordless users transition to WorkOS email verification
+- **Session Migration** — Stytch session tokens cannot be migrated; users must re-authenticate
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `references/workos-migrate-stytch.guide.md`
+
+## Related Skills
+
+- **workos-authkit-react** — implement post-migration auth UI
+- **workos-authkit-nextjs** — integrate migrated users into Next.js apps
+- **workos-authkit-base** — core auth concepts after migration
