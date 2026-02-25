@@ -82,6 +82,7 @@ export interface ProductSummary {
 export interface EvalReport {
   runId: string;
   model: string;
+  skillHash?: string;
   totalCases: number;
   results: EvalResult[];
   summary: ProductSummary[];

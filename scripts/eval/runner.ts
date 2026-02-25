@@ -1,4 +1,5 @@
 import { join } from "path";
+import { createHash } from "crypto";
 import { readdirSync, readFileSync } from "fs";
 import { parse } from "yaml";
 import { HAND_CRAFTED_SKILLS } from "../lib/config.ts";
@@ -83,6 +84,20 @@ export function loadSkillContent(skillName: string): string {
   }
 
   return parts.join("\n\n---\n\n");
+}
+
+/** Hash unique skill file contents for cache provenance. */
+function hashSkills(cases: EvalCase[]): string {
+  const uniqueSkills = [...new Set(cases.map((c) => c.skill))].sort();
+  const hash = createHash("sha256");
+  for (const skill of uniqueSkills) {
+    try {
+      hash.update(loadSkillContent(skill));
+    } catch {
+      hash.update(skill);
+    }
+  }
+  return hash.digest("hex").slice(0, 12);
 }
 
 /** Aggregate results by product */
@@ -239,6 +254,8 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
     };
   }
 
+  const skillHash = hashSkills(cases);
+
   if (options.dryRun) {
     console.log(`\nDry run: ${cases.length} cases would be evaluated\n`);
     console.log(
@@ -261,6 +278,7 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
     return {
       runId: new Date().toISOString(),
       model: options.model,
+      skillHash,
       totalCases: cases.length,
       results: [],
       summary: [],
@@ -330,6 +348,7 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
   return {
     runId: new Date().toISOString(),
     model: options.model,
+    skillHash,
     totalCases: cases.length,
     results,
     summary: aggregateResults(results),
