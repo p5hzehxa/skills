@@ -5,6 +5,7 @@ import { HAND_CRAFTED_SKILLS } from "../lib/config.ts";
 import { generateCode } from "./api.ts";
 import { getCacheKey, readCache, writeCache } from "./cache.ts";
 import { scoreOutput, categorizeErrors } from "./scorer.ts";
+import { median, percentile } from "./reporter.ts";
 import type {
   EvalCase,
   EvalOptions,
@@ -21,7 +22,7 @@ const REFS_DIR = join(PLUGIN_DIR, "workos", "references");
 /** Load and parse all YAML test cases, optionally filtered */
 export function loadCases(
   casesDir = CASES_DIR,
-  filter?: { product?: string; caseId?: string },
+  filter?: { product?: string; caseId?: string; lang?: string },
 ): EvalCase[] {
   const files = readdirSync(casesDir).filter(
     (f) => f.endsWith(".yaml") || f.endsWith(".yml"),
@@ -44,6 +45,7 @@ export function loadCases(
   return cases.filter((c) => {
     if (filter?.product && c.product !== filter.product) return false;
     if (filter?.caseId && c.id !== filter.caseId) return false;
+    if (filter?.lang && c.language !== filter.lang) return false;
     return true;
   });
 }
@@ -118,12 +120,18 @@ export function aggregateResults(results: EvalResult[]): ProductSummary[] {
       .slice(0, 3)
       .map(([e]) => e);
 
+    const deltas = productResults.map((r) => r.delta);
+
     summaries.push({
       product,
       caseCount: productResults.length,
       avgWithSkill: Math.round(avgWith),
       avgWithoutSkill: Math.round(avgWithout),
       avgDelta: Math.round(avgWith - avgWithout),
+      medianDelta: Math.round(median(deltas)),
+      p80Delta: Math.round(percentile(deltas, 80)),
+      minDelta: Math.round(Math.min(...deltas)),
+      maxDelta: Math.round(Math.max(...deltas)),
       topErrors,
       skillType: isHandCrafted ? "hand-crafted" : "generated",
     });
@@ -156,7 +164,8 @@ async function evalCase(
 
     const withScores = scoreOutput(withResult.output, c.expected);
     const withoutScores = scoreOutput(withoutResult.output, c.expected);
-    const errors = categorizeErrors(withoutResult.output, c.expected);
+    const withoutErrors = categorizeErrors(withoutResult.output, c.expected);
+    const withErrors = categorizeErrors(withResult.output, c.expected);
 
     const result: EvalResult = {
       caseId: c.id,
@@ -174,7 +183,9 @@ async function evalCase(
         tokenUsage: withoutResult.usage,
       },
       delta: withScores.composite - withoutScores.composite,
-      topErrors: errors,
+      topErrors: withoutErrors,
+      withSkillErrors: withErrors,
+      withoutSkillErrors: withoutErrors,
     };
 
     return result;
@@ -214,6 +225,7 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
   const cases = loadCases(CASES_DIR, {
     product: options.product,
     caseId: options.caseId,
+    lang: options.lang,
   });
 
   if (cases.length === 0) {
@@ -230,13 +242,18 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
   if (options.dryRun) {
     console.log(`\nDry run: ${cases.length} cases would be evaluated\n`);
     console.log(
-      "ID".padEnd(30) + "Product".padEnd(15) + "Skill".padEnd(25) + "Type",
+      "ID".padEnd(30) +
+        "Product".padEnd(15) +
+        "Lang".padEnd(8) +
+        "Skill".padEnd(25) +
+        "Type",
     );
-    console.log("-".repeat(80));
+    console.log("-".repeat(88));
     for (const c of cases) {
       console.log(
         c.id.padEnd(30) +
           c.product.padEnd(15) +
+          (c.language ?? "node").padEnd(8) +
           c.skill.padEnd(25) +
           c.skillType,
       );
@@ -286,11 +303,36 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
     }
   }
 
+  // Compute language breakdown
+  const langAccum: Record<
+    string,
+    { count: number; withSum: number; withoutSum: number }
+  > = {};
+  for (const r of results) {
+    const lang = r.language || "node";
+    if (!langAccum[lang]) langAccum[lang] = { count: 0, withSum: 0, withoutSum: 0 };
+    langAccum[lang].count++;
+    langAccum[lang].withSum += r.withSkill.scores.composite;
+    langAccum[lang].withoutSum += r.withoutSkill.scores.composite;
+  }
+  const languageBreakdown: EvalReport["languageBreakdown"] = {};
+  for (const [lang, acc] of Object.entries(langAccum)) {
+    const avgWith = Math.round(acc.withSum / acc.count);
+    const avgWithout = Math.round(acc.withoutSum / acc.count);
+    languageBreakdown[lang] = {
+      caseCount: acc.count,
+      avgWithSkill: avgWith,
+      avgWithoutSkill: avgWithout,
+      avgDelta: avgWith - avgWithout,
+    };
+  }
+
   return {
     runId: new Date().toISOString(),
     model: options.model,
     totalCases: cases.length,
     results,
     summary: aggregateResults(results),
+    languageBreakdown,
   };
 }

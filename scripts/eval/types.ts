@@ -59,6 +59,8 @@ export interface EvalResult {
   withoutSkill: { output: string; scores: ScoreCard; tokenUsage: TokenUsage };
   delta: number;
   topErrors: ErrorCategory[];
+  withSkillErrors: ErrorCategory[];
+  withoutSkillErrors: ErrorCategory[];
 }
 
 /** Per-product aggregated summary */
@@ -68,6 +70,10 @@ export interface ProductSummary {
   avgWithSkill: number;
   avgWithoutSkill: number;
   avgDelta: number;
+  medianDelta: number;
+  p80Delta: number;
+  minDelta: number;
+  maxDelta: number;
   topErrors: ErrorCategory[];
   skillType?: "generated" | "hand-crafted";
 }
@@ -79,6 +85,15 @@ export interface EvalReport {
   totalCases: number;
   results: EvalResult[];
   summary: ProductSummary[];
+  languageBreakdown?: Record<
+    string,
+    {
+      caseCount: number;
+      avgWithSkill: number;
+      avgWithoutSkill: number;
+      avgDelta: number;
+    }
+  >;
 }
 
 /** CLI options */
@@ -90,4 +105,7 @@ export interface EvalOptions {
   dryRun: boolean;
   concurrency: number;
   apiKey: string;
+  lang?: string;
+  reportFormat?: string;
+  failOnRegression?: boolean;
 }
