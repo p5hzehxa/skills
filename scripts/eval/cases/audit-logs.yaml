@@ -58,3 +58,91 @@
     hallucinations:
       - workos.auditLogs.createLogStream
       - workos.logStreams.create
+
+- id: audit-logs-node-event-naming
+  product: audit-logs
+  skill: workos-audit-logs
+  skillType: generated
+  language: node
+  prompt: |
+    I'm implementing WorkOS audit logs for our SaaS app. I need to log events
+    for: user creates a document, user shares a document with a link, and admin
+    deletes a team. What should my event type names look like? I want to follow
+    whatever naming convention WorkOS expects.
+  expected:
+    methods:
+      - workos.auditLogs.createEvent
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - "@workos-inc/node"
+    params:
+      - action
+      - actor
+      - targets
+    flowSteps:
+      - use group.object.action naming convention
+      - document.created for document creation
+      - document.share_link.created for share link
+      - admin action with actor type
+      - include targets array with affected resources
+    antiPatterns: []
+    hallucinations:
+      - workos.auditLogs.defineEventType
+      - workos.auditLogs.registerSchema
+
+- id: audit-logs-node-system-events
+  product: audit-logs
+  skill: workos-audit-logs
+  skillType: generated
+  language: node
+  prompt: |
+    I need to log automated system actions in WorkOS audit logs — things like
+    a cron job archiving old documents or a background worker processing
+    payments. There's no user involved. How do I represent the actor?
+  expected:
+    methods:
+      - workos.auditLogs.createEvent
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - "@workos-inc/node"
+    params:
+      - action
+      - actor
+      - targets
+      - occurred_at
+    flowSteps:
+      - set actor type to system
+      - use service identifier as actor id
+      - include occurred_at timestamp
+      - include targets for affected resources
+    antiPatterns: []
+    hallucinations:
+      - workos.auditLogs.createSystemEvent
+      - workos.auditLogs.logSystem
+
+- id: audit-logs-node-admin-portal
+  product: audit-logs
+  skill: workos-audit-logs
+  skillType: generated
+  language: node
+  prompt: |
+    Our enterprise customers want to view their own audit logs and configure
+    their own SIEM export (Splunk, Datadog). I don't want to build a custom
+    UI for this. Does WorkOS have a way for customers to self-service their
+    audit log configuration?
+  expected:
+    methods: []
+    envVars: []
+    imports: []
+    params: []
+    flowSteps:
+      - enable Admin Portal for organization
+      - customer configures log streams in Admin Portal
+      - customer selects their SIEM provider
+      - customer enters their own credentials
+    antiPatterns: []
+    hallucinations:
+      - workos.auditLogs.createPortalLink
+      - workos.adminPortal.createAuditLogView

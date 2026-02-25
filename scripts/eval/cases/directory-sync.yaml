@@ -63,3 +63,114 @@
       - workos.directorySync.listEvents
       - workos.directorySync.pollEvents
       - workos.events.subscribe
+
+- id: dsync-node-directory-deleted
+  product: directory-sync
+  skill: workos-directory-sync
+  skillType: generated
+  language: node
+  prompt: |
+    When a customer disconnects their Okta SCIM integration, some users stay
+    active in our app instead of being deprovisioned. We handle dsync.user.deleted
+    events but users from deleted directories aren't getting cleaned up. What
+    are we doing wrong?
+  expected:
+    methods: []
+    envVars: []
+    imports: []
+    params: []
+    flowSteps:
+      - dsync.deleted event fires instead of individual user deletes
+      - individual user and group delete events are not sent
+      - cascade delete all users by directory_id
+      - cascade delete all groups by directory_id
+      - use database transaction for cascade
+    antiPatterns:
+      - wait for individual user delete events
+    hallucinations:
+      - workos.directorySync.listUsers
+      - workos.directorySync.getDirectory
+
+- id: dsync-node-inactive-users
+  product: directory-sync
+  skill: workos-directory-sync
+  skillType: generated
+  language: node
+  prompt: |
+    We're handling dsync.user.deleted events to deprovision users, but some
+    users are showing as suspended in Okta and still active in our app. It
+    seems like not all removals trigger a deleted event. How should we handle
+    user deprovisioning properly with WorkOS Directory Sync?
+  expected:
+    methods: []
+    envVars: []
+    imports: []
+    params:
+      - state
+    flowSteps:
+      - most providers soft-delete via state change not hard delete
+      - handle dsync.user.updated with state inactive
+      - dsync.user.deleted is rare and not the primary deprovisioning signal
+      - use upsert pattern for idempotency
+    antiPatterns:
+      - only handle dsync.user.deleted for deprovisioning
+    hallucinations:
+      - workos.directorySync.deactivateUser
+      - workos.directorySync.suspendUser
+
+- id: dsync-node-user-identity
+  product: directory-sync
+  skill: workos-directory-sync
+  skillType: generated
+  language: node
+  prompt: |
+    We're matching directory sync users to our database using the WorkOS
+    directory user ID (directory_user_xxx). But when a customer re-creates a
+    user in their IdP, we end up with duplicate accounts. What's the correct
+    way to match synced users to our records?
+  expected:
+    methods: []
+    envVars: []
+    imports: []
+    params:
+      - email
+    flowSteps:
+      - use email as stable identity key not WorkOS ID
+      - directory user ID changes if user is recreated in provider
+      - email is stable across recreations
+      - upsert by email in database
+    antiPatterns:
+      - match users by directory_user ID only
+    hallucinations:
+      - workos.directorySync.getUserByEmail
+      - workos.directorySync.matchUser
+
+- id: dsync-node-group-membership
+  product: directory-sync
+  skill: workos-directory-sync
+  skillType: generated
+  language: node
+  prompt: |
+    I need to sync team memberships from our customer's Okta groups into our
+    app's team model using WorkOS Directory Sync. When users are added to or
+    removed from Okta groups, those changes should reflect in our app.
+  expected:
+    methods:
+      - workos.webhooks.verifyEvent
+    envVars:
+      - WORKOS_WEBHOOK_SECRET
+    imports:
+      - "@workos-inc/node"
+    params:
+      - group
+      - user
+    flowSteps:
+      - handle dsync.group.created for new teams
+      - handle dsync.group.user_added for membership additions
+      - handle dsync.group.user_removed for membership removals
+      - handle dsync.group.deleted for team removal
+      - verify webhook signature
+    antiPatterns: []
+    hallucinations:
+      - workos.directorySync.listGroups
+      - workos.directorySync.addUserToGroup
