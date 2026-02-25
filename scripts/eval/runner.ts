@@ -150,8 +150,8 @@ async function evalCase(
 
     // Run both arms in parallel — they're independent API calls
     const [withResult, withoutResult] = await Promise.all([
-      getOrGenerate(c.prompt, skillContent, systemWith, options),
-      getOrGenerate(c.prompt, null, systemWithout, options),
+      getOrGenerate(c.prompt, systemWith, options),
+      getOrGenerate(c.prompt, systemWithout, options),
     ]);
 
     const withScores = scoreOutput(withResult.output, c.expected);
@@ -186,7 +186,6 @@ async function evalCase(
 /** Check cache, generate if miss */
 async function getOrGenerate(
   prompt: string,
-  skillContent: string | null,
   systemPrompt: string,
   options: EvalOptions,
 ): Promise<{ output: string; usage: { input: number; output: number } }> {
@@ -195,7 +194,7 @@ async function getOrGenerate(
 
   if (cached) return cached;
 
-  const gen = await generateCode(prompt, skillContent, {
+  const gen = await generateCode(prompt, systemPrompt, {
     apiKey: options.apiKey,
     model: options.model,
   });

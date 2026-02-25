@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   normalizeForMatch,
   ratioFound,
+  methodRatioFound,
   scoreFlowOrder,
   countFound,
   weightedScore,
@@ -89,6 +90,62 @@ const profile = workos.sso.getProfileAndToken({ code });
 
   it("matches snake_case against camelCase", () => {
     expect(ratioFound(["get_authorization_url"], output)).toBe(1);
+  });
+});
+
+describe("methodRatioFound", () => {
+  it("matches full invocation form", () => {
+    const output = "const url = workos.sso.getAuthorizationUrl({ clientId });";
+    expect(
+      methodRatioFound(["workos.sso.getAuthorizationUrl"], output),
+    ).toBe(1);
+  });
+
+  it("matches last-segment invocation", () => {
+    const output = "Call getAuthorizationUrl({ clientId }) to start SSO.";
+    expect(
+      methodRatioFound(["workos.sso.getAuthorizationUrl"], output),
+    ).toBe(1);
+  });
+
+  it("falls back to substring for prose mentions", () => {
+    const output =
+      "Use the getAuthorizationUrl method to generate the login URL.";
+    expect(
+      methodRatioFound(["workos.sso.getAuthorizationUrl"], output),
+    ).toBe(1);
+  });
+
+  it("returns 0 when method not found", () => {
+    const output = "Use getAuth to log in.";
+    expect(
+      methodRatioFound(["workos.sso.getAuthorizationUrl"], output),
+    ).toBe(0);
+  });
+
+  it("handles multiple methods with mixed match types", () => {
+    const output = `
+const url = workos.sso.getAuthorizationUrl({ clientId });
+Use getProfileAndToken to exchange the code.
+    `;
+    expect(
+      methodRatioFound(
+        ["workos.sso.getAuthorizationUrl", "workos.sso.getProfileAndToken"],
+        output,
+      ),
+    ).toBe(1);
+  });
+
+  it("returns 1.0 for empty expected", () => {
+    expect(methodRatioFound([], "any output")).toBe(1);
+  });
+
+  it("handles Python snake_case methods", () => {
+    const output =
+      "url = workos_client.sso.get_authorization_url(redirect_uri=uri)";
+    expect(
+      methodRatioFound(["workos_client.sso.get_authorization_url"], output),
+    ).toBe(1);
   });
 });
 
@@ -201,6 +258,7 @@ describe("weightedScore", () => {
         methodAccuracy: 1,
         paramAccuracy: 1,
         envVarCoverage: 1,
+        importAccuracy: 1,
         flowCorrectness: 1,
         antiPatternAvoidance: 1,
         hallucinationCount: 0,
@@ -214,6 +272,7 @@ describe("weightedScore", () => {
         methodAccuracy: 0,
         paramAccuracy: 0,
         envVarCoverage: 0,
+        importAccuracy: 0,
         flowCorrectness: 0,
         antiPatternAvoidance: 0,
         hallucinationCount: 0,
@@ -226,6 +285,7 @@ describe("weightedScore", () => {
       methodAccuracy: 1,
       paramAccuracy: 1,
       envVarCoverage: 1,
+      importAccuracy: 1,
       flowCorrectness: 1,
       antiPatternAvoidance: 1,
       hallucinationCount: 0,
@@ -234,6 +294,7 @@ describe("weightedScore", () => {
       methodAccuracy: 1,
       paramAccuracy: 1,
       envVarCoverage: 1,
+      importAccuracy: 1,
       flowCorrectness: 1,
       antiPatternAvoidance: 1,
       hallucinationCount: 3,
@@ -246,6 +307,7 @@ describe("weightedScore", () => {
       methodAccuracy: 1,
       paramAccuracy: 1,
       envVarCoverage: 1,
+      importAccuracy: 1,
       flowCorrectness: 1,
       antiPatternAvoidance: 1,
       hallucinationCount: 10,
@@ -259,11 +321,34 @@ describe("weightedScore", () => {
         methodAccuracy: 0,
         paramAccuracy: 0,
         envVarCoverage: 0,
+        importAccuracy: 0,
         flowCorrectness: 0,
         antiPatternAvoidance: 0,
         hallucinationCount: 10,
       }),
     ).toBe(0);
+  });
+
+  it("deducts 10 points for zero import accuracy", () => {
+    const withImports = weightedScore({
+      methodAccuracy: 1,
+      paramAccuracy: 1,
+      envVarCoverage: 1,
+      importAccuracy: 1,
+      flowCorrectness: 1,
+      antiPatternAvoidance: 1,
+      hallucinationCount: 0,
+    });
+    const withoutImports = weightedScore({
+      methodAccuracy: 1,
+      paramAccuracy: 1,
+      envVarCoverage: 1,
+      importAccuracy: 0,
+      flowCorrectness: 1,
+      antiPatternAvoidance: 1,
+      hallucinationCount: 0,
+    });
+    expect(withImports - withoutImports).toBe(10);
   });
 });
 
@@ -413,8 +498,7 @@ describe("scoreOutput", () => {
     hallucinations: ["workos.sso.authenticate", "@workos/node"],
   };
 
-  it("scores a perfect output near 100", () => {
-    const perfectOutput = `
+  const perfectOutput = `
 import { WorkOS } from "@workos-inc/node";
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
@@ -435,10 +519,40 @@ app.get("/callback", async (req, res) => {
   req.session.user = profile;
   res.redirect("/dashboard");
 });
-    `;
+  `;
+
+  it("scores a perfect output near 100", () => {
     const scores = scoreOutput(perfectOutput, expected);
     expect(scores.composite).toBeGreaterThanOrEqual(90);
     expect(scores.hallucinationCount).toBe(0);
+  });
+
+  it("scores importAccuracy from expected.imports", () => {
+    const scores = scoreOutput(perfectOutput, expected);
+    expect(scores.importAccuracy).toBe(1);
+
+    const wrongImportOutput = `
+import { WorkOS } from "@workos/node";
+const workos = new WorkOS(process.env.WORKOS_API_KEY);
+const clientId = process.env.WORKOS_CLIENT_ID;
+const url = workos.sso.getAuthorizationUrl({ clientId, redirectUri: "/" });
+res.redirect(url);
+app.get("/callback", async (req, res) => {
+  const { code } = req.query;
+  const { profile } = await workos.sso.getProfileAndToken({ code });
+});
+    `;
+    const wrongScores = scoreOutput(wrongImportOutput, expected);
+    expect(wrongScores.importAccuracy).toBe(0);
+  });
+
+  it("gives importAccuracy 1 when expected.imports is empty", () => {
+    const noImportsExpected: ExpectedSignals = {
+      ...expected,
+      imports: [],
+    };
+    const scores = scoreOutput("any output", noImportsExpected);
+    expect(scores.importAccuracy).toBe(1);
   });
 
   it("scores a terrible output below 30", () => {
@@ -471,6 +585,25 @@ describe("categorizeErrors", () => {
     expect(errors).toContain("hallucinated_method");
   });
 
+  it("detects missing expected methods as missing_method", () => {
+    const output = "some code without the expected method";
+    const errors = categorizeErrors(output, expected);
+    expect(errors).toContain("missing_method");
+  });
+
+  it("detects missing params as wrong_params (not methods)", () => {
+    // Output has the correct method but missing the param "clientId"
+    const output = `
+import { WorkOS } from "@workos-inc/node";
+const workos = new WorkOS(process.env.WORKOS_API_KEY);
+const url = workos.sso.getAuthorizationUrl({ redirectUri: "/" });
+// Generate authorization URL
+    `;
+    const errors = categorizeErrors(output, expected);
+    expect(errors).toContain("wrong_params");
+    expect(errors).not.toContain("missing_method");
+  });
+
   it("detects missing env vars", () => {
     const output = "some code without env vars";
     const errors = categorizeErrors(output, expected);
@@ -493,6 +626,7 @@ const url = workos.sso.getAuthorizationUrl({ clientId });
     `;
     const errors = categorizeErrors(output, expected);
     expect(errors).not.toContain("hallucinated_method");
+    expect(errors).not.toContain("missing_method");
     expect(errors).not.toContain("missing_env_var");
   });
 });

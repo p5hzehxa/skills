@@ -26,6 +26,7 @@ export interface ScoreCard {
   methodAccuracy: number;
   paramAccuracy: number;
   envVarCoverage: number;
+  importAccuracy: number;
   flowCorrectness: number;
   antiPatternAvoidance: number;
   hallucinationCount: number;
@@ -34,6 +35,7 @@ export interface ScoreCard {
 
 export type ErrorCategory =
   | "hallucinated_method"
+  | "missing_method"
   | "wrong_params"
   | "missing_env_var"
   | "wrong_flow_order"

@@ -40,6 +40,52 @@ export function ratioFound(expected: string[], output: string): number {
 }
 
 /**
+ * Invocation-aware method matching (0-1).
+ * Three-pass: try method( invocation → last-segment invocation → substring fallback.
+ * Returns 1.0 if expected array is empty.
+ */
+export function methodRatioFound(expected: string[], output: string): number {
+  if (expected.length === 0) return 1;
+
+  const normalizedOutput = normalizeForMatch(output);
+  let found = 0;
+
+  for (const method of expected) {
+    const normalized = normalizeForMatch(method);
+
+    // Pass 1: full invocation form — method_name( or workos.sso.method(
+    if (normalizedOutput.includes(normalized + "(")) {
+      found++;
+      continue;
+    }
+
+    // Pass 2: last segment invocation — get_authorization_url(
+    const dotParts = normalized.split(".");
+    if (dotParts.length > 1) {
+      const lastPart = dotParts[dotParts.length - 1] + "(";
+      if (normalizedOutput.includes(lastPart)) {
+        found++;
+        continue;
+      }
+    }
+
+    // Pass 3: full normalized substring (prose mentions still count)
+    if (normalizedOutput.includes(normalized)) {
+      found++;
+      continue;
+    }
+
+    // Pass 4: last segment substring — catches "use getAuthorizationUrl to..."
+    const parts = normalized.split(".");
+    if (parts.length > 1 && normalizedOutput.includes(parts[parts.length - 1])) {
+      found++;
+    }
+  }
+
+  return found / expected.length;
+}
+
+/**
  * Score flow step presence and ordering (0-1).
  * 60% weight on presence, 40% weight on correct relative ordering.
  */
@@ -224,7 +270,7 @@ export function negationAwareRatioFound(
 
 /**
  * Compute weighted composite score (0-100).
- * Weights: methods(25) + flow(25) + params(15) + envVars(15) + antiPatterns(15) + clean(5)
+ * Weights: methods(20) + flow(20) + imports(10) + params(15) + envVars(15) + antiPatterns(15) + clean(5)
  * Clean bonus: 5 points for zero hallucinations.
  * Hallucination penalty: -5 per hallucination, capped at -25.
  */
@@ -232,10 +278,11 @@ export function weightedScore(
   dimensions: Omit<ScoreCard, "composite">,
 ): number {
   const base =
-    dimensions.methodAccuracy * 25 +
+    dimensions.methodAccuracy * 20 +
     dimensions.paramAccuracy * 15 +
     dimensions.envVarCoverage * 15 +
-    dimensions.flowCorrectness * 25 +
+    dimensions.importAccuracy * 10 +
+    dimensions.flowCorrectness * 20 +
     dimensions.antiPatternAvoidance * 15 +
     (dimensions.hallucinationCount === 0 ? 5 : 0);
 
@@ -250,9 +297,11 @@ export function scoreOutput(
   output: string,
   expected: ExpectedSignals,
 ): ScoreCard {
-  const methodAccuracy = ratioFound(expected.methods, output);
+  const methodAccuracy = methodRatioFound(expected.methods, output);
   const paramAccuracy = ratioFound(expected.params, output);
   const envVarCoverage = ratioFound(expected.envVars, output);
+  const importAccuracy =
+    expected.imports.length > 0 ? ratioFound(expected.imports, output) : 1;
   const flowCorrectness = scoreFlowOrder(expected.flowSteps, output);
   const antiPatternAvoidance =
     1 - negationAwareRatioFound(expected.antiPatterns, output);
@@ -262,6 +311,7 @@ export function scoreOutput(
     methodAccuracy,
     paramAccuracy,
     envVarCoverage,
+    importAccuracy,
     flowCorrectness,
     antiPatternAvoidance,
     hallucinationCount,
@@ -285,7 +335,13 @@ export function categorizeErrors(
   if (countFound(expected.hallucinations ?? [], output) > 0) {
     errors.push("hallucinated_method");
   }
-  if (ratioFound(expected.methods, output) < 1) {
+  if (
+    expected.methods.length > 0 &&
+    methodRatioFound(expected.methods, output) < 1
+  ) {
+    errors.push("missing_method");
+  }
+  if (expected.params.length > 0 && ratioFound(expected.params, output) < 1) {
     errors.push("wrong_params");
   }
   if (ratioFound(expected.envVars, output) < 1) {
