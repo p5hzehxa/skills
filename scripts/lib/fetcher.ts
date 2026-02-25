@@ -1,5 +1,6 @@
-import { join } from "path";
-import { mkdir } from "fs/promises";
+import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { setTimeout } from "node:timers/promises";
 import type { FetchResult, FetchOptions } from "./types.ts";
 
 const LLMS_TXT_URL = "https://workos.com/docs/llms.txt";
@@ -26,11 +27,11 @@ async function readCache(
   const metaPath = getMetaFilePath(cachePath);
 
   try {
-    const meta = JSON.parse(await Bun.file(metaPath).text());
+    const meta = JSON.parse(await readFile(metaPath, "utf8"));
     const age = Date.now() - new Date(meta.fetchedAt).getTime();
     if (age > maxAge) return null;
 
-    const content = await Bun.file(cachePath).text();
+    const content = await readFile(cachePath, "utf8");
 
     return {
       content,
@@ -51,8 +52,8 @@ async function writeCache(
     await mkdir(cachePath.split("/").slice(0, -1).join("/"), {
       recursive: true,
     });
-    await Bun.write(cachePath, content);
-    await Bun.write(
+    await writeFile(cachePath, content);
+    await writeFile(
       getMetaFilePath(cachePath),
       JSON.stringify({ fetchedAt: fetchedAt.toISOString() }),
     );
@@ -74,7 +75,7 @@ async function fetchWithRetry(url: string, retries: number): Promise<string> {
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < retries) {
-        await Bun.sleep(RETRY_DELAY_MS * attempt);
+        await setTimeout(RETRY_DELAY_MS * attempt);
       }
     }
   }

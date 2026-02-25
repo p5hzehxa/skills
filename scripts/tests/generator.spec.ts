@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import {
   generateSkill,
   generateRouter,
@@ -49,12 +49,12 @@ describe("generateSkill", () => {
 
   it("summary does not have frontmatter", () => {
     const [summary] = generateSkill(makeSpec());
-    expect(summary.content).not.toStartWith("---\n");
+    expect(summary.content.startsWith("---\n")).toBe(false);
   });
 
   it("guide does not have frontmatter", () => {
     const [, guide] = generateSkill(makeSpec());
-    expect(guide.content).not.toStartWith("---\n");
+    expect(guide.content.startsWith("---\n")).toBe(false);
   });
 
   it("summary contains guide pointer", () => {

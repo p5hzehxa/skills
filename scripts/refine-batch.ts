@@ -1,4 +1,5 @@
-import { join } from "path";
+import { join } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
 import { refineSkill, rateLimitDelay } from "./lib/refiner.ts";
 import type { GeneratedSkill } from "./lib/types.ts";
 
@@ -8,10 +9,10 @@ import type { GeneratedSkill } from "./lib/types.ts";
  * via --concurrency flag.
  *
  * Usage:
- *   bun run scripts/refine-batch.ts                     # all generated skills, concurrency=5
- *   bun run scripts/refine-batch.ts --concurrency=8     # all generated, 8 at a time
- *   bun run scripts/refine-batch.ts workos-sso workos-mfa  # specific skills only
- *   bun run scripts/refine-batch.ts --model=claude-opus-4-6  # use opus
+ *   npx tsx scripts/refine-batch.ts                     # all generated skills, concurrency=5
+ *   npx tsx scripts/refine-batch.ts --concurrency=8     # all generated, 8 at a time
+ *   npx tsx scripts/refine-batch.ts workos-sso workos-mfa  # specific skills only
+ *   npx tsx scripts/refine-batch.ts --model=claude-opus-4-6  # use opus
  */
 
 const SKIP = new Set(["workos-integrations"]);
@@ -67,7 +68,7 @@ function parseArgs() {
 async function readSkillFromDisk(name: string): Promise<GeneratedSkill> {
   const path = `plugins/workos/skills/${name}/SKILL.md`;
   const fullPath = join(process.cwd(), path);
-  const content = await Bun.file(fullPath).text();
+  const content = await readFile(fullPath, "utf8");
   return {
     name,
     path,
@@ -79,7 +80,7 @@ async function readSkillFromDisk(name: string): Promise<GeneratedSkill> {
 
 async function writeSkillToDisk(skill: GeneratedSkill): Promise<void> {
   const fullPath = join(process.cwd(), skill.path);
-  await Bun.write(fullPath, skill.content);
+  await writeFile(fullPath, skill.content);
 }
 
 /** Process a batch of skills concurrently */
@@ -127,7 +128,7 @@ async function main() {
     process.cwd(),
     "plugins/workos/skills/workos-authkit-nextjs/SKILL.md",
   );
-  const goldStandard = await Bun.file(goldStandardPath).text();
+  const goldStandard = await readFile(goldStandardPath, "utf8");
 
   const skillNames = flags.skills.filter((s) => !SKIP.has(s));
   console.log(

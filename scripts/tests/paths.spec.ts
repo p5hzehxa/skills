@@ -1,8 +1,10 @@
-import { describe, expect, it } from "bun:test";
-import { readdirSync, readFileSync } from "fs";
-import { join } from "path";
+import { describe, expect, it } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const PLUGIN_DIR = join(import.meta.dir, "../../plugins/workos/skills/workos");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PLUGIN_DIR = join(__dirname, "../../plugins/workos/skills/workos");
 const REFS_DIR = join(PLUGIN_DIR, "references");
 
 function listRefFiles(): string[] {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { runQualityGate, semanticQualityCheck } from "../lib/quality-gate.ts";
 import type { GeneratedSkill } from "../lib/types.ts";
 

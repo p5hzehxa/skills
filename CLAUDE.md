@@ -5,13 +5,13 @@ Claude Code plugin providing WorkOS integration skills (AuthKit, SSO, Directory 
 ## Commands
 
 ```bash
-bun run generate              # fetch docs, parse, split, generate skills
-bun run generate -- --refine  # + AI refinement pass (requires ANTHROPIC_API_KEY)
-bun run generate -- --refine --force  # force regenerate + refine all
-bun run generate -- --refine-only=workos-sso --force  # refine single skill
-bun test                      # run tests (bun test runner)
-bun run format                # prettier --write
-bun run format:check          # prettier --check
+npm run generate              # fetch docs, parse, split, generate skills
+npm run generate -- --refine  # + AI refinement pass (requires ANTHROPIC_API_KEY)
+npm run generate -- --refine --force  # force regenerate + refine all
+npm run generate -- --refine-only=workos-sso --force  # refine single skill
+npm test                      # run tests (vitest)
+npm run format                # prettier --write
+npm run format:check          # prettier --check
 ```
 
 ## Project Structure
@@ -29,7 +29,7 @@ bun run format:check          # prettier --check
 - `scripts/` — generation pipeline (not cached with plugin)
   - `generate.ts` — orchestrator: fetch → parse → split → generate → refine → quality gate → write
   - `lib/` — pipeline modules: `fetcher`, `parser`, `validator`, `splitter`, `api-ref-splitter`, `generator`, `skill-template`, `refiner`, `quality-gate`, `feedback`, `hasher`, `config`, `types`
-  - `tests/` — `*.spec.ts` files using `bun:test`
+  - `tests/` — `*.spec.ts` files using vitest
 
 ## Key Conventions
 
@@ -43,6 +43,7 @@ bun run format:check          # prettier --check
 
 ## Runtime
 
-- **Bun** — runtime and test runner (not Node)
+- **Node** (>=18) via **tsx** — TypeScript execution without build step
+- **vitest** — test runner
 - **TypeScript** — strict mode, ESNext target, bundler module resolution
-- No build step; scripts run directly via `bun run`
+- No build step; scripts run directly via `npx tsx`
