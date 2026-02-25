@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:0064ec42049e -->
 
 # WorkOS Audit Logs API Reference

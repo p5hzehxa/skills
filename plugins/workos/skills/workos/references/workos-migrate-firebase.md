@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:bdf357fa5da5 -->
 
 # WorkOS Migration: Firebase

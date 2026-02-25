@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:cd9b112c355b -->
 
 # WorkOS Admin Portal API Reference

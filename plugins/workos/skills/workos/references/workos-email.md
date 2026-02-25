@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:1f3ac3b3b606 -->
 
 # WorkOS Email Delivery

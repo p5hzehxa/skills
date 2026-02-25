@@ -13,79 +13,79 @@ Ask the user which identity provider they need to integrate. Then find it in the
 
 ## Provider Lookup
 
-| Provider                       | Type         | Doc URL |
-| ------------------------------ | ------------ | ------- |
-| Access People HR               | General      | workos.com/docs/integrations/access-people-hr |
-| ADP                            | OIDC         | workos.com/docs/integrations/adp-oidc |
-| Apple                          | General      | workos.com/docs/integrations/apple |
-| Auth0                          | SAML         | workos.com/docs/integrations/auth0-saml |
-| Auth0                          | Enterprise   | workos.com/docs/integrations/auth0-enterprise-connection |
-| Auth0                          | Directory    | workos.com/docs/integrations/auth0-directory-sync |
-| AWS Cognito                    | General      | workos.com/docs/integrations/aws-cognito |
-| Bamboohr                       | General      | workos.com/docs/integrations/bamboohr |
-| Breathe HR                     | General      | workos.com/docs/integrations/breathe-hr |
-| Bubble                         | General      | workos.com/docs/integrations/bubble |
-| CAS                            | SAML         | workos.com/docs/integrations/cas-saml |
-| Cezanne HR                     | General      | workos.com/docs/integrations/cezanne |
-| Classlink                      | SAML         | workos.com/docs/integrations/classlink-saml |
-| Clever                         | OIDC         | workos.com/docs/integrations/clever-oidc |
-| Cloudflare                     | SAML         | workos.com/docs/integrations/cloudflare-saml |
-| Cyberark                       | SCIM         | workos.com/docs/integrations/cyberark-scim |
-| Cyberark                       | SAML         | workos.com/docs/integrations/cyberark-saml |
-| Duo                            | SAML         | workos.com/docs/integrations/duo-saml |
-| Entra ID (Azure AD)            | SCIM         | workos.com/docs/integrations/entra-id-scim |
-| Entra ID (Azure AD)            | SAML         | workos.com/docs/integrations/entra-id-saml |
-| Entra ID (Azure AD)            | OIDC         | workos.com/docs/integrations/entra-id-oidc |
-| Firebase                       | General      | workos.com/docs/integrations/firebase |
-| Fourth                         | General      | workos.com/docs/integrations/fourth |
-| Github                         | OAuth        | workos.com/docs/integrations/github-oauth |
-| Gitlab                         | OAuth        | workos.com/docs/integrations/gitlab-oauth |
-| Google Workspace               | SAML         | workos.com/docs/integrations/google-saml |
-| Google Workspace               | OIDC         | workos.com/docs/integrations/google-oidc |
-| Google Workspace               | OAuth        | workos.com/docs/integrations/google-oauth |
-| Google Workspace               | Directory    | workos.com/docs/integrations/google-directory-sync |
-| Hibob                          | General      | workos.com/docs/integrations/hibob |
-| Intuit                         | OAuth        | workos.com/docs/integrations/intuit-oauth |
-| Jumpcloud                      | SCIM         | workos.com/docs/integrations/jumpcloud-scim |
-| Jumpcloud                      | SAML         | workos.com/docs/integrations/jumpcloud-saml |
-| Keycloak                       | SAML         | workos.com/docs/integrations/keycloak-saml |
-| Lastpass                       | SAML         | workos.com/docs/integrations/lastpass-saml |
-| Linkedin                       | OAuth        | workos.com/docs/integrations/linkedin-oauth |
-| Login.gov                      | OIDC         | workos.com/docs/integrations/login-gov-oidc |
-| Microsoft                      | OAuth        | workos.com/docs/integrations/microsoft-oauth |
-| Microsoft AD FS                | SAML         | workos.com/docs/integrations/microsoft-ad-fs-saml |
-| Miniorange                     | SAML         | workos.com/docs/integrations/miniorange-saml |
-| NetIQ                          | SAML         | workos.com/docs/integrations/net-iq-saml |
-| NextAuth.js                    | General      | workos.com/docs/integrations/next-auth |
-| Oidc                           | General      | workos.com/docs/integrations/oidc |
-| Okta                           | SCIM         | workos.com/docs/integrations/okta-scim |
-| Okta                           | SAML         | workos.com/docs/integrations/okta-saml |
-| Okta                           | OIDC         | workos.com/docs/integrations/okta-oidc |
-| Onelogin                       | SCIM         | workos.com/docs/integrations/onelogin-scim |
-| Onelogin                       | SAML         | workos.com/docs/integrations/onelogin-saml |
-| Oracle                         | SAML         | workos.com/docs/integrations/oracle-saml |
-| Pingfederate                   | SCIM         | workos.com/docs/integrations/pingfederate-scim |
-| Pingfederate                   | SAML         | workos.com/docs/integrations/pingfederate-saml |
-| Pingone                        | SAML         | workos.com/docs/integrations/pingone-saml |
-| React Native Expo              | General      | workos.com/docs/integrations/react-native-expo |
-| Rippling                       | SCIM         | workos.com/docs/integrations/rippling-scim |
-| Rippling                       | SAML         | workos.com/docs/integrations/rippling-saml |
-| Sailpoint                      | SCIM         | workos.com/docs/integrations/sailpoint-scim |
-| Salesforce                     | SAML         | workos.com/docs/integrations/salesforce-saml |
-| Salesforce                     | OAuth        | workos.com/docs/integrations/salesforce-oauth |
-| Saml                           | General      | workos.com/docs/integrations/saml |
-| Scim                           | General      | workos.com/docs/integrations/scim |
-| Sftp                           | General      | workos.com/docs/integrations/sftp |
-| Shibboleth Generic             | SAML         | workos.com/docs/integrations/shibboleth-generic-saml |
-| Shibboleth Unsolicited         | SAML         | workos.com/docs/integrations/shibboleth-unsolicited-saml |
-| SimpleSAMLphp                  | General      | workos.com/docs/integrations/simple-saml-php |
-| Slack                          | OAuth        | workos.com/docs/integrations/slack-oauth |
-| Supabase + AuthKit             | General      | workos.com/docs/integrations/supabase-authkit |
-| Supabase + WorkOS SSO          | General      | workos.com/docs/integrations/supabase-sso |
-| Vercel                         | OAuth        | workos.com/docs/integrations/vercel-oauth |
-| Vmware                         | SAML         | workos.com/docs/integrations/vmware-saml |
-| Workday                        | General      | workos.com/docs/integrations/workday |
-| Xero                           | OAuth        | workos.com/docs/integrations/xero-oauth |
+| Provider               | Type       | Doc URL                                                  |
+| ---------------------- | ---------- | -------------------------------------------------------- |
+| Access People HR       | General    | workos.com/docs/integrations/access-people-hr            |
+| ADP                    | OIDC       | workos.com/docs/integrations/adp-oidc                    |
+| Apple                  | General    | workos.com/docs/integrations/apple                       |
+| Auth0                  | SAML       | workos.com/docs/integrations/auth0-saml                  |
+| Auth0                  | Enterprise | workos.com/docs/integrations/auth0-enterprise-connection |
+| Auth0                  | Directory  | workos.com/docs/integrations/auth0-directory-sync        |
+| AWS Cognito            | General    | workos.com/docs/integrations/aws-cognito                 |
+| Bamboohr               | General    | workos.com/docs/integrations/bamboohr                    |
+| Breathe HR             | General    | workos.com/docs/integrations/breathe-hr                  |
+| Bubble                 | General    | workos.com/docs/integrations/bubble                      |
+| CAS                    | SAML       | workos.com/docs/integrations/cas-saml                    |
+| Cezanne HR             | General    | workos.com/docs/integrations/cezanne                     |
+| Classlink              | SAML       | workos.com/docs/integrations/classlink-saml              |
+| Clever                 | OIDC       | workos.com/docs/integrations/clever-oidc                 |
+| Cloudflare             | SAML       | workos.com/docs/integrations/cloudflare-saml             |
+| Cyberark               | SCIM       | workos.com/docs/integrations/cyberark-scim               |
+| Cyberark               | SAML       | workos.com/docs/integrations/cyberark-saml               |
+| Duo                    | SAML       | workos.com/docs/integrations/duo-saml                    |
+| Entra ID (Azure AD)    | SCIM       | workos.com/docs/integrations/entra-id-scim               |
+| Entra ID (Azure AD)    | SAML       | workos.com/docs/integrations/entra-id-saml               |
+| Entra ID (Azure AD)    | OIDC       | workos.com/docs/integrations/entra-id-oidc               |
+| Firebase               | General    | workos.com/docs/integrations/firebase                    |
+| Fourth                 | General    | workos.com/docs/integrations/fourth                      |
+| Github                 | OAuth      | workos.com/docs/integrations/github-oauth                |
+| Gitlab                 | OAuth      | workos.com/docs/integrations/gitlab-oauth                |
+| Google Workspace       | SAML       | workos.com/docs/integrations/google-saml                 |
+| Google Workspace       | OIDC       | workos.com/docs/integrations/google-oidc                 |
+| Google Workspace       | OAuth      | workos.com/docs/integrations/google-oauth                |
+| Google Workspace       | Directory  | workos.com/docs/integrations/google-directory-sync       |
+| Hibob                  | General    | workos.com/docs/integrations/hibob                       |
+| Intuit                 | OAuth      | workos.com/docs/integrations/intuit-oauth                |
+| Jumpcloud              | SCIM       | workos.com/docs/integrations/jumpcloud-scim              |
+| Jumpcloud              | SAML       | workos.com/docs/integrations/jumpcloud-saml              |
+| Keycloak               | SAML       | workos.com/docs/integrations/keycloak-saml               |
+| Lastpass               | SAML       | workos.com/docs/integrations/lastpass-saml               |
+| Linkedin               | OAuth      | workos.com/docs/integrations/linkedin-oauth              |
+| Login.gov              | OIDC       | workos.com/docs/integrations/login-gov-oidc              |
+| Microsoft              | OAuth      | workos.com/docs/integrations/microsoft-oauth             |
+| Microsoft AD FS        | SAML       | workos.com/docs/integrations/microsoft-ad-fs-saml        |
+| Miniorange             | SAML       | workos.com/docs/integrations/miniorange-saml             |
+| NetIQ                  | SAML       | workos.com/docs/integrations/net-iq-saml                 |
+| NextAuth.js            | General    | workos.com/docs/integrations/next-auth                   |
+| Oidc                   | General    | workos.com/docs/integrations/oidc                        |
+| Okta                   | SCIM       | workos.com/docs/integrations/okta-scim                   |
+| Okta                   | SAML       | workos.com/docs/integrations/okta-saml                   |
+| Okta                   | OIDC       | workos.com/docs/integrations/okta-oidc                   |
+| Onelogin               | SCIM       | workos.com/docs/integrations/onelogin-scim               |
+| Onelogin               | SAML       | workos.com/docs/integrations/onelogin-saml               |
+| Oracle                 | SAML       | workos.com/docs/integrations/oracle-saml                 |
+| Pingfederate           | SCIM       | workos.com/docs/integrations/pingfederate-scim           |
+| Pingfederate           | SAML       | workos.com/docs/integrations/pingfederate-saml           |
+| Pingone                | SAML       | workos.com/docs/integrations/pingone-saml                |
+| React Native Expo      | General    | workos.com/docs/integrations/react-native-expo           |
+| Rippling               | SCIM       | workos.com/docs/integrations/rippling-scim               |
+| Rippling               | SAML       | workos.com/docs/integrations/rippling-saml               |
+| Sailpoint              | SCIM       | workos.com/docs/integrations/sailpoint-scim              |
+| Salesforce             | SAML       | workos.com/docs/integrations/salesforce-saml             |
+| Salesforce             | OAuth      | workos.com/docs/integrations/salesforce-oauth            |
+| Saml                   | General    | workos.com/docs/integrations/saml                        |
+| Scim                   | General    | workos.com/docs/integrations/scim                        |
+| Sftp                   | General    | workos.com/docs/integrations/sftp                        |
+| Shibboleth Generic     | SAML       | workos.com/docs/integrations/shibboleth-generic-saml     |
+| Shibboleth Unsolicited | SAML       | workos.com/docs/integrations/shibboleth-unsolicited-saml |
+| SimpleSAMLphp          | General    | workos.com/docs/integrations/simple-saml-php             |
+| Slack                  | OAuth      | workos.com/docs/integrations/slack-oauth                 |
+| Supabase + AuthKit     | General    | workos.com/docs/integrations/supabase-authkit            |
+| Supabase + WorkOS SSO  | General    | workos.com/docs/integrations/supabase-sso                |
+| Vercel                 | OAuth      | workos.com/docs/integrations/vercel-oauth                |
+| Vmware                 | SAML       | workos.com/docs/integrations/vmware-saml                 |
+| Workday                | General    | workos.com/docs/integrations/workday                     |
+| Xero                   | OAuth      | workos.com/docs/integrations/xero-oauth                  |
 
 ## Step 2: Set Up the Connection
 
@@ -149,6 +149,7 @@ curl -s -H "Authorization: Bearer $WORKOS_API_KEY" \
 ```
 
 Checklist:
+
 - [ ] Connection appears in WorkOS Dashboard with "Active" (SSO) or "Linked" (directory) state
 - [ ] Test SSO login succeeds with a test user
 - [ ] User profile attributes map correctly (email, first name, last name, groups)
@@ -227,22 +228,22 @@ Connection not working?
 
 ## Error Recovery Reference
 
-| Problem | Root Cause | Fix |
-|---------|-----------|-----|
-| Connection stuck in "Draft" | IdP metadata not uploaded or invalid | Upload valid IdP metadata XML or enter a reachable metadata URL in Dashboard |
-| Connection stuck in "Validating" | Certificate expired or ACS/Entity ID mismatch | Re-upload fresh metadata; verify ACS URL and SP Entity ID match exactly |
-| SAML "Recipient mismatch" | ACS URL in IdP does not match WorkOS value | Copy exact ACS URL from WorkOS Dashboard > Connection > Details |
-| SAML "Audience mismatch" | SP Entity ID in IdP does not match WorkOS | Copy exact SP Entity ID from Dashboard; paste into IdP audience/entity field |
-| SAML "Signature invalid" | IdP certificate rotated but WorkOS has old cert | Re-download IdP metadata and re-upload to WorkOS Dashboard |
-| SAML "Response expired" | Clock skew between IdP server and WorkOS | Sync IdP server time via NTP; most assertions allow 5-minute skew |
-| SCIM 401 Unauthorized | Bearer token is expired or was regenerated | Copy current token from Dashboard > Directory > SCIM Config |
-| SCIM 404 Not Found | Endpoint URL has wrong directory ID or path | Re-copy full SCIM endpoint URL from Dashboard |
-| SCIM sync no attributes | Attribute mapping missing in IdP | Map userName, name.givenName, name.familyName in IdP SCIM config |
-| SCIM users not deactivated | Deprovisioning not enabled | Enable "Deactivate Users" in IdP provisioning settings |
-| OAuth "redirect_uri_mismatch" | Redirect URI in provider console is different | Paste exact redirect URI from WorkOS Dashboard into provider OAuth app |
-| OAuth "invalid_client" | Client ID or Secret is wrong | Re-copy Client ID and Secret from provider developer console |
-| "Organization not found" | Connection not linked to an organization | Create org in Dashboard, then link the connection to it |
-| "Domain not verified" | SSO requires a verified domain | Go to Organizations > Domains, add and verify the domain |
+| Problem                          | Root Cause                                      | Fix                                                                          |
+| -------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------- |
+| Connection stuck in "Draft"      | IdP metadata not uploaded or invalid            | Upload valid IdP metadata XML or enter a reachable metadata URL in Dashboard |
+| Connection stuck in "Validating" | Certificate expired or ACS/Entity ID mismatch   | Re-upload fresh metadata; verify ACS URL and SP Entity ID match exactly      |
+| SAML "Recipient mismatch"        | ACS URL in IdP does not match WorkOS value      | Copy exact ACS URL from WorkOS Dashboard > Connection > Details              |
+| SAML "Audience mismatch"         | SP Entity ID in IdP does not match WorkOS       | Copy exact SP Entity ID from Dashboard; paste into IdP audience/entity field |
+| SAML "Signature invalid"         | IdP certificate rotated but WorkOS has old cert | Re-download IdP metadata and re-upload to WorkOS Dashboard                   |
+| SAML "Response expired"          | Clock skew between IdP server and WorkOS        | Sync IdP server time via NTP; most assertions allow 5-minute skew            |
+| SCIM 401 Unauthorized            | Bearer token is expired or was regenerated      | Copy current token from Dashboard > Directory > SCIM Config                  |
+| SCIM 404 Not Found               | Endpoint URL has wrong directory ID or path     | Re-copy full SCIM endpoint URL from Dashboard                                |
+| SCIM sync no attributes          | Attribute mapping missing in IdP                | Map userName, name.givenName, name.familyName in IdP SCIM config             |
+| SCIM users not deactivated       | Deprovisioning not enabled                      | Enable "Deactivate Users" in IdP provisioning settings                       |
+| OAuth "redirect_uri_mismatch"    | Redirect URI in provider console is different   | Paste exact redirect URI from WorkOS Dashboard into provider OAuth app       |
+| OAuth "invalid_client"           | Client ID or Secret is wrong                    | Re-copy Client ID and Secret from provider developer console                 |
+| "Organization not found"         | Connection not linked to an organization        | Create org in Dashboard, then link the connection to it                      |
+| "Domain not verified"            | SSO requires a verified domain                  | Go to Organizations > Domains, add and verify the domain                     |
 
 ## Related Skills
 

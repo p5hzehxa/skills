@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:106ca62de786 -->
 
 # WorkOS Events

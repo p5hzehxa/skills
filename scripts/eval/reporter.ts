@@ -66,9 +66,7 @@ export function printTable(report: EvalReport): void {
 export function printSummary(report: EvalReport): void {
   if (report.results.length === 0) return;
 
-  const generated = report.summary.filter(
-    (s) => s.skillType === "generated",
-  );
+  const generated = report.summary.filter((s) => s.skillType === "generated");
   const handCrafted = report.summary.filter(
     (s) => s.skillType === "hand-crafted",
   );
@@ -87,8 +85,7 @@ export function printSummary(report: EvalReport): void {
 
   if (handCrafted.length > 0) {
     const avgHcWith = Math.round(
-      handCrafted.reduce((s, h) => s + h.avgWithSkill, 0) /
-        handCrafted.length,
+      handCrafted.reduce((s, h) => s + h.avgWithSkill, 0) / handCrafted.length,
     );
     const avgHcDelta = Math.round(
       handCrafted.reduce((s, h) => s + h.avgDelta, 0) / handCrafted.length,
@@ -120,7 +117,10 @@ export async function writeJsonReport(report: EvalReport): Promise<string> {
   // Strip outputs from the JSON report to keep it manageable
   const slimResults = report.results.map((r) => ({
     ...r,
-    withSkill: { scores: r.withSkill.scores, tokenUsage: r.withSkill.tokenUsage },
+    withSkill: {
+      scores: r.withSkill.scores,
+      tokenUsage: r.withSkill.tokenUsage,
+    },
     withoutSkill: {
       scores: r.withoutSkill.scores,
       tokenUsage: r.withoutSkill.tokenUsage,

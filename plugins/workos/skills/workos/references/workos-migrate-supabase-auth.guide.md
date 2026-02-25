@@ -115,14 +115,14 @@ for each user in export:
       first_name: user.raw_user_meta_data?.first_name,
       last_name: user.raw_user_meta_data?.last_name
     })
-    
+
     // Store mapping for session migration
     save_mapping(user.id, result.id)
-    
+
   catch RateLimitError:
     wait(1 second)
     retry
-    
+
   catch DuplicateEmailError:
     log("User already exists: " + user.email)
     continue
@@ -194,6 +194,7 @@ curl -X POST https://api.workos.com/user_management/authenticate \
 **Root cause:** Password hash corrupted during export or contains non-bcrypt format.
 
 Fix:
+
 1. Re-export from Supabase with explicit CAST: `CAST(encrypted_password AS TEXT)`
 2. Verify hash starts with `$2a$`, `$2b$`, or `$2y$`
 3. If still failing, that user must reset password — WorkOS cannot import non-bcrypt hashes
@@ -203,6 +204,7 @@ Fix:
 **Root cause:** Duplicate email in Supabase export OR user already imported in previous run.
 
 Fix:
+
 1. Check if user already exists in WorkOS: query Users API by email
 2. If exists with correct password hash, skip import for that user
 3. If exists WITHOUT password hash, use Update User API to add password hash
@@ -213,6 +215,7 @@ Fix:
 **Root cause:** Batch delay too short for your import volume.
 
 Fix:
+
 1. Increase delay between batches to 2-5 seconds
 2. Reduce batch size to 50 users
 3. Implement exponential backoff: first retry after 1s, then 2s, then 4s, up to 60s max
@@ -223,6 +226,7 @@ Fix:
 **Root cause:** Password hash not imported OR email_verified flag incorrect.
 
 Fix:
+
 1. Query WorkOS Users API for affected user — check `password_hash` field exists
 2. If missing, use Update User API to add password hash from Supabase export
 3. Check `email_verified` matches Supabase `email_confirmed_at` status

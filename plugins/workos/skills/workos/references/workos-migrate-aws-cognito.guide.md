@@ -15,6 +15,7 @@ The docs are the source of truth. If this skill conflicts with docs, follow docs
 ### Export Limitations (CRITICAL)
 
 **AWS Cognito does not export:**
+
 - Password hashes (Cognito platform limitation)
 - MFA secrets/recovery codes
 
@@ -23,6 +24,7 @@ The docs are the source of truth. If this skill conflicts with docs, follow docs
 WorkOS supports importing password hashes from other providers (bcrypt, scrypt, argon2, pbkdf2, ssha, firebase-scrypt), but since Cognito won't export them, this path is unavailable.
 
 ### What CAN be migrated:
+
 - User attributes (email, name, phone, custom attributes)
 - OAuth provider connections (Google, Microsoft, etc.)
 - Email verification status
@@ -38,6 +40,7 @@ aws cognito-idp list-users \
 ```
 
 **Verify export:**
+
 ```bash
 jq '.Users | length' cognito_users.json
 # Should show total user count
@@ -142,7 +145,8 @@ curl -I "https://api.workos.com/sso/authorize?client_id=$WORKOS_CLIENT_ID&redire
 
 **Cause:** WorkOS redirect URI not whitelisted in provider settings.
 
-**Fix:** 
+**Fix:**
+
 1. Go to provider's OAuth app settings (e.g., Google Cloud Console)
 2. Add exact URI: `https://api.workos.com/sso/oauth/callback`
 3. Wait 5 minutes for provider cache to clear
@@ -152,6 +156,7 @@ curl -I "https://api.workos.com/sso/authorize?client_id=$WORKOS_CLIENT_ID&redire
 **Cause:** Email provider flagging bulk sends as spam, or WorkOS email domain not verified.
 
 **Fix:**
+
 1. Check WorkOS Dashboard email logs for delivery failures
 2. Add SPF/DKIM records if using custom email domain
 3. Slow down send rate to avoid spam filters (1 req/second max)

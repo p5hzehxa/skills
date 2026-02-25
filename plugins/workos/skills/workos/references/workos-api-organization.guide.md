@@ -14,15 +14,15 @@
 
 ## Endpoints
 
-| Endpoint | Description |
-| -------- | ----------- |
-| `/organization` | organization |
-| `/create` | organization - create |
-| `/delete` | organization - delete |
-| `/get` | organization - get |
+| Endpoint              | Description                       |
+| --------------------- | --------------------------------- |
+| `/organization`       | organization                      |
+| `/create`             | organization - create             |
+| `/delete`             | organization - delete             |
+| `/get`                | organization - get                |
 | `/get-by-external-id` | organization - get-by-external-id |
-| `/list` | organization - list |
-| `/update` | organization - update |
+| `/list`               | organization - list               |
+| `/update`             | organization - update             |
 
 ## Implementation
 

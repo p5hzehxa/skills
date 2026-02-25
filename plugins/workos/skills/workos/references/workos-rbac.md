@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:7b0523b5590f -->
 
 # WorkOS Role-Based Access Control
@@ -15,13 +13,11 @@ Use this skill when you need to assign users to predefined roles with associated
 - **Permission** — Action that can be checked (e.g., `document:read`, `project:delete`)
 - **Authorization Check** — Runtime verification of whether a user's roles grant a specific permission
 
-
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `references/workos-rbac.guide.md`
-
 
 ## Related Skills
 

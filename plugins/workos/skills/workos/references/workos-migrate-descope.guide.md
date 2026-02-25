@@ -15,10 +15,12 @@ The docs are the source of truth. If this skill conflicts with docs, follow docs
 ### Environment Variables
 
 Check for:
+
 - `WORKOS_API_KEY` - starts with `sk_`
 - `WORKOS_CLIENT_ID` - starts with `client_`
 
 **Verify:**
+
 ```bash
 echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid" || echo "✗ missing or invalid"
 ```
@@ -28,6 +30,7 @@ echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid" || echo "✗ missing or i
 Detect package manager, install WorkOS SDK if missing.
 
 **Verify:**
+
 ```bash
 ls node_modules/@workos-inc 2>/dev/null || echo "FAIL: SDK not installed"
 ```
@@ -53,6 +56,7 @@ Does your Descope app use password authentication?
 Contact Descope support to request CSV export with password hashes.
 
 When submitting ticket:
+
 - Request which hashing algorithm was used (bcrypt/argon2/pbkdf2)
 - Confirm secure transfer method
 - Note: This is NOT self-service — support must generate the file
@@ -66,11 +70,11 @@ Check fetched docs for Descope support contact link.
 Map Descope export fields to WorkOS User Management API:
 
 | Descope Export Field | WorkOS API Parameter |
-|---------------------|---------------------|
-| `email` | `email` |
-| `givenName` | `first_name` |
-| `familyName` | `last_name` |
-| `verifiedEmail` | `email_verified` |
+| -------------------- | -------------------- |
+| `email`              | `email`              |
+| `givenName`          | `first_name`         |
+| `familyName`         | `last_name`          |
+| `verifiedEmail`      | `email_verified`     |
 
 ### Password Import (if exported)
 
@@ -99,14 +103,14 @@ Check fetched docs for current rate limits before implementing.
 
 ```javascript
 // Import users with passwords (language-agnostic SDK syntax)
-users.forEach(descopeUser => {
+users.forEach((descopeUser) => {
   workos.userManagement.createUser({
     email: descopeUser.email,
     firstName: descopeUser.givenName,
     lastName: descopeUser.familyName,
     emailVerified: descopeUser.verifiedEmail,
-    passwordHash: descopeUser.passwordHash,      // If exported
-    passwordHashType: 'bcrypt'                    // From support ticket
+    passwordHash: descopeUser.passwordHash, // If exported
+    passwordHashType: "bcrypt", // From support ticket
   });
 });
 ```
@@ -136,6 +140,7 @@ grep -E "password_hash_type.*['\"]?(bcrypt|argon2|pbkdf2)" your_migration_script
 **Root cause:** Using algorithm name not supported by WorkOS OR typo in algorithm name.
 
 **Fix:**
+
 1. Confirm Descope support ticket specified one of: bcrypt, argon2, pbkdf2
 2. Check for typos: `"bcrypt"` not `"bcrypt_sha256"` or `"bcrypt-sha256"`
 3. If Descope used different algorithm, contact WorkOS support before importing
@@ -145,6 +150,7 @@ grep -E "password_hash_type.*['\"]?(bcrypt|argon2|pbkdf2)" your_migration_script
 **Root cause:** Importing too many users too quickly.
 
 **Fix:**
+
 1. Add batching: process 50-100 users per batch
 2. Add delay: 1-2 seconds between batches
 3. Log failed user IDs for retry
@@ -155,6 +161,7 @@ grep -E "password_hash_type.*['\"]?(bcrypt|argon2|pbkdf2)" your_migration_script
 **Root cause:** Duplicate import attempt OR user already exists in WorkOS.
 
 **Fix:**
+
 1. Check if this is retry of failed batch — skip existing users
 2. For genuine duplicates in Descope export: decide which record to keep
 3. Use upsert pattern: try create, catch conflict, update if needed
@@ -164,6 +171,7 @@ grep -E "password_hash_type.*['\"]?(bcrypt|argon2|pbkdf2)" your_migration_script
 **Root cause:** Descope support ticket incomplete OR passwords not requested.
 
 **Fix:**
+
 1. Verify support ticket explicitly requested password hashes
 2. Confirm secure transfer method was established
 3. Re-open ticket with Descope support if export missing passwords

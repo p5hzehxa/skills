@@ -24,13 +24,13 @@ The approach: read the skill content (summary + guide) for each product, then wr
 
 ### New Files
 
-| File Path | Purpose |
-|-----------|---------|
-| `scripts/eval/cases/sso.yaml` | 3 SSO test cases (basic flow, org-level SSO, connection management) |
+| File Path                                | Purpose                                                                      |
+| ---------------------------------------- | ---------------------------------------------------------------------------- |
+| `scripts/eval/cases/sso.yaml`            | 3 SSO test cases (basic flow, org-level SSO, connection management)          |
 | `scripts/eval/cases/authkit-nextjs.yaml` | 3 AuthKit/Next.js test cases (setup, protected routes, Next.js 15 specifics) |
-| `scripts/eval/cases/directory-sync.yaml` | 2 Directory Sync test cases (list users, webhook handler) |
-| `scripts/eval/cases/audit-logs.yaml` | 2 Audit Logs test cases (create event, export logs) |
-| `scripts/eval/cases/rbac.yaml` | 2 RBAC test cases (check permission, role assignment) |
+| `scripts/eval/cases/directory-sync.yaml` | 2 Directory Sync test cases (list users, webhook handler)                    |
+| `scripts/eval/cases/audit-logs.yaml`     | 2 Audit Logs test cases (create event, export logs)                          |
+| `scripts/eval/cases/rbac.yaml`           | 2 RBAC test cases (check permission, role assignment)                        |
 
 ## Implementation Details
 
@@ -130,6 +130,7 @@ After running the first full eval:
 5. **Document findings** — Write a brief calibration notes section to the JSON report
 
 **Feedback loop**:
+
 - **Playground**: Run `bun run eval -- --dry-run` after each YAML file to verify parsing
 - **Experiment**: Run `bun run eval -- --case={first-case-id}` for each product to spot-check that expected signals are realistic
 - **Check command**: `bun run eval -- --product=sso`
@@ -157,12 +158,12 @@ After running the first full eval:
 
 ## Error Handling
 
-| Error Scenario | Handling Strategy |
-|----------------|-------------------|
-| Expected signal never found in either arm | Flag in calibration — signal may be too specific or wrong |
+| Error Scenario                            | Handling Strategy                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------- |
+| Expected signal never found in either arm | Flag in calibration — signal may be too specific or wrong                 |
 | Expected signal always found in both arms | Flag in calibration — signal may be too generic (Claude already knows it) |
-| Skill file not found for a case | Log error, skip case, continue |
-| Composite score of 0 | Log warning — likely API error or completely wrong expected signals |
+| Skill file not found for a case           | Log error, skip case, continue                                            |
+| Composite score of 0                      | Log warning — likely API error or completely wrong expected signals       |
 
 ## Validation Commands
 

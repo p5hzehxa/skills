@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:59789ab29ba2 -->
 
 # WorkOS Vault API Reference

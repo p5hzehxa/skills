@@ -1,4 +1,4 @@
-<!-- refined:sha256:1ef5b36e75cb -->
+<!-- hand-crafted -->
 
 # WorkOS Single Sign-On — Implementation Guide
 
@@ -7,194 +7,138 @@
 **STOP. Do not proceed until complete.**
 
 WebFetch these docs — they are the source of truth:
-- https://workos.com/docs/sso/test-sso
-- https://workos.com/docs/sso/single-logout
-- https://workos.com/docs/sso/signing-certificates
-- https://workos.com/docs/sso/sign-in-consent
-- https://workos.com/docs/sso/saml-security
-- https://workos.com/docs/sso/redirect-uris
+
 - https://workos.com/docs/sso/login-flows
+- https://workos.com/docs/sso/test-sso
+- https://workos.com/docs/sso/redirect-uris
 - https://workos.com/docs/sso/launch-checklist
 
 If this skill conflicts with fetched docs, follow the docs.
 
 ## Step 2: Pre-Flight Validation
 
-Check environment variables exist:
 ```bash
-echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid" || echo "✗ API key missing or invalid"
-echo $WORKOS_CLIENT_ID | grep '^client_' && echo "✓ valid" || echo "✗ Client ID missing or invalid"
+echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ API key" || echo "✗ missing WORKOS_API_KEY"
+echo $WORKOS_CLIENT_ID | grep '^client_' && echo "✓ Client ID" || echo "✗ missing WORKOS_CLIENT_ID"
 ```
 
-Confirm SDK installed:
-```bash
-ls node_modules/@workos-inc 2>/dev/null || echo "FAIL: SDK not installed"
-```
+Both must pass. Get values from WorkOS Dashboard > API Keys.
 
-## Step 3: User Identification Strategy (Decision Tree)
+## Step 3: Organization Identification (Decision Tree)
 
-How does your app identify which organization a user belongs to?
+Pick ONE parameter for `getAuthorizationUrl` based on how your app identifies the user's org:
 
 ```
-User identification method?
+How does your app identify which SSO connection to use?
   |
-  +-- Email domain (user@company.com) --> Use domainHint parameter
-  |   Example: domainHint: "company.com"
+  +-- User enters email → domainHint: "company.com"
+  |     WorkOS resolves domain to org automatically
   |
-  +-- Org selector UI (dropdown) --> Use organization parameter
-  |   Example: organization: "org_123"
+  +-- User picks org from dropdown → organization: "org_01H..."
+  |     Get org_id from your database
   |
-  +-- Known connection ID --> Use connection parameter
-      Example: connection: "conn_123"
+  +-- Direct link from admin panel → connection: "conn_01H..."
+  |
+  +-- Social login (Google, Microsoft) → provider: "GoogleOAuth"
 ```
 
-**Critical:** Choose ONE. Mixing methods causes auth loops.
+**Trap:** Do NOT combine `domainHint` + `organization` — use exactly ONE. Passing both causes unpredictable routing.
 
-## Step 4: Authorization URL Generation
+## Step 4: Authorization URL + Callback Handler
 
-Construct authorization URL with chosen identification parameter:
-
-```javascript
-const authUrl = workos.sso.getAuthorizationUrl({
+```
+// 1. Generate authorization URL
+auth_url = workos.sso.getAuthorizationUrl({
   clientId: WORKOS_CLIENT_ID,
-  redirectUri: "https://your-app.com/callback",
-  state: generateRandomState(), // CSRF token - verify in callback
-  // Add ONE of these based on Step 3:
-  domainHint: "company.com",     // OR
-  organization: "org_123",       // OR
-  connection: "conn_123"
-});
+  redirectUri: "https://yourapp.com/callback",
+  state: crypto_random_string,       // CSRF protection — store in session
+  organization: org_id               // OR domainHint OR connection OR provider (Step 3)
+})
+// Redirect user to auth_url
+
+// 2. Handle callback at redirectUri
+callback_handler(request):
+  code = request.query.code
+  state = request.query.state
+
+  if request.query.error:
+    return handle_sso_error(request.query.error, request.query.error_description)
+
+  // Verify state — see Step 5 for IdP-initiated exception
+  if state != "" AND state != session.stored_state:
+    return error("Invalid state - possible CSRF")
+
+  // Exchange code IMMEDIATELY — codes expire in 10 min
+  profile = workos.sso.getProfileAndToken({ code: code })
+  // profile.id, profile.email, profile.organizationId
+  create_session(profile)
 ```
 
-Redirect user to `authUrl`. IdP handles authentication.
+## Step 5: IdP-Initiated Flow (Critical Trap)
 
-## Step 5: Callback Handler
-
-Create callback endpoint at the redirect URI from Step 4.
-
-**Critical operations (in order):**
-
-1. Verify `state` parameter matches original (CSRF protection)
-2. Exchange `code` for user profile
-3. Extract user data and create session
-
-```javascript
-// In your callback handler
-const { code, state } = parseCallbackParams();
-
-// 1. Verify state
-if (state !== storedState) {
-  throw new Error("Invalid state - possible CSRF");
-}
-
-// 2. Exchange code for profile
-const profile = await workos.sso.getProfileAndToken({
-  code: code,
-  clientId: WORKOS_CLIENT_ID
-});
-
-// 3. Create session
-const user = {
-  id: profile.id,
-  email: profile.email,
-  organizationId: profile.organizationId
-};
-```
-
-Check fetched docs for exact `getProfileAndToken` response schema.
-
-## Step 6: Login Flow Support (Decision Tree)
-
-Your app must handle BOTH flows:
+When users click your app tile in their IdP portal (Okta, Azure AD), the callback receives `state=""` (empty string, not missing). **If you always require state verification, IdP-initiated flow breaks with "Invalid state".**
 
 ```
-Login initiated from?
+State parameter in callback:
   |
-  +-- Your app (SP-initiated)
-  |   User → Your login page → getAuthorizationUrl() → IdP → Callback
-  |   Status: Handled by Steps 4-5
-  |
-  +-- IdP portal (IdP-initiated)
-      User → IdP portal → Callback (no state parameter)
-      TRAP: State verification will fail - handle missing state
+  +-- non-empty string → SP-initiated, verify against session
+  +-- empty string ""  → IdP-initiated, skip verification
+  +-- missing/null     → Malformed request, reject
 ```
 
-**IdP-initiated trap:** Callback receives no `state` parameter. Modify Step 5 handler:
-
-```javascript
-if (!state && code) {
-  // IdP-initiated - skip state verification
-  const profile = await workos.sso.getProfileAndToken({ code, clientId });
-  // Proceed to session creation
-}
-```
-
-## Step 7: Guest Email Domain Handling
-
-Users may authenticate with emails outside the org's verified domain (contractors, consultants).
-
-**Example:** Org verified domain = `company.com`, user email = `freelancer@gmail.com`
-
-Check fetched docs for whether your connection config needs "Allow profiles outside organization domains" enabled.
-
-Test this scenario with WorkOS Test IdP before production.
+The code in Step 4 already handles this: `if state != "" AND state != session.stored_state`.
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these commands to confirm integration:
-
 ```bash
-# 1. Environment configured
-echo $WORKOS_API_KEY | grep '^sk_' && echo "✓" || echo "✗ API key invalid"
+# 1. SSO auth URL generation exists
+grep -r "getAuthorizationUrl" src/ || echo "FAIL: No SSO authorization URL generation"
 
-# 2. Authorization URL generation exists
-grep -r "getAuthorizationUrl" src/ || echo "FAIL: No SSO implementation found"
+# 2. Callback exchanges code for profile
+grep -r "getProfileAndToken" src/ || echo "FAIL: No code-to-profile exchange in callback"
 
-# 3. Callback handler exists
-grep -r "getProfileAndToken" src/ || echo "FAIL: No callback handler found"
+# 3. State verification exists (CSRF protection)
+grep -r "state" src/ | grep -iv "node_modules" | grep -i "verify\|match\|compare\|===\|!==" || echo "FAIL: No state verification"
 
-# 4. State verification exists (CSRF protection)
-grep -r "state" src/ | grep -i "verif\|check\|match" || echo "WARN: No state verification found"
-
-# 5. Build succeeds
-npm run build || echo "FAIL: Build errors"
+# 4. Env vars configured
+echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ API key" || echo "✗ missing"
+echo $WORKOS_CLIENT_ID | grep '^client_' && echo "✓ Client ID" || echo "✗ missing"
 ```
-
-**If check #4 fails:** Go back to Step 5. Missing state verification is a security vulnerability.
 
 ## Error Recovery
 
-### "signin_consent_denied" in callback
+### "Invalid state" / "State mismatch"
 
-**Cause:** User declined auth consent prompt at IdP.
+**Cause:** Callback rejects IdP-initiated requests because `state` is empty string.
+**Fix:**
 
-**Callback receives:**
-```
-?error=signin_consent_denied&error_description=User%20cancelled%20the%20authentication%20request
-```
+1. Make state verification conditional: only verify when `state != ""`
+2. When state is empty string, skip verification and proceed to code exchange
+3. See Step 5 decision tree
 
-**Fix:** Display user-friendly message: "Sign-in cancelled. Contact your IT admin if this was unexpected."
+### "invalid_grant" / "Code expired"
 
-Do NOT retry automatically - user intentionally declined.
+**Cause:** Authorization code used twice or took >10 min to exchange.
+**Fix:**
 
-### "invalid_grant" error during token exchange
+1. Exchange code immediately in callback — never store for later
+2. Never retry a code exchange (codes are single-use)
+3. Verify redirect URI matches exactly (trailing slash matters)
 
-**Causes (in order of frequency):**
-1. Authorization code already used (replay attempt)
-2. Code expired (>10 min between auth and callback)
-3. Redirect URI mismatch between Step 4 and Step 5
+### "signin_consent_denied"
 
-**Fix:** Check code is used exactly once. If persisting, verify redirect URI matches exactly (trailing slash matters).
+**Cause:** User clicked Cancel at the IdP consent screen.
+**Fix:**
 
-### User authenticated but wrong organization
+1. Check `request.query.error` before attempting code exchange
+2. Display friendly message: "Authentication cancelled. Contact your IT admin if unexpected."
+3. Do NOT retry automatically — user intentionally declined
 
-**Cause:** User has SSO connections with multiple orgs, authenticated with wrong one.
+### "Organization not found"
 
-**Fix:** Add organization hint in Step 4 if you know which org the user should auth with. Do NOT rely on email domain alone for multi-org users.
+**Cause:** Email domain doesn't match any org in WorkOS Dashboard.
+**Fix:**
 
-## Related Skills
-
-For frontend integration patterns:
-- workos-authkit-nextjs
-- workos-authkit-react
-- workos-authkit-vanilla-js
+1. Verify domain is added to the org in Dashboard > Organizations
+2. Check if using `domainHint` with an unregistered domain
+3. For contractor emails outside org domain, enable guest domains in connection settings

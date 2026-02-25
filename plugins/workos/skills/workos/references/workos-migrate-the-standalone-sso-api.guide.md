@@ -37,6 +37,7 @@ How does your app identify users?
 Find where your app calls standalone SSO API's Get Authorization URL:
 
 **Old pattern:**
+
 ```
 workos.sso.getAuthorizationUrl({
   provider: "GoogleOAuth",
@@ -46,6 +47,7 @@ workos.sso.getAuthorizationUrl({
 ```
 
 **New pattern:**
+
 ```
 workos.userManagement.getAuthorizationUrl({
   provider: "GoogleOAuth",  // or "authkit" for hosted UI
@@ -65,6 +67,7 @@ All initiation parameters (provider, connection, organization, domainHint, state
 Find your callback endpoint (where `code` parameter arrives after OAuth flow).
 
 **Old pattern:**
+
 ```
 code = request.query.code
 profile = workos.sso.getProfileAndToken({ code })
@@ -73,6 +76,7 @@ email = profile.email
 ```
 
 **New pattern:**
+
 ```
 code = request.query.code
 authResponse = workos.userManagement.authenticateWithCode({
@@ -85,6 +89,7 @@ email = user.email
 ```
 
 **Key changes:**
+
 - `sso.getProfileAndToken` → `userManagement.authenticateWithCode`
 - Response object changed: `profile` → `authResponse.user`
 - **User IDs are NEW** — see Step 2 for migration strategy
@@ -121,12 +126,14 @@ Callback returns error instead of user?
 Execute the ID migration plan from Step 2:
 
 **Option A (email-based):**
+
 ```bash
 # No code changes needed if email is your primary key
 # WorkOS guarantees email verification before issuing user object
 ```
 
 **Option B (Profile ID foreign keys):**
+
 ```
 For each user in your database:
   1. Look up old Profile ID (user_xxx format)
@@ -160,6 +167,7 @@ grep -E "(email_verification|mfa_enrollment)" src/ || echo "WARNING: New error t
 **Root cause:** Old Profile IDs persisted in DB, new User IDs from AuthKit don't match.
 
 **Fix:**
+
 1. Verify email-based lookup works: `user = findByEmail(authResponse.user.email)`
 2. If email not unique, run migration script from Step 6 (Option B)
 3. Check: WorkOS Dashboard shows same users in User Management section as old SSO Profiles
@@ -169,9 +177,11 @@ grep -E "(email_verification|mfa_enrollment)" src/ || echo "WARNING: New error t
 **Root cause:** Email verification enabled in Dashboard, but callback doesn't handle challenge.
 
 **Fix (immediate):**
+
 - Dashboard → Authentication → toggle off "Require email verification"
 
 **Fix (long-term):**
+
 - Switch to hosted UI (`provider: "authkit"`) — handles verification automatically
 - Or: implement verification UI in your callback (check fetched docs for verification flow)
 
@@ -180,6 +190,7 @@ grep -E "(email_verification|mfa_enrollment)" src/ || echo "WARNING: New error t
 **Root cause:** `clientId` parameter missing or wrong (this is NEW — standalone SSO API didn't require it in callback).
 
 **Fix:**
+
 1. Verify `WORKOS_CLIENT_ID` env var set (format: `client_xxx`)
 2. Pass explicitly to `authenticateWithCode({ code, clientId: WORKOS_CLIENT_ID })`
 3. Check: Same client ID used in both authorization URL and callback
@@ -189,6 +200,7 @@ grep -E "(email_verification|mfa_enrollment)" src/ || echo "WARNING: New error t
 **Root cause:** User abandoned flow at verification/MFA challenge.
 
 **Fix:**
+
 - Check AuthKit Analytics in Dashboard for drop-off points
 - Consider enabling hosted UI to reduce friction
 - Or: add "Resume authentication" link using stored state parameter

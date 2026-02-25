@@ -13,12 +13,12 @@
 
 ## Endpoints
 
-| Endpoint | Description |
-| -------- | ----------- |
-| `/admin-portal` | admin-portal |
-| `/portal-link` | admin-portal - portal-link |
+| Endpoint                | Description                           |
+| ----------------------- | ------------------------------------- |
+| `/admin-portal`         | admin-portal                          |
+| `/portal-link`          | admin-portal - portal-link            |
 | `/portal-link/generate` | admin-portal - portal-link - generate |
-| `/provider-icons` | admin-portal - provider-icons |
+| `/provider-icons`       | admin-portal - provider-icons         |
 
 ## Implementation
 

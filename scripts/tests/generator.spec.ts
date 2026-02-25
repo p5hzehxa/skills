@@ -33,12 +33,16 @@ describe("generateSkill", () => {
 
   it("summary has correct path (.md)", () => {
     const [summary] = generateSkill(makeSpec());
-    expect(summary.path).toBe("plugins/workos/skills/workos/references/workos-sso.md");
+    expect(summary.path).toBe(
+      "plugins/workos/skills/workos/references/workos-sso.md",
+    );
   });
 
   it("guide has correct path (.guide.md)", () => {
     const [, guide] = generateSkill(makeSpec());
-    expect(guide.path).toBe("plugins/workos/skills/workos/references/workos-sso.guide.md");
+    expect(guide.path).toBe(
+      "plugins/workos/skills/workos/references/workos-sso.guide.md",
+    );
   });
 
   it("both share the same sourceHash", () => {
@@ -222,6 +226,8 @@ describe("generateIntegrationRouter", () => {
     const urls = new Map<string, string[]>();
     const result = generateIntegrationRouter(integrationsSection, urls);
     expect(result.name).toBe("workos-integrations");
-    expect(result.path).toBe("plugins/workos/skills/workos/references/workos-integrations.md");
+    expect(result.path).toBe(
+      "plugins/workos/skills/workos/references/workos-integrations.md",
+    );
   });
 });

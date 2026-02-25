@@ -7,6 +7,7 @@
 **STOP. Do not proceed until complete.**
 
 WebFetch:
+
 - https://workos.com/docs/mfa/index
 - https://workos.com/docs/mfa/example-apps
 - https://workos.com/docs/mfa/ux/sign-in
@@ -19,10 +20,12 @@ The docs are the source of truth. If this skill conflicts with docs, follow docs
 ### Environment Variables
 
 Check `.env` for:
+
 - `WORKOS_API_KEY` - starts with `sk_`
 - `WORKOS_CLIENT_ID` - starts with `client_`
 
 **Verify before proceeding:**
+
 ```bash
 echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid" || echo "✗ invalid or missing"
 ```
@@ -52,12 +55,14 @@ What authenticator will users use?
 ### Create Authentication Factor
 
 Use SDK method for enrolling a factor. Required parameters:
+
 - `type` - from decision tree above ("totp" or "sms")
 - `totp_issuer` - your application name (TOTP only, shown in authenticator apps)
 - `totp_user` - user identifier (TOTP only, shown in authenticator apps)
 - `phone_number` - E.164 format (SMS only)
 
 **Example pattern (language-agnostic):**
+
 ```
 factor = workos.mfa.enrollFactor({
   type: "totp",
@@ -129,6 +134,7 @@ npm run build # or equivalent for your language
 **Cause:** Attempting to verify a challenge twice.
 
 **Fix:** Challenges are single-use. Create a new challenge for each authentication attempt:
+
 ```
 // WRONG: Reusing challenge.id across multiple attempts
 // CORRECT: Call createChallenge() each time user signs in
@@ -138,7 +144,8 @@ npm run build # or equivalent for your language
 
 **Cause:** SMS challenges expire after 10 minutes.
 
-**Fix:** 
+**Fix:**
+
 1. Check user submitted code within 10-minute window
 2. If expired, create new challenge and resend SMS
 3. Consider adding countdown timer in UI to indicate expiration
@@ -146,11 +153,13 @@ npm run build # or equivalent for your language
 ### "invalid code"
 
 **Causes:**
+
 - User typo in OTP entry
 - Clock skew for TOTP (user device time incorrect)
 - SMS code not yet delivered
 
 **Fix:**
+
 1. For TOTP: Advise user to check device time sync settings
 2. For SMS: Wait 30s and allow resend via new challenge
 3. Limit verification attempts to prevent brute force (implement rate limiting)
@@ -160,6 +169,7 @@ npm run build # or equivalent for your language
 **Cause:** `qr_code` value is a data URI, not a URL.
 
 **Fix:** Use as image src directly without fetching:
+
 ```
 // CORRECT:
 <img src={factor.qr_code} />
@@ -173,6 +183,7 @@ fetch(factor.qr_code) // qr_code is already encoded data
 **Cause:** Invalid phone number format (SMS) or missing issuer/user (TOTP).
 
 **Fix:**
+
 - SMS: Ensure phone number in E.164 format (+1234567890, not (123) 456-7890)
 - TOTP: Include both `totp_issuer` and `totp_user` parameters
 
@@ -192,6 +203,7 @@ MFA verification confirms factor ownership — NOT user identity. Pattern:
 ### Multi-Device Support
 
 Each device needs separate enrollment:
+
 - Store array of `factor_id` values per user
 - During challenge, let user choose which device/method
 - Implement "trust this device" to skip MFA on known devices

@@ -7,6 +7,7 @@
 **STOP. Do not proceed until complete.**
 
 WebFetch these docs (source of truth):
+
 - https://workos.com/docs/events/index
 - https://workos.com/docs/events/observability/datadog
 - https://workos.com/docs/events/data-syncing/webhooks
@@ -41,11 +42,13 @@ Dashboard navigation: WorkOS Dashboard → Integrations → Datadog
 **Prerequisite:** Active Datadog account with API key.
 
 Check fetched docs for:
+
 - Datadog API key configuration
 - Available dashboard templates
 - Event type filtering options
 
 **Verification:**
+
 ```bash
 # Check events appearing in Datadog (replace with your Datadog site)
 curl -X GET "https://api.datadoghq.com/api/v1/events" \
@@ -57,6 +60,7 @@ curl -X GET "https://api.datadoghq.com/api/v1/events" \
 ### 4.1 Create Webhook Endpoint
 
 Endpoint requirements:
+
 - Returns `200 OK` within 5 seconds (acknowledge immediately, process async)
 - Verifies signature before processing (prevents replay attacks)
 - Handles duplicate events idempotently (WorkOS may retry)
@@ -81,6 +85,7 @@ Check fetched docs for exact signature verification method in your SDK.
 Dashboard navigation: WorkOS Dashboard → Webhooks → Add endpoint
 
 **Required fields:**
+
 - Endpoint URL (must be publicly accessible HTTPS)
 - Event types to subscribe to (see Step 4.3)
 
@@ -124,6 +129,7 @@ Check fetched docs for exact API pagination parameters and rate limits.
 ## Step 6: Data Reconciliation
 
 **Use when:**
+
 - Initial sync of historical events
 - Webhook endpoint was down
 - Detected missing events (gap in sequence)
@@ -178,11 +184,13 @@ psql -c "SELECT column_name FROM information_schema.columns WHERE table_name='sy
 **Root cause:** Signature computed with wrong secret or payload was modified.
 
 Fix checklist:
+
 1. Confirm `WORKOS_WEBHOOK_SECRET` matches Dashboard value (rotate if leaked)
 2. Verify raw request body used for signature (no JSON parsing before verification)
 3. Check SDK version supports your WorkOS webhook version (check docs for breaking changes)
 
 **Test signature verification:**
+
 ```bash
 # Use WorkOS Dashboard "Send test event" button
 # Check logs for verification result before 200 response
@@ -205,6 +213,7 @@ Fix: Run data reconciliation (Step 6) for the gap period. Check application logs
 **Root cause:** Both webhooks and Events API polling active, or webhook retries without idempotency.
 
 Fix pattern:
+
 ```
 1. Check event.id exists in database before processing
 2. If exists: skip processing, return success

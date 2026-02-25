@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:b8333364728d -->
 
 # WorkOS Organizations API Reference

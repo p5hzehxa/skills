@@ -54,7 +54,7 @@ Create a dedicated API endpoint:
 const token = await workos.widgets.generateToken({
   userId: currentUser.id,
   organizationId: currentUser.organizationId, // Required for org-scoped widgets
-  scopes: ['widgets:user-profile'], // Widget-specific scopes
+  scopes: ["widgets:user-profile"], // Widget-specific scopes
 });
 return { token };
 ```
@@ -87,14 +87,14 @@ Fetch token from your API endpoint, then mount widget:
 
 ```javascript
 // Fetch token from your server
-const response = await fetch('/api/workos-widget-token');
+const response = await fetch("/api/workos-widget-token");
 const { token } = await response.json();
 
 // Mount widget with token
 workos.widgets.mount({
-  element: '#widget-container', // DOM selector
+  element: "#widget-container", // DOM selector
   token: token,
-  widget: 'user-profile', // Widget type
+  widget: "user-profile", // Widget type
 });
 ```
 
@@ -124,9 +124,9 @@ Define pipe handlers when mounting:
 
 ```javascript
 workos.widgets.mount({
-  element: '#widget-container',
+  element: "#widget-container",
   token: token,
-  widget: 'user-profile',
+  widget: "user-profile",
   pipes: {
     onProfileUpdate: (data) => {
       // Handle profile change in your app
@@ -137,6 +137,7 @@ workos.widgets.mount({
 ```
 
 Check fetched docs for:
+
 - Available pipe names per widget
 - Pipe payload schemas
 - Error handling patterns
@@ -164,6 +165,7 @@ npm run build
 **Root cause:** Token expired, missing scopes, or wrong userId.
 
 Fix:
+
 1. Check token generation includes correct `userId` matching the authenticated user
 2. Verify scopes array matches widget type (see Step 3 decision tree)
 3. Check token hasn't expired — regenerate fresh token for each widget mount
@@ -173,6 +175,7 @@ Fix:
 **Root cause:** Element selector doesn't match DOM, or SDK not loaded.
 
 Fix:
+
 1. Verify element exists before calling `mount()`: `document.querySelector('#widget-container')`
 2. Check SDK loaded: `typeof workos !== 'undefined'`
 3. Inspect browser console for CORS or network errors
@@ -182,6 +185,7 @@ Fix:
 **Root cause:** Widget needs org context but token generated without it.
 
 Fix:
+
 1. Add `organizationId` to token generation call
 2. Ensure user is member of the organization
 3. For UserManagement widget, organizationId is MANDATORY
@@ -191,6 +195,7 @@ Fix:
 **Root cause:** Insufficient token scopes.
 
 Fix:
+
 1. Check token scopes match widget requirements exactly (see Step 3)
 2. Regenerate token with correct scopes
 3. Verify API key has permissions for widget operations in WorkOS Dashboard

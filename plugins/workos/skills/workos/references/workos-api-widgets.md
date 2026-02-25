@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:eda510c1c51f -->
 
 # WorkOS Widgets API Reference

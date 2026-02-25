@@ -48,7 +48,7 @@ let cursor = null;
 do {
   const response = await stytchClient.organizations.search({
     limit: 1000,
-    cursor
+    cursor,
   });
   allOrgs.push(...response.organizations);
   cursor = response.next_cursor;
@@ -58,7 +58,7 @@ do {
 for (const org of allOrgs) {
   const members = await stytchClient.members.search({
     organization_id: org.organization_id,
-    limit: 1000
+    limit: 1000,
   });
   org.members = members.members;
 }
@@ -85,10 +85,10 @@ Map Stytch organization fields to WorkOS:
 // Stytch → WorkOS field mapping
 const workosOrg = await workos.organizations.createOrganization({
   name: stytchOrg.organization_name,
-  domainData: stytchOrg.email_allowed_domains?.map(domain => ({
+  domainData: stytchOrg.email_allowed_domains?.map((domain) => ({
     domain,
-    state: 'verified' // or 'pending' based on verification status
-  }))
+    state: "verified", // or 'pending' based on verification status
+  })),
 });
 ```
 
@@ -101,10 +101,10 @@ Create users with organization membership:
 ```javascript
 const user = await workos.userManagement.createUser({
   email: stytchMember.email_address,
-  firstName: stytchMember.name?.split(' ')[0],
-  lastName: stytchMember.name?.split(' ').slice(1).join(' '),
+  firstName: stytchMember.name?.split(" ")[0],
+  lastName: stytchMember.name?.split(" ").slice(1).join(" "),
   // Use mapped org ID from Step 4
-  organizationId: orgIdMap[stytchMember.organization_id]
+  organizationId: orgIdMap[stytchMember.organization_id],
 });
 ```
 
@@ -142,7 +142,7 @@ curl -H "Authorization: Bearer $WORKOS_API_KEY" \
 
 ```javascript
 if (requestCount % 90 === 0) {
-  await new Promise(resolve => setTimeout(resolve, 60000)); // Wait 1 minute
+  await new Promise((resolve) => setTimeout(resolve, 60000)); // Wait 1 minute
 }
 ```
 
@@ -151,6 +151,7 @@ if (requestCount % 90 === 0) {
 **Root cause:** Domain claimed by another WorkOS organization.
 
 **Fix:** Check domain ownership in WorkOS Dashboard. Either:
+
 - Remove domain from conflicting org, or
 - Import without `domainData`, add domains manually after resolving conflict
 
@@ -159,6 +160,7 @@ if (requestCount % 90 === 0) {
 **Root cause:** Stytch export format doesn't match WorkOS API schema.
 
 **Fix:**
+
 1. Check fetched docs for exact hash format requirements
 2. Verify Stytch export includes all required fields (salt, iterations, etc.)
 3. Transform export to match WorkOS schema before import

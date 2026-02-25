@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:ac9f8f303b5d -->
 
 # WorkOS Audit Logs

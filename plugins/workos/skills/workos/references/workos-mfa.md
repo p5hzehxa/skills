@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:ef9462b4b924 -->
 
 # WorkOS Multi-Factor Authentication
@@ -14,13 +12,11 @@ Use this skill when you need to add time-based one-time passwords (TOTP) or SMS-
 - **Challenge** `auth_challenge_` — a verification attempt initiated after primary auth
 - **Factor Type** — either `totp` (authenticator app) or `sms` (text message code)
 
-
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `references/workos-mfa.guide.md`
-
 
 ## Related Skills
 

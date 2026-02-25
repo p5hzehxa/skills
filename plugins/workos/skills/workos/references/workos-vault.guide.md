@@ -7,6 +7,7 @@
 **STOP. Do not proceed until complete.**
 
 WebFetch these URLs:
+
 - https://workos.com/docs/vault/quick-start
 - https://workos.com/docs/vault/key-context
 - https://workos.com/docs/vault/index
@@ -51,6 +52,7 @@ Check `.env` or secrets manager for:
 - `WORKOS_CLIENT_ID` - starts with `client_`
 
 **Verification command:**
+
 ```bash
 echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid API key" || echo "✗ invalid or missing"
 ```
@@ -74,9 +76,10 @@ Is the user already authenticated with WorkOS?
         → Store mapping in your database
 ```
 
-**Trap warning:** Do NOT use your internal customer IDs directly as organization_id. WorkOS organization IDs have specific format (`org_*`). Always map through WorkOS APIs.
+**Trap warning:** Do NOT use your internal customer IDs directly as organization*id. WorkOS organization IDs have specific format (`org*\*`). Always map through WorkOS APIs.
 
 **Verification command:**
+
 ```bash
 # Check if organization_id is used in vault calls
 grep -r "organization.*id" src/ | grep -i vault || echo "FAIL: Missing organization context"
@@ -87,15 +90,19 @@ grep -r "organization.*id" src/ | grep -i vault || echo "FAIL: Missing organizat
 Use SDK methods for these operations. Check fetched docs for exact signatures in your language.
 
 ### Store encrypted data
+
 SDK method for creating vaults — accepts `organization_id`, `key` (identifier), `value` (plaintext data)
 
 ### Retrieve decrypted data
+
 SDK method for fetching vaults — accepts `organization_id`, `key`, returns decrypted plaintext
 
 ### Update existing data
+
 SDK method for updating vaults — upsert semantics (creates if missing, updates if exists)
 
 **Code example (language-agnostic SDK pattern):**
+
 ```
 # Store sensitive data
 workos.vault.create({
@@ -106,7 +113,7 @@ workos.vault.create({
 
 # Retrieve and decrypt
 vault_item = workos.vault.get({
-  organization_id: "org_123", 
+  organization_id: "org_123",
   key: "api_credentials"
 })
 decrypted_value = vault_item.value
@@ -114,7 +121,7 @@ decrypted_value = vault_item.value
 # Update (upsert)
 workos.vault.update({
   organization_id: "org_123",
-  key: "api_credentials", 
+  key: "api_credentials",
   value: '{"api_key": "new_secret"}'
 })
 ```
@@ -126,11 +133,13 @@ workos.vault.update({
 Vault supports storing metadata alongside encrypted values. This is for **non-sensitive** context about the encrypted data.
 
 **When to use:**
+
 - Timestamps: "when was this credential last rotated?"
 - Categorization: "is this a production or staging key?"
 - Ownership: "which service owns this credential?"
 
 **When NOT to use:**
+
 - Do NOT store sensitive data in metadata — it's not encrypted separately
 - Do NOT use for user PII
 
@@ -155,35 +164,43 @@ npm run build && echo "✓" || echo "✗ FAIL"
 ## Error Recovery
 
 ### "organization not found"
+
 **Root cause:** Invalid `organization_id` or organization doesn't exist in WorkOS.
 
 **Fix:**
+
 1. Verify organization exists in WorkOS Dashboard
 2. Check organization ID format starts with `org_`
 3. If using auth session: confirm user belongs to the organization
 4. If standalone: create organization via Directory Sync or Admin Portal APIs first
 
 ### "unauthorized" or 401 errors
+
 **Root cause:** API key invalid, missing, or lacks Vault permissions.
 
 **Fix:**
+
 1. Confirm `WORKOS_API_KEY` starts with `sk_` (not client ID)
 2. Check key is not revoked in Dashboard
 3. Verify key has Vault API access enabled (Dashboard → API Keys → Permissions)
 4. Ensure key is for correct environment (staging vs production)
 
 ### "key not found" on retrieve
+
 **Root cause:** Attempting to fetch vault item that doesn't exist.
 
 **Fix:**
+
 1. Vault operations are organization-scoped — confirm you're using same `organization_id` for store and retrieve
 2. Keys are case-sensitive — verify exact string match
 3. Use upsert pattern (update method) instead of separate create/fetch if unsure whether key exists
 
 ### BYOK: "kms access denied"
+
 **Root cause:** Customer's KMS lacks IAM permissions for WorkOS.
 
 **Fix:**
+
 1. This is a CUSTOMER action — your app cannot fix it
 2. Provide customer with IAM policy template from `/byok` docs
 3. Customer must grant WorkOS principal `kms:Decrypt` and `kms:Encrypt` on their key

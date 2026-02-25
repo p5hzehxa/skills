@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:b0e35dadd589 -->
 
 # WorkOS Vault
@@ -15,13 +13,11 @@ Use this skill when you need to securely store and retrieve sensitive data like 
 - **Secret Version** — immutable snapshot of a secret's value at a point in time
 - **Secret Path** — hierarchical identifier for organizing secrets (e.g., `api/stripe/key`)
 
-
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `references/workos-vault.guide.md`
-
 
 ## Related Skills
 

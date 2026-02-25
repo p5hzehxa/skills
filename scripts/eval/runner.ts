@@ -103,10 +103,8 @@ export function aggregateResults(results: EvalResult[]): ProductSummary[] {
       productResults.reduce((s, r) => s + r.withSkill.scores.composite, 0) /
       productResults.length;
     const avgWithout =
-      productResults.reduce(
-        (s, r) => s + r.withoutSkill.scores.composite,
-        0,
-      ) / productResults.length;
+      productResults.reduce((s, r) => s + r.withoutSkill.scores.composite, 0) /
+      productResults.length;
 
     // Collect and count error categories
     const errorCounts = new Map<ErrorCategory, number>();
@@ -137,12 +135,8 @@ export function aggregateResults(results: EvalResult[]): ProductSummary[] {
 /** Evaluate a single case (both arms) */
 async function evalCase(
   c: EvalCase,
-  index: number,
-  total: number,
   options: EvalOptions,
 ): Promise<EvalResult | null> {
-  console.log(`[${index}/${total}] Evaluating ${c.id}...`);
-
   try {
     const skillContent = loadSkillContent(c.skill);
 
@@ -183,13 +177,9 @@ async function evalCase(
       topErrors: errors,
     };
 
-    console.log(
-      `  ↳ with: ${withScores.composite}% | without: ${withoutScores.composite}% | delta: ${result.delta > 0 ? "+" : ""}${result.delta}%`,
-    );
     return result;
   } catch (err) {
-    console.error(`  ✗ ${c.id} failed: ${(err as Error).message}`);
-    return null;
+    throw new Error(`${c.id}: ${(err as Error).message}`);
   }
 }
 
@@ -240,7 +230,9 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
 
   if (options.dryRun) {
     console.log(`\nDry run: ${cases.length} cases would be evaluated\n`);
-    console.log("ID".padEnd(30) + "Product".padEnd(15) + "Skill".padEnd(25) + "Type");
+    console.log(
+      "ID".padEnd(30) + "Product".padEnd(15) + "Skill".padEnd(25) + "Type",
+    );
     console.log("-".repeat(80));
     for (const c of cases) {
       console.log(
@@ -272,14 +264,25 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
   for (let batch = 0; batch < cases.length; batch += concurrency) {
     const batchCases = cases.slice(batch, batch + concurrency);
     const batchResults = await Promise.allSettled(
-      batchCases.map((c, idx) =>
-        evalCase(c, batch + idx + 1, cases.length, options),
-      ),
+      batchCases.map((c) => evalCase(c, options)),
     );
 
-    for (const r of batchResults) {
+    // Print results in case order after batch completes
+    for (let i = 0; i < batchResults.length; i++) {
+      const r = batchResults[i];
+      const caseNum = batch + i + 1;
+      const caseId = batchCases[i].id;
       if (r.status === "fulfilled" && r.value) {
+        const v = r.value;
+        const deltaStr = `${v.delta > 0 ? "+" : ""}${v.delta}%`;
+        console.log(
+          `[${caseNum}/${cases.length}] ${caseId.padEnd(30)} with: ${v.withSkill.scores.composite}% | without: ${v.withoutSkill.scores.composite}% | delta: ${deltaStr}`,
+        );
         results.push(r.value);
+      } else if (r.status === "rejected") {
+        console.error(
+          `[${caseNum}/${cases.length}] ${caseId.padEnd(30)} ✗ ${r.reason}`,
+        );
       }
     }
   }

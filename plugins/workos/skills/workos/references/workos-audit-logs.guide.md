@@ -20,6 +20,7 @@ WebFetch all URLs below. These are the source of truth. If this skill conflicts 
 ### Environment Variables
 
 Check for:
+
 - `WORKOS_API_KEY` - starts with `sk_`
 - `WORKOS_CLIENT_ID` - (optional for most audit log operations)
 
@@ -69,7 +70,7 @@ workos.audit_logs.create_event({
       name: "Jane Admin"
     },
     targets: [{
-      type: "user", 
+      type: "user",
       id: "user_789",
       name: "New User"
     }]
@@ -153,6 +154,7 @@ echo "Manually verify: event types match {group}.{object}.{action}"
 **Cause:** Event type doesn't follow `{group}.{object}.{action}` naming.
 
 Fix:
+
 1. Audit event types in code
 2. Rename to three-part format: `document.share.created` NOT `shareCreated`
 3. Check fetched docs for reserved action names
@@ -162,6 +164,7 @@ Fix:
 **Cause:** Metadata doesn't match JSON Schema (if schema validation enabled).
 
 Fix:
+
 1. Log the failed event payload to see actual vs. expected structure
 2. Check WorkOS Dashboard → Event Schema editor for required fields
 3. Disable schema validation temporarily if blocking deployment
@@ -171,6 +174,7 @@ Fix:
 **Cause:** `organization_id` doesn't exist or wrong format.
 
 Fix:
+
 1. Verify organization ID starts with `org_`
 2. Check organization exists: use SDK method to list organizations
 3. If using Admin Portal: verify customer completed setup
@@ -180,6 +184,7 @@ Fix:
 **Cause:** IP blocked, credentials invalid, or stream not active.
 
 Fix (in order):
+
 1. Check customer SIEM allowlisted WorkOS IPs (see Step 5)
 2. Verify stream status in Dashboard: must show "Active"
 3. Test with generic HTTP POST stream to isolate SIEM-specific issues

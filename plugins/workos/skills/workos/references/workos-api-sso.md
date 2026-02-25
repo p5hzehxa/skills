@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:ddc720812ac2 -->
 
 # WorkOS SSO API Reference

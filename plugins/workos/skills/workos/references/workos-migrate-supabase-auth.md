@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:d6de555bda48 -->
 
 # WorkOS Migration: Supabase Auth

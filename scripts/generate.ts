@@ -18,6 +18,7 @@ import { runQualityGate } from "./lib/quality-gate.ts";
 import { shouldRegenerate } from "./lib/hasher.ts";
 import {
   HAND_CRAFTED_SKILLS,
+  HAND_CRAFTED_GUIDES,
   VALIDATION,
   SUMMARY_VALIDATION,
 } from "./lib/config.ts";
@@ -268,11 +269,19 @@ async function main() {
   }
 
   console.log("\nWriting skills to disk...");
+  const handCraftedGuideSet = new Set<string>(HAND_CRAFTED_GUIDES);
   let written = 0;
   let skipped = 0;
   for (const skill of generatedSkills) {
     // When --refine-only is set, only write the targeted skill
     if (flags.refineOnly && skill.name !== flags.refineOnly) {
+      skipped++;
+      continue;
+    }
+
+    // Skip hand-crafted guide files (summaries are still generated)
+    if (skill.type === "guide" && handCraftedGuideSet.has(skill.name)) {
+      console.log(`  ⊘ ${skill.path}  (hand-crafted guide, protected)`);
       skipped++;
       continue;
     }

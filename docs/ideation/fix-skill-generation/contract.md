@@ -6,9 +6,10 @@
 
 ## Problem Statement
 
-The eval harness (12 cases, 5 products) proved that generated skills barely help Claude produce correct code (+5% avg delta) while hand-crafted skills meaningfully improve output (+17% avg delta). Worse, the SSO skill actively degrades Claude's performance (-5% delta) — Claude produces better SSO code *without* the skill loaded.
+The eval harness (12 cases, 5 products) proved that generated skills barely help Claude produce correct code (+5% avg delta) while hand-crafted skills meaningfully improve output (+17% avg delta). Worse, the SSO skill actively degrades Claude's performance (-5% delta) — Claude produces better SSO code _without_ the skill loaded.
 
 Root causes from the eval data:
+
 - Generated guides are 7-11KB of generic content that adds noise to Claude's context
 - The SSO guide caused Claude to use the wrong API namespace (`userManagement` vs `sso`) because the guide's broad context blurred related APIs
 - The refiner prompt produces feature-level decision trees ("SP vs IdP initiated") instead of implementation-level trees ("which parameter to pass")

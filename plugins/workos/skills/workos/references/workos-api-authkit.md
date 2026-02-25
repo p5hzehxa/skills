@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:5f44c1949409 -->
 
 # WorkOS AuthKit API Reference

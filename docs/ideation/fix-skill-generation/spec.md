@@ -23,13 +23,13 @@ The changes are validated by re-running the same 12-case eval. The before/after 
 
 ### Modified Files
 
-| File Path | Changes |
-|-----------|---------|
-| `scripts/eval/scorer.ts` | Add `isNegated()` helper, update anti-pattern scoring in `scoreOutput()` to skip negated matches |
-| `scripts/tests/eval-scorer.spec.ts` | Add tests for `isNegated()` and negation-aware anti-pattern scoring |
-| `scripts/lib/refiner.ts` | Update `buildRefinePrompt()`: hard 150-line cap, implementation-level tree instruction, bash verification instruction. Reduce `MAX_TOKENS` from 8192 to 4096 for feature guides. |
-| `scripts/lib/skill-template.ts` | Cap `extractSteps()` at 30 lines (was 60). Skip non-actionable headings in extraction. Reduce default "General Flow" to 2 steps. |
-| `scripts/lib/quality-gate.ts` | Reverse size scoring for guides (reward ≤4KB), add bash verification bonus, add decision tree bonus |
+| File Path                           | Changes                                                                                                                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/eval/scorer.ts`            | Add `isNegated()` helper, update anti-pattern scoring in `scoreOutput()` to skip negated matches                                                                                 |
+| `scripts/tests/eval-scorer.spec.ts` | Add tests for `isNegated()` and negation-aware anti-pattern scoring                                                                                                              |
+| `scripts/lib/refiner.ts`            | Update `buildRefinePrompt()`: hard 150-line cap, implementation-level tree instruction, bash verification instruction. Reduce `MAX_TOKENS` from 8192 to 4096 for feature guides. |
+| `scripts/lib/skill-template.ts`     | Cap `extractSteps()` at 30 lines (was 60). Skip non-actionable headings in extraction. Reduce default "General Flow" to 2 steps.                                                 |
+| `scripts/lib/quality-gate.ts`       | Reverse size scoring for guides (reward ≤4KB), add bash verification bonus, add decision tree bonus                                                                              |
 
 ## Implementation Details
 
@@ -41,15 +41,22 @@ The changes are validated by re-running the same 12-case eval. The before/after 
 
 ```typescript
 export function isNegated(output: string, matchIndex: number): boolean {
-  const prefix = output.slice(Math.max(0, matchIndex - 60), matchIndex).toLowerCase();
-  return /\b(don'?t|do not|never|avoid|shouldn'?t|should not|not|without)\s*$/i.test(prefix.trim());
+  const prefix = output
+    .slice(Math.max(0, matchIndex - 60), matchIndex)
+    .toLowerCase();
+  return /\b(don'?t|do not|never|avoid|shouldn'?t|should not|not|without)\s*$/i.test(
+    prefix.trim(),
+  );
 }
 ```
 
 Update `scoreOutput()` to use a new `negationAwareRatioFound()` for the anti-pattern dimension only:
 
 ```typescript
-export function negationAwareRatioFound(expected: string[], output: string): number {
+export function negationAwareRatioFound(
+  expected: string[],
+  output: string,
+): number {
   if (expected.length === 0) return 0; // NOTE: 0, not 1 — for antiPatterns, 0 found = good
   const normalizedOutput = normalizeForMatch(output);
   let found = 0;
@@ -65,14 +72,17 @@ export function negationAwareRatioFound(expected: string[], output: string): num
 ```
 
 Then in `scoreOutput()`, change the anti-pattern line:
+
 ```typescript
 // Before:
 const antiPatternAvoidance = 1 - ratioFound(expected.antiPatterns, output);
 // After:
-const antiPatternAvoidance = 1 - negationAwareRatioFound(expected.antiPatterns, output);
+const antiPatternAvoidance =
+  1 - negationAwareRatioFound(expected.antiPatterns, output);
 ```
 
 **Feedback loop**:
+
 - **Playground**: Add test cases to `eval-scorer.spec.ts` before implementing
 - **Experiment**: Test "don't reject without state" → not flagged. Test "reject without state" → flagged. Test "avoid hardcoded keys" → not flagged. Test "uses hardcoded key sk_live_xxx" → flagged.
 - **Check command**: `bun test --filter eval-scorer`
@@ -116,6 +126,7 @@ BAD: "Go to Dashboard and verify"
 ```
 
 **Implementation steps**:
+
 1. Read the current `buildRefinePrompt()` system prompt string (lines 307-345)
 2. Replace rule 10 (line 342) with the hard cap text
 3. Insert the implementation-level tree instruction after rule 4 (line 336)
@@ -135,6 +146,7 @@ const maxTokens = skill.type === "guide" ? 4096 : MAX_TOKENS;
 Then pass this to `callAnthropic()` (add optional `maxTokens` param).
 
 **Implementation steps**:
+
 1. Add optional `maxTokens` parameter to `callAnthropic()` signature
 2. Use it in the JSON body: `max_tokens: maxTokens ?? MAX_TOKENS`
 3. In `refineSkill()`, compute `maxTokens` based on skill type and pass it through
@@ -146,13 +158,16 @@ Then pass this to `callAnthropic()` (add optional `maxTokens` param).
 **Overview**: The template extracts too much content from source docs, producing 7-9KB scaffolds. Three changes:
 
 **Change A — Cap `extractSteps()`**: Reduce from 60 to 30 lines max:
+
 ```typescript
 return steps.slice(0, 30); // was 60
 ```
 
 **Change B — Skip non-actionable headings**: In `extractSteps()`, skip headings matching common non-actionable patterns:
+
 ```typescript
-const SKIP_HEADINGS = /test.*with.*real|launch.*checklist|optional|admin portal|signing certificate/i;
+const SKIP_HEADINGS =
+  /test.*with.*real|launch.*checklist|optional|admin portal|signing certificate/i;
 // In the heading extraction loop:
 if (SKIP_HEADINGS.test(currentHeading)) {
   currentHeading = "";
@@ -162,6 +177,7 @@ if (SKIP_HEADINGS.test(currentHeading)) {
 ```
 
 **Change C — Leaner default flow**: Reduce the "General Flow" fallback from 4 steps to 2:
+
 ```typescript
 lines.push("1. Implement the primary integration pattern");
 lines.push("2. Verify with runnable checks");
@@ -174,32 +190,39 @@ lines.push("2. Verify with runnable checks");
 **Overview**: Current scoring rewards size (>1KB = 10pts) and section count (≥4 = 15pts), incentivizing bloat. Retune to reward what the eval proved effective.
 
 **Change A — Reverse size scoring for guides**: Replace the content >1KB check with tiered reverse scoring:
+
 ```typescript
 // Before: content > 1KB = 10pts
 // After:
 const sizeKB = skill.sizeBytes / 1024;
-if (sizeKB <= 4) score += 10;      // Sweet spot
-else if (sizeKB <= 6) score += 7;  // Acceptable
+if (sizeKB <= 4)
+  score += 10; // Sweet spot
+else if (sizeKB <= 6)
+  score += 7; // Acceptable
 else if (sizeKB <= 10) score += 3; // Too large
 // >10KB = 0pts
 ```
 
 **Change B — Bash verification bonus**: Add +5pts for guides with 3+ runnable bash commands (lines starting with `echo`, `grep`, `curl`, `test`, or inside ```bash blocks):
-```typescript
-const bashCommands = (content.match(/^(echo|grep|curl|test -|ls |env \|) /gm) ?? []).length
-  + (content.match(/```bash[\s\S]*?```/g) ?? []).length;
-if (bashCommands >= 3) score += 5;
-```
 
-**Change C — Implementation decision tree bonus**: Add +5pts for code-formatted decision trees (``` blocks containing `→` or `-->` patterns):
-```typescript
+````typescript
+const bashCommands =
+  (content.match(/^(echo|grep|curl|test -|ls |env \|) /gm) ?? []).length +
+  (content.match(/```bash[\s\S]*?```/g) ?? []).length;
+if (bashCommands >= 3) score += 5;
+````
+
+**Change C — Implementation decision tree bonus**: Add +5pts for code-formatted decision trees (```blocks containing`→`or`-->` patterns):
+
+````typescript
 const hasDecisionTree = /```[\s\S]*?(→|-->)[\s\S]*?```/.test(content);
 if (hasDecisionTree) score += 5;
-```
+````
 
 **Rebalancing**: The new max is 110pts (was 100). Either renormalize to 100 or adjust the pass threshold. Simplest: keep threshold at 70, accept that max is now 110. Skills that score well on the new criteria get bonus points.
 
 **Implementation steps**:
+
 1. Find the `scoreGuide()` function
 2. Replace the size check with tiered reverse scoring
 3. Add bash verification bonus after the verification section check
@@ -210,11 +233,12 @@ if (hasDecisionTree) score += 5;
 
 ### Unit Tests
 
-| Test File | Coverage |
-|-----------|----------|
+| Test File                           | Coverage                                                                               |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
 | `scripts/tests/eval-scorer.spec.ts` | `isNegated()`, `negationAwareRatioFound()`, updated `scoreOutput()` anti-pattern tests |
 
 **Key test cases**:
+
 - `isNegated()`: "don't reject" → true, "do not use" → true, "never hardcode" → true, "uses hardcoded" → false, "without verification" at start of text → false (no preceding negation)
 - `negationAwareRatioFound()`: "Don't reject requests without state" + antiPattern "reject requests without state" → 0 (not found due to negation)
 - `negationAwareRatioFound()`: "You should reject requests without state" + same antiPattern → 1 (found, no negation)
@@ -230,11 +254,11 @@ if (hasDecisionTree) score += 5;
 
 ## Error Handling
 
-| Error Scenario | Handling Strategy |
-|----------------|-------------------|
-| Regenerated skills fail quality gate | Adjust quality gate thresholds — the new scoring may need calibration |
-| Truncated guide output (4096 token cap) | Check if guide ends mid-sentence; if so, bump to 5120 tokens |
-| Existing tests break from scoring changes | Update test expectations to match new scoring rubric |
+| Error Scenario                            | Handling Strategy                                                     |
+| ----------------------------------------- | --------------------------------------------------------------------- |
+| Regenerated skills fail quality gate      | Adjust quality gate thresholds — the new scoring may need calibration |
+| Truncated guide output (4096 token cap)   | Check if guide ends mid-sentence; if so, bump to 5120 tokens          |
+| Existing tests break from scoring changes | Update test expectations to match new scoring rubric                  |
 
 ## Validation Commands
 

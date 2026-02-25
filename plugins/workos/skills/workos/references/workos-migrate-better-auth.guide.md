@@ -31,7 +31,7 @@ Database schema?
 Query `user` table for core identity data:
 
 ```sql
-SELECT id, name, email, emailVerified, image, createdAt, updatedAt 
+SELECT id, name, email, emailVerified, image, createdAt, updatedAt
 FROM user;
 ```
 
@@ -75,6 +75,7 @@ Map roles to WorkOS equivalents. Better Auth role strings map directly to WorkOS
 ## Step 6: Import to WorkOS
 
 Check fetched docs for:
+
 - User Management API import endpoint
 - Password hash format specification
 - Organization structure import (if applicable)
@@ -119,6 +120,7 @@ echo "Check WorkOS Dashboard → Organizations → Members"
 **Cause:** Better Auth scrypt hashes have specific parameter encoding.
 
 **Fix:**
+
 1. Export raw `password` column value from `account` table
 2. Do NOT modify the hash string (no base64 decode, no prefix stripping)
 3. Check fetched docs for WorkOS hash format requirements
@@ -129,6 +131,7 @@ echo "Check WorkOS Dashboard → Organizations → Members"
 **Cause:** Duplicate imports or existing WorkOS users.
 
 **Fix:**
+
 1. Use external user ID from Better Auth `user.id` for deduplication
 2. WorkOS import API supports upsert — check fetched docs for `skip_existing` parameter
 3. If intentional duplicate: use different email domain or delete existing WorkOS user first
@@ -138,6 +141,7 @@ echo "Check WorkOS Dashboard → Organizations → Members"
 **Cause:** Orgs not created before assigning members.
 
 **Fix:**
+
 1. Import orgs FIRST (from `organization` table)
 2. Map Better Auth `organization.id` to WorkOS org ID in your script
 3. Then import memberships with correct WorkOS org IDs
@@ -147,6 +151,7 @@ echo "Check WorkOS Dashboard → Organizations → Members"
 **Not an error.** Better Auth uses JWTs — existing sessions remain valid until expiry. This is expected behavior during transition period.
 
 **If you need immediate cutover:**
+
 1. Rotate Better Auth secret key to invalidate all JWTs
 2. Update your app to redirect login flow to WorkOS
 3. Communicate session expiry to users

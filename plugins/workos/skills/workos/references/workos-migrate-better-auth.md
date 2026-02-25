@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:3b6983312415 -->
 
 # WorkOS Migration: Better Auth

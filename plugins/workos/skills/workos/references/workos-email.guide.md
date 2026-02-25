@@ -48,6 +48,7 @@ Check fetched docs for exact CNAME values — they are unique per account.
 ### Sender Addresses
 
 WorkOS sends from:
+
 - `welcome@<your-domain>` — welcome emails, invitations
 - `access@<your-domain>` — Magic Auth, password resets
 
@@ -70,6 +71,7 @@ Start with `p=none` (monitor only). After verifying delivery, escalate to `p=qua
 ## Step 4: Content Restrictions (CRITICAL)
 
 WorkOS emails include:
+
 - Your **team name** from dashboard settings
 - **Organization names** from your WorkOS organizations
 - Standard email body text (controlled by WorkOS)
@@ -106,6 +108,7 @@ dig TXT _dmarc.<your-domain> +short | grep -q DMARC1 && echo "✓ DMARC set" || 
 **Root cause:** Domain reputation issue or DNS misconfiguration.
 
 **Fix:**
+
 1. Verify all 3 CNAME records propagated: `dig CNAME <record-name> +short`
 2. Check [Google Postmaster Tools](https://www.gmail.com/postmaster/) for domain reputation score
 3. Review team/org names for spam trigger words
@@ -116,6 +119,7 @@ dig TXT _dmarc.<your-domain> +short | grep -q DMARC1 && echo "✓ DMARC set" || 
 **Root cause:** Aggressive spam filters or Enhanced Pre-delivery Scanning.
 
 **Fix:**
+
 1. Gmail users: Check [Postmaster Tools](https://www.gmail.com/postmaster/) spam rate
 2. Outlook users: Check [Sender Support](https://sendersupport.olc.protection.outlook.com/pm/)
 3. Ask affected users to check spam folder, mark as "Not Spam" (trains filter)
@@ -126,6 +130,7 @@ dig TXT _dmarc.<your-domain> +short | grep -q DMARC1 && echo "✓ DMARC set" || 
 **Root cause:** TTL values or provider delay.
 
 **Fix:**
+
 1. Wait 24-48 hours for global DNS propagation
 2. Clear local DNS cache: `sudo dscacheutil -flushcache` (macOS) or `ipconfig /flushdns` (Windows)
 3. Check authoritative nameserver directly: `dig @<your-nameserver> CNAME <record> +short`
@@ -135,6 +140,7 @@ dig TXT _dmarc.<your-domain> +short | grep -q DMARC1 && echo "✓ DMARC set" || 
 **Root cause:** Domain configured in another WorkOS account.
 
 **Fix:**
+
 1. Remove domain from old account first
 2. Contact WorkOS support if you don't have access to old account
 
@@ -143,6 +149,7 @@ dig TXT _dmarc.<your-domain> +short | grep -q DMARC1 && echo "✓ DMARC set" || 
 **Root cause:** Custom SPF/DKIM records conflicting with WorkOS CNAMEs.
 
 **Fix:**
+
 1. Remove any manual SPF/DKIM TXT records for your domain
 2. Keep ONLY the WorkOS-provided CNAMEs — they handle SPF/DKIM automatically
 3. Wait 30 minutes for DNS changes to propagate

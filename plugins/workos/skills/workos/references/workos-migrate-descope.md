@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:52a3356a17a8 -->
 
 # WorkOS Migration: Descope

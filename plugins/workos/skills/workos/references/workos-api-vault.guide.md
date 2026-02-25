@@ -14,24 +14,24 @@
 
 ## Endpoints
 
-| Endpoint | Description |
-| -------- | ----------- |
-| `/vault` | vault |
-| `/key` | vault - key |
-| `/key/create-data-key` | vault - key - create-data-key |
-| `/key/decrypt-data` | vault - key - decrypt-data |
+| Endpoint                | Description                    |
+| ----------------------- | ------------------------------ |
+| `/vault`                | vault                          |
+| `/key`                  | vault - key                    |
+| `/key/create-data-key`  | vault - key - create-data-key  |
+| `/key/decrypt-data`     | vault - key - decrypt-data     |
 | `/key/decrypt-data-key` | vault - key - decrypt-data-key |
-| `/key/encrypt-data` | vault - key - encrypt-data |
-| `/object` | vault - object |
-| `/object/create` | vault - object - create |
-| `/object/delete` | vault - object - delete |
-| `/object/get` | vault - object - get |
-| `/object/get-by-name` | vault - object - get-by-name |
-| `/object/list` | vault - object - list |
-| `/object/metadata` | vault - object - metadata |
-| `/object/update` | vault - object - update |
-| `/object/version` | vault - object - version |
-| `/object/versions` | vault - object - versions |
+| `/key/encrypt-data`     | vault - key - encrypt-data     |
+| `/object`               | vault - object                 |
+| `/object/create`        | vault - object - create        |
+| `/object/delete`        | vault - object - delete        |
+| `/object/get`           | vault - object - get           |
+| `/object/get-by-name`   | vault - object - get-by-name   |
+| `/object/list`          | vault - object - list          |
+| `/object/metadata`      | vault - object - metadata      |
+| `/object/update`        | vault - object - update        |
+| `/object/version`       | vault - object - version       |
+| `/object/versions`      | vault - object - versions      |
 
 ## Implementation
 

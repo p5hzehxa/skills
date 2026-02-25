@@ -199,6 +199,7 @@ curl -X POST https://api.workos.com/user_management/users \
 **Root cause:** Hash format mismatch or wrong algorithm type.
 
 Fix:
+
 1. Check source system's ACTUAL hashing algorithm (don't assume)
 2. Export a single password hash, test locally: `bcrypt.verify(plain_password, hash)`
 3. If verify fails: hash format is corrupted or algorithm is wrong
@@ -209,6 +210,7 @@ Fix:
 **Root cause:** Duplicate migration or email collision.
 
 Fix:
+
 1. Check if user already has `workos_user_id` in your DB
 2. If yes: skip creation, use existing ID
 3. If no: user exists in WorkOS but not linked → call Update User with your metadata
@@ -219,6 +221,7 @@ Fix:
 **Root cause:** Email domain not verified or rate limit hit.
 
 Fix:
+
 1. Verify sending domain in WorkOS Dashboard → Settings → Email
 2. Check Dashboard logs for delivery errors
 3. If bulk sending: batch password resets with delays (10 resets/sec max)
@@ -228,6 +231,7 @@ Fix:
 **Root cause:** Email mismatch between WorkOS user and social profile.
 
 Fix:
+
 1. Check WorkOS user email EXACTLY matches social profile email (case-sensitive)
 2. If emails differ: update WorkOS user email to match, OR have user log in with different method first
 3. WorkOS links accounts by email — if no match, user sees "create new account" flow

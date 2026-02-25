@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:336287048df7 -->
 
 # WorkOS Migration: Stytch

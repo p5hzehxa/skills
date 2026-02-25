@@ -64,6 +64,7 @@ passwordHash      → password_hash (if available)
 Choose one:
 
 **Option A: Use WorkOS Migration Tool** (Recommended)
+
 - GitHub: https://github.com/workos/migrate-auth0-users
 - Handles rate limiting, retries, progress tracking
 - Check repository README for usage instructions
@@ -151,6 +152,7 @@ echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid key" || echo "✗ missing/
 **Root cause:** Standard Auth0 export doesn't include password hashes.
 
 **Fix:**
+
 1. Open Auth0 support ticket requesting password export
 2. Wait 1-2 weeks for processing
 3. Receive separate JSON file with `passwordHash` field
@@ -163,6 +165,7 @@ echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid key" || echo "✗ missing/
 **Root cause:** Wrong `password_hash_type` parameter or corrupted hash.
 
 **Fix:**
+
 1. Verify Auth0 export contains `passwordHash` field (not `password` or other name)
 2. Confirm `password_hash_type: 'bcrypt'` in API call
 3. Check hash string starts with `$2a$`, `$2b$`, or `$2y$` (bcrypt prefixes)
@@ -173,6 +176,7 @@ echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid key" || echo "✗ missing/
 **Root cause:** Duplicate email addresses or previous partial import.
 
 **Fix:**
+
 1. Check if user exists via WorkOS List Users API filtering by email
 2. If exists, use Update User API instead of Create User API
 3. Track imported user IDs to resume interrupted migrations

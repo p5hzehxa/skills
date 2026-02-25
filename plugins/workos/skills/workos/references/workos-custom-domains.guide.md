@@ -7,6 +7,7 @@
 **STOP. Do not proceed until complete.**
 
 WebFetch these URLs for latest implementation details:
+
 - https://workos.com/docs/custom-domains/index
 - https://workos.com/docs/custom-domains/email
 - https://workos.com/docs/custom-domains/authkit
@@ -67,18 +68,19 @@ If configuring an AuthKit custom domain, update these in production code:
 ```javascript
 // Before: WorkOS-hosted domain
 const authUrl = workos.userManagement.getAuthorizationUrl({
-  redirectUri: 'https://id.workos.com/auth/callback',
+  redirectUri: "https://id.workos.com/auth/callback",
   // ...
 });
 
 // After: Custom domain
 const authUrl = workos.userManagement.getAuthorizationUrl({
-  redirectUri: 'https://auth.yourapp.com/auth/callback',
+  redirectUri: "https://auth.yourapp.com/auth/callback",
   // ...
 });
 ```
 
 **Also update:**
+
 - Environment variable: `WORKOS_REDIRECT_URI` or equivalent
 - OAuth app registration in WorkOS Dashboard (if using OAuth)
 - Any hardcoded callback URLs in frontend code

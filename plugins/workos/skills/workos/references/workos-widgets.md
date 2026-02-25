@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:883decb5b1de -->
 
 # WorkOS Widgets
@@ -14,13 +12,11 @@ Use this skill when you need to generate secure, short-lived tokens for embeddin
 - **Organization `org_`** — the entity whose resources the widget will display (Admin Portal, Log Streams)
 - **User `user_`** — optional identifier for tracking which user accessed the widget
 
-
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `references/workos-widgets.guide.md`
-
 
 ## Related Skills
 

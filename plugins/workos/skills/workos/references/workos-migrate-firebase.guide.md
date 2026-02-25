@@ -91,6 +91,7 @@ Check fetched docs for exact User API endpoint and required fields.
 Firebase Console → Authentication → Sign-in method → [Provider] → View credentials
 
 You need:
+
 - Client ID
 - Client Secret
 
@@ -108,6 +109,7 @@ Update your app's OAuth callback route to use WorkOS SDK auth handling (see `wor
 Firebase Email Link is comparable to WorkOS Magic Auth.
 
 **Key difference:**
+
 - Firebase: Sends link that completes auth in same browser
 - WorkOS: Sends code that user enters in app
 
@@ -172,6 +174,7 @@ grep -r "getAuthorizationUrl\|authkit" src/ && echo "✓ Auth implemented" || ec
 **Cause:** PHC formatting incorrect or missing Firebase-specific parameters.
 
 **Fix:**
+
 1. Verify base64 encoding preserved (do NOT decode bytes)
 2. Check `sk=` and `ss=` parameters present in hash string
 3. Validate parameter order: `$scrypt$ln=...,r=8,p=1$<salt>$<hash>$sk=...,ss=...`
@@ -181,6 +184,7 @@ grep -r "getAuthorizationUrl\|authkit" src/ && echo "✓ Auth implemented" || ec
 **Cause:** Email collision or duplicate import attempt.
 
 **Fix:**
+
 1. Check if email already in WorkOS: `workos.users.list({ email: "..." })`
 2. If exists, UPDATE user with `workos.users.update()` instead of CREATE
 3. Use idempotency: store `firebase_uid → workos_user_id` mapping before import, skip if mapped
@@ -190,6 +194,7 @@ grep -r "getAuthorizationUrl\|authkit" src/ && echo "✓ Auth implemented" || ec
 **Cause:** Redirect URI mismatch between Firebase and WorkOS config.
 
 **Fix:**
+
 1. Compare Firebase authorized domains vs WorkOS redirect URIs
 2. WorkOS requires FULL callback URL (not just domain)
 3. Update OAuth provider (Google Console, etc.) with NEW WorkOS callback
@@ -200,6 +205,7 @@ grep -r "getAuthorizationUrl\|authkit" src/ && echo "✓ Auth implemented" || ec
 **Cause:** Identity provider still pointing to Firebase URLs.
 
 **Fix:**
+
 1. Extract NEW WorkOS ACS URL from WorkOS Dashboard → connection details
 2. Contact identity provider admin to update SAML config
 3. Test connection in WorkOS Dashboard before directing users

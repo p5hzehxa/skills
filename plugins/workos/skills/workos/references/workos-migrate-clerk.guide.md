@@ -31,6 +31,7 @@ Does your Clerk app use password auth?
 Use Clerk Backend API to export users WITH password data as CSV:
 
 **Verify export includes these columns:**
+
 ```bash
 head -n1 export.csv | grep -E "email_addresses|first_name|last_name|password" || echo "FAIL: Missing required columns"
 ```
@@ -57,11 +58,13 @@ How many users to migrate?
 Clone: `https://github.com/workos/migrate-clerk-users`
 
 Follow repository README for:
+
 - CSV format requirements
 - Rate limit handling (built-in)
 - Error logging
 
 **Verify import succeeded:**
+
 ```bash
 # Check WorkOS user count matches Clerk export
 curl -H "Authorization: Bearer $WORKOS_API_KEY" \
@@ -72,11 +75,11 @@ curl -H "Authorization: Bearer $WORKOS_API_KEY" \
 
 ### Field Mapping
 
-| Clerk CSV column    | WorkOS API parameter |
-|---------------------|----------------------|
-| `email_addresses`   | `email`              |
-| `first_name`        | `first_name`         |
-| `last_name`         | `last_name`          |
+| Clerk CSV column  | WorkOS API parameter |
+| ----------------- | -------------------- |
+| `email_addresses` | `email`              |
+| `first_name`      | `first_name`         |
+| `last_name`       | `last_name`          |
 
 ### Multi-Email Handling (CRITICAL TRAP)
 
@@ -85,6 +88,7 @@ Clerk exports multiple emails pipe-separated: `"john@example.com|john.doe@exampl
 **Problem:** Export does NOT indicate primary email.
 
 **Solution decision tree:**
+
 ```
 Can you call Clerk API for each user?
   |
@@ -96,6 +100,7 @@ Can you call Clerk API for each user?
 ```
 
 Code pattern:
+
 ```
 emails = row['email_addresses'].split('|')
 primary_email = emails[0]  # fallback if Clerk API unavailable
@@ -110,6 +115,7 @@ workos.users.create(
 ### Rate Limits
 
 Check docs for Create User rate limits. Implement:
+
 - Exponential backoff on 429 responses
 - Batch processing (100-500 users per batch)
 - Progress logging
@@ -152,6 +158,7 @@ curl -s -H "Authorization: Bearer $WORKOS_API_KEY" \
 ### User count mismatch after import
 
 **Most common causes:**
+
 1. Clerk export includes deleted/suspended users — filter these before import
 2. Duplicate emails in export — WorkOS rejects duplicate email addresses
 3. Rate limit failures during import were not retried

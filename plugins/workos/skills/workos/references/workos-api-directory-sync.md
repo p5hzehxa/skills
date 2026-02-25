@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:6a702a85e175 -->
 
 # WorkOS Directory Sync API Reference

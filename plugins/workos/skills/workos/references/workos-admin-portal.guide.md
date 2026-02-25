@@ -7,6 +7,7 @@
 **STOP. Do not proceed until complete.**
 
 WebFetch these docs — they are the source of truth:
+
 - https://workos.com/docs/admin-portal/index
 - https://workos.com/docs/admin-portal/example-apps
 - https://workos.com/docs/admin-portal/custom-branding
@@ -16,10 +17,12 @@ If this skill conflicts with fetched docs, follow the docs.
 ## Step 2: Pre-Flight Validation
 
 Check `.env` or environment for:
+
 - `WORKOS_API_KEY` - starts with `sk_`
 - `WORKOS_CLIENT_ID` - starts with `client_`
 
 **Verify API key:**
+
 ```bash
 echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid" || echo "✗ invalid/missing"
 ```
@@ -45,6 +48,7 @@ Navigate: Dashboard → Organizations → Create Organization
 Dashboard generates setup link automatically. Copy and share with IT admin.
 
 **Link properties:**
+
 - One active link per organization at a time
 - Revoke via "Manage" button before creating new link
 - Check fetched docs for expiration policy
@@ -58,6 +62,7 @@ Skip to Step 6.
 Use SDK method for organization creation. Check fetched docs for exact method signature and required parameters.
 
 **Common pattern (language-agnostic):**
+
 ```
 org = workos.organizations.create(
   name: "Customer Corp",
@@ -120,6 +125,7 @@ env | grep WORKOS_ || echo "FAIL: WorkOS env vars missing"
 **Root cause:** API key invalid or missing permissions.
 
 **Fix:**
+
 1. Check key starts with `sk_` (not `pk_` — that's publishable key)
 2. Regenerate key in Dashboard → API Keys if needed
 3. Verify key has Admin Portal permissions enabled
@@ -129,6 +135,7 @@ env | grep WORKOS_ || echo "FAIL: WorkOS env vars missing"
 **Root cause:** Link expired or already used (single-use).
 
 **Fix:**
+
 1. Check `expires_at` timestamp from link generation
 2. Generate new link — do NOT reuse old links
 3. For frequent regeneration, implement link refresh flow in your app
@@ -138,6 +145,7 @@ env | grep WORKOS_ || echo "FAIL: WorkOS env vars missing"
 **Root cause:** Intent parameter mismatch.
 
 **Fix:**
+
 1. Check intent value passed to `generate_link()` matches enabled features
 2. Valid intents documented in fetched docs (typically `"sso"`, `"dsync"`, or combined)
 3. Intent cannot be changed after link generation — must generate new link
@@ -152,5 +160,6 @@ Check fetched docs for domain verification requirements. Some configurations req
 ## Related Skills
 
 For embedding Admin Portal in your auth flow:
+
 - workos-authkit-nextjs
 - workos-authkit-react

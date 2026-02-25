@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:7daeec70196c -->
 
 # WorkOS Roles & Permissions API Reference

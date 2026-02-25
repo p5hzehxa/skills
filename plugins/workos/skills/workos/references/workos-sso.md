@@ -1,5 +1,3 @@
-
-
 <!-- refined:sha256:1ef5b36e75cb -->
 
 # WorkOS Single Sign-On
@@ -14,13 +12,11 @@ Use this skill when you need to let users sign in using their organization's ide
 - **Connection** `conn_` — the configured link between an Organization and their IdP (e.g., `conn_okta_123`)
 - **Profile** `profile_` — the authenticated user object returned after SSO, containing email/name/IdP metadata
 
-
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `references/workos-sso.guide.md`
-
 
 ## Related Skills
 

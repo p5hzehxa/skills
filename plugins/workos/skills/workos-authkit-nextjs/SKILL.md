@@ -62,8 +62,8 @@ If `middleware.ts` already exists with custom logic (rate limiting, logging, hea
 **Pattern for composing with existing middleware:**
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { authkit, handleAuthkitHeaders } from '@workos-inc/authkit-nextjs';
+import { NextRequest, NextResponse } from "next/server";
+import { authkit, handleAuthkitHeaders } from "@workos-inc/authkit-nextjs";
 
 export default async function middleware(request: NextRequest) {
   // 1. Get auth session and headers from AuthKit
@@ -74,12 +74,14 @@ export default async function middleware(request: NextRequest) {
   // Rate limiting, logging, custom headers, etc.
   const rateLimitResult = checkRateLimit(request);
   if (!rateLimitResult.allowed) {
-    return new NextResponse('Too Many Requests', { status: 429 });
+    return new NextResponse("Too Many Requests", { status: 429 });
   }
 
   // 3. Protect routes - redirect to auth if needed
-  if (pathname.startsWith('/dashboard') && !session.user && authorizationUrl) {
-    return handleAuthkitHeaders(request, headers, { redirect: authorizationUrl });
+  if (pathname.startsWith("/dashboard") && !session.user && authorizationUrl) {
+    return handleAuthkitHeaders(request, headers, {
+      redirect: authorizationUrl,
+    });
   }
 
   // 4. Continue with AuthKit headers properly handled
@@ -130,9 +132,13 @@ This is required for:
 
 ```tsx
 // app/layout.tsx
-import { AuthKitProvider } from '@workos-inc/authkit-nextjs';
+import { AuthKitProvider } from "@workos-inc/authkit-nextjs";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body>

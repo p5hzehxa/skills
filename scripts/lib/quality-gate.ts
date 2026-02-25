@@ -90,7 +90,9 @@ async function scoreSummary(
   if (!content.match(/^---\n([\s\S]*?)\n---/)) {
     score += 20;
   } else {
-    issues.push("Summary should not have frontmatter (interferes with plugin skill discovery)");
+    issues.push(
+      "Summary should not have frontmatter (interferes with plugin skill discovery)",
+    );
   }
 
   // 2. Generated/refined marker (5 pts)

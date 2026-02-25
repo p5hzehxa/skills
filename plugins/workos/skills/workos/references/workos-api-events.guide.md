@@ -11,10 +11,10 @@
 
 ## Endpoints
 
-| Endpoint | Description |
-| -------- | ----------- |
-| `/events` | events |
-| `/list` | events - list |
+| Endpoint  | Description   |
+| --------- | ------------- |
+| `/events` | events        |
+| `/list`   | events - list |
 
 ## Implementation
 
