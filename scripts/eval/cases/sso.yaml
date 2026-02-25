@@ -99,3 +99,172 @@
       - always require state
       - reject requests without state
     hallucinations: []
+
+- id: sso-node-error-handling
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    Users are reporting random SSO failures in my Express app. Some get
+    "invalid_grant" errors after sitting on the IdP page too long, and others
+    get stuck in a loop after clicking Cancel on the consent screen. How do I
+    properly handle SSO errors in my WorkOS callback handler?
+  expected:
+    methods:
+      - workos.sso.getProfileAndToken
+    envVars: []
+    imports: []
+    params:
+      - error
+      - code
+    flowSteps:
+      - check error query parameter first
+      - handle user denial or consent denied
+      - exchange code for profile
+      - handle invalid_grant for expired code
+      - show user-friendly error message
+    antiPatterns:
+      - retry code exchange
+    hallucinations:
+      - workos.sso.refreshToken
+      - workos.sso.retryAuth
+      - workos.sso.revokeToken
+
+- id: sso-node-domain-routing
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    I'm building a login page where users type their work email and get
+    automatically routed to their company's SSO provider. Some customers use
+    Okta, some Azure AD, some Google Workspace. How do I use the email domain
+    to route to the right IdP with the WorkOS Node.js SDK?
+  expected:
+    methods:
+      - workos.sso.getAuthorizationUrl
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - "@workos-inc/node"
+    params:
+      - domainHint
+      - redirectUri
+      - state
+    flowSteps:
+      - collect email from user
+      - extract domain from email
+      - pass domain as domainHint parameter
+      - generate authorization URL
+      - redirect user to resolved IdP
+    antiPatterns:
+      - combine domainHint and organization
+    hallucinations:
+      - workos.sso.getConnectionByDomain
+      - workos.organizations.getByDomain
+      - workos.sso.listConnections
+
+- id: sso-node-social-login
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    I want to add "Sign in with Google" alongside my enterprise SSO in a
+    Node.js app. I'm already using WorkOS for SSO. Can I handle social login
+    through WorkOS too, or do I need a separate Google OAuth library?
+  expected:
+    methods:
+      - workos.sso.getAuthorizationUrl
+      - workos.sso.getProfileAndToken
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - "@workos-inc/node"
+    params:
+      - provider
+      - redirectUri
+      - state
+    flowSteps:
+      - generate authorization URL with provider parameter
+      - use GoogleOAuth as provider value
+      - redirect user to Google
+      - handle callback with same handler
+      - exchange code for profile
+    antiPatterns:
+      - separate Google OAuth library
+      - passport-google-oauth
+    hallucinations:
+      - workos.sso.socialLogin
+      - workos.oauth.google
+      - workos.sso.getProviders
+
+- id: sso-node-state-csrf
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    Our security team flagged our WorkOS SSO integration for missing CSRF
+    protection on the callback. I need to implement the state parameter
+    properly. But we also support IdP-initiated logins where users click our
+    app tile in their Okta dashboard — will adding state break that?
+  expected:
+    methods:
+      - workos.sso.getAuthorizationUrl
+    envVars: []
+    imports: []
+    params:
+      - state
+    flowSteps:
+      - generate cryptographically random state value
+      - store state in session before redirect
+      - pass state to getAuthorizationUrl
+      - verify state matches on callback
+      - skip state verification when state is empty string
+    antiPatterns:
+      - always require state
+      - skip state verification entirely
+    hallucinations:
+      - workos.sso.verifyState
+      - workos.sso.validateCallback
+      - workos.sso.generateState
+
+- id: sso-python-basic
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: python
+  prompt: |
+    Implement SSO login for a Python Flask app using the WorkOS Python SDK.
+    I need the authorization URL endpoint, callback handler with state
+    verification, and session creation from the user profile.
+  expected:
+    methods:
+      - workos.sso.get_authorization_url
+      - workos.sso.get_profile_and_token
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - workos
+    params:
+      - redirect_uri
+      - state
+      - code
+    flowSteps:
+      - generate authorization URL
+      - redirect user to IdP
+      - handle callback
+      - verify state parameter
+      - exchange code for profile
+      - create session
+    antiPatterns:
+      - hardcoded API key
+    hallucinations:
+      - workos.sso.authenticate
+      - workos.sso.login
+      - from workos import SSO
