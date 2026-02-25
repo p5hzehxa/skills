@@ -24,5 +24,4 @@ For step-by-step implementation, verification commands, and error recovery:
 ## Related Skills
 
 - **workos-authkit-base** — core AuthKit authentication patterns
-- **workos-organizations** — organization management after migration
-- **workos-user-management** — user lifecycle operations post-migration
+- **workos-api-organization** — organization management after migration

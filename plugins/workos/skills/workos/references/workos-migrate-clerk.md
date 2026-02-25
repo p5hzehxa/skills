@@ -26,7 +26,6 @@ For step-by-step implementation, verification commands, and error recovery:
 
 - **workos-authkit-nextjs** — integrate AuthKit after migration
 - **workos-authkit-react** — integrate AuthKit in React apps
-- **workos-user-management** — manage migrated users
-- **workos-organizations** — manage migrated organizations
+- **workos-api-organization** — manage migrated organizations
 - **workos-sso** — configure SSO connections
 - **workos-directory-sync** — set up directory sync

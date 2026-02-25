@@ -22,6 +22,5 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- `workos-user-management` — Managing users after migration
-- `workos-organizations` — Configuring organization settings post-migration
+- `workos-api-organization` — Configuring organization settings post-migration
 - `workos-authkit-nextjs` — Implementing authentication UI after migration

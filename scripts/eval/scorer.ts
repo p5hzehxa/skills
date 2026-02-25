@@ -48,16 +48,58 @@ export function scoreFlowOrder(steps: string[], output: string): number {
 
   const lowerOutput = output.toLowerCase();
 
-  // Find position of each step in the output (-1 if not found)
+  // Find position of each step in the output (-1 if not found).
+  // Uses proximity-based matching: find the position where the most keywords
+  // co-occur within a ~200-char window. Prevents generic words like "check"
+  // from matching a distant Verification section when the actual step context
+  // (e.g., "check state parameter") lives elsewhere.
   const positions = steps.map((step) => {
-    const keywords = step.toLowerCase().split(/\s+/);
-    // Find the first occurrence where all keywords appear nearby
-    // Simplified: find the first keyword's position
-    for (let i = 0; i < keywords.length; i++) {
-      const pos = lowerOutput.indexOf(keywords[i]);
-      if (pos !== -1) return pos;
+    const keywords = step.toLowerCase().split(/\s+/).filter(Boolean);
+    if (keywords.length === 0) return -1;
+
+    // Single keyword — use simple indexOf (no proximity needed)
+    if (keywords.length === 1) {
+      return lowerOutput.indexOf(keywords[0]);
     }
-    return -1;
+
+    // Multi-keyword: find the window with the best keyword co-occurrence
+    const WINDOW = 200;
+    let bestPos = -1;
+    let bestCount = 0;
+
+    for (const kw of keywords) {
+      let searchFrom = 0;
+      while (searchFrom < lowerOutput.length) {
+        const anchor = lowerOutput.indexOf(kw, searchFrom);
+        if (anchor === -1) break;
+
+        // Count how many other keywords appear within WINDOW of this anchor
+        const windowStart = Math.max(0, anchor - WINDOW);
+        const windowEnd = Math.min(
+          lowerOutput.length,
+          anchor + kw.length + WINDOW,
+        );
+        const window = lowerOutput.slice(windowStart, windowEnd);
+
+        let coCount = 0;
+        for (const other of keywords) {
+          if (window.includes(other)) coCount++;
+        }
+
+        if (coCount > bestCount) {
+          bestCount = coCount;
+          bestPos = anchor;
+        }
+
+        // If all keywords co-occur, no need to keep searching
+        if (bestCount === keywords.length) break;
+
+        searchFrom = anchor + 1;
+      }
+      if (bestCount === keywords.length) break;
+    }
+
+    return bestPos;
   });
 
   const foundPositions = positions.filter((p) => p !== -1);
@@ -99,6 +141,41 @@ export function countFound(items: string[], output: string): number {
 }
 
 /**
+ * Check if a match appears inside a .env block or env placeholder context.
+ * Returns true for patterns like `WORKOS_API_KEY=sk_test_xxx` or `# .env` blocks,
+ * which are not real hardcoded keys — just configuration examples.
+ */
+export function isInEnvBlock(output: string, matchIndex: number): boolean {
+  // Look back ~150 chars for env context
+  const lookback = output
+    .slice(Math.max(0, matchIndex - 150), matchIndex)
+    .toLowerCase();
+  // Look at the line containing the match
+  const lineStart = output.lastIndexOf("\n", matchIndex) + 1;
+  const lineEnd = output.indexOf("\n", matchIndex);
+  const line = output
+    .slice(lineStart, lineEnd === -1 ? undefined : lineEnd)
+    .trim();
+
+  // Env file header nearby: `.env`, `# .env`, `env vars`, `environment variables`
+  if (/(?:^|\s|#\s*)\.env\b|env(?:ironment)?\s*var/i.test(lookback)) {
+    return true;
+  }
+
+  // Line looks like KEY=value (env file format)
+  if (/^[A-Z][A-Z0-9_]+=\S/.test(line)) {
+    return true;
+  }
+
+  // Placeholder indicators on the same line
+  if (/your[_-]|<your|replace|placeholder/i.test(line)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Check if a match at the given index is preceded by a negation word.
  * Looks back up to 60 chars for words like don't, not, never, avoid.
  */
@@ -133,9 +210,10 @@ export function negationAwareRatioFound(
     const normalizedItem = normalizeForMatch(item);
     const idx = normalizedOutput.indexOf(normalizedItem);
     if (idx !== -1) {
-      // Check negation on original (lowercased) text, not normalized,
-      // because normalizeForMatch converts spaces to underscores in some cases
-      if (!isNegated(lowerOutput, idx)) {
+      // Skip negated mentions ("don't use sk_live") and env placeholders
+      // ("WORKOS_API_KEY=sk_test_your_key"). Check on original text, not
+      // normalized, because normalizeForMatch mangles whitespace.
+      if (!isNegated(lowerOutput, idx) && !isInEnvBlock(output, idx)) {
         found++;
       }
     }

@@ -8,6 +8,7 @@ import {
   scoreOutput,
   categorizeErrors,
   isNegated,
+  isInEnvBlock,
   negationAwareRatioFound,
 } from "../eval/scorer.ts";
 import type { ExpectedSignals } from "../eval/types.ts";
@@ -114,9 +115,9 @@ Finally, exchange the code for a profile.
   });
 
   it("returns 0 for no steps found", () => {
-    expect(
-      scoreFlowOrder(["step not present", "also missing"], output),
-    ).toBe(0);
+    expect(scoreFlowOrder(["step not present", "also missing"], output)).toBe(
+      0,
+    );
   });
 
   it("gives partial credit for present but unordered steps", () => {
@@ -145,6 +146,33 @@ First, generate the authorization URL.
     // ordering: 1/1 in order (only 1 found) = 1.0, order component: 0.4 * 1.0 = 0.4
     // total = 0.7
     expect(score).toBeCloseTo(0.7, 1);
+  });
+
+  it("uses proximity matching to avoid keyword collisions", () => {
+    // "check" appears early in Verification section, but "check state parameter"
+    // is the actual step logic located later. Old indexOf would pick the wrong pos.
+    const multiSectionOutput = `
+Step 1: Generate the authorization URL with state parameter.
+Step 2: Redirect user to the IdP login page.
+Step 3: Handle the callback and check the state parameter matches.
+Step 4: Exchange code for profile token.
+
+## Verification
+Check that your integration works by testing the login flow.
+    `;
+    const score = scoreFlowOrder(
+      [
+        "generate authorization URL",
+        "redirect user",
+        "check state parameter",
+        "exchange code for profile",
+      ],
+      multiSectionOutput,
+    );
+    // All 4 steps present and in order — should be 1.0 (or very close)
+    // Old scorer would misplace "check state parameter" to pos of "Check" in
+    // Verification section, breaking the order.
+    expect(score).toBeGreaterThanOrEqual(0.95);
   });
 });
 
@@ -276,15 +304,65 @@ describe("isNegated", () => {
   });
 });
 
+describe("isInEnvBlock", () => {
+  it("detects .env file header in preceding context", () => {
+    const output =
+      "Create a `.env` file:\n\nWORKOS_API_KEY=sk_test_your_api_key_here";
+    const idx = output.indexOf("sk_test");
+    expect(isInEnvBlock(output, idx)).toBe(true);
+  });
+
+  it("detects KEY=value env file format", () => {
+    const output = "WORKOS_API_KEY=sk_test_your_api_key_here";
+    const idx = output.indexOf("sk_test");
+    expect(isInEnvBlock(output, idx)).toBe(true);
+  });
+
+  it("detects # .env comment block", () => {
+    const output = "# .env\nWORKOS_API_KEY=sk_test_xxx";
+    const idx = output.indexOf("sk_test");
+    expect(isInEnvBlock(output, idx)).toBe(true);
+  });
+
+  it("detects 'env vars' context", () => {
+    const output = "Set up your env vars:\nsk_test_your_key";
+    const idx = output.indexOf("sk_test");
+    expect(isInEnvBlock(output, idx)).toBe(true);
+  });
+
+  it("detects placeholder indicators on the line", () => {
+    const output =
+      'const key = "sk_live_your_key_here"; // replace with your key';
+    const idx = output.indexOf("sk_live");
+    expect(isInEnvBlock(output, idx)).toBe(true);
+  });
+
+  it("returns false for actual hardcoded key in code", () => {
+    const output = 'const workos = new WorkOS("sk_live_abc123def456");';
+    const idx = output.indexOf("sk_live");
+    expect(isInEnvBlock(output, idx)).toBe(false);
+  });
+
+  it("returns false for key in non-env context", () => {
+    const output = "The API key sk_test_real is used in production.";
+    const idx = output.indexOf("sk_test");
+    expect(isInEnvBlock(output, idx)).toBe(false);
+  });
+});
+
 describe("negationAwareRatioFound", () => {
   it("returns 0 when anti-pattern is negated", () => {
     const output = "Don't reject requests without state parameter";
-    expect(negationAwareRatioFound(["reject requests without state"], output)).toBe(0);
+    expect(
+      negationAwareRatioFound(["reject requests without state"], output),
+    ).toBe(0);
   });
 
   it("returns 1 when anti-pattern is present without negation", () => {
     const output = "You should reject requests without state";
-    expect(negationAwareRatioFound(["reject requests without state"], output)).toBe(1);
+    expect(
+      negationAwareRatioFound(["reject requests without state"], output),
+    ).toBe(1);
   });
 
   it("returns 0 for empty expected array", () => {
@@ -294,13 +372,34 @@ describe("negationAwareRatioFound", () => {
   it("handles mix of negated and non-negated", () => {
     const output = "Don't use hardcoded API key but sk_live_123 is fine";
     // "hardcoded API key" is negated, "sk_live" is not
-    expect(negationAwareRatioFound(["hardcoded API key", "sk_live"], output)).toBe(0.5);
+    expect(
+      negationAwareRatioFound(["hardcoded API key", "sk_live"], output),
+    ).toBe(0.5);
+  });
+
+  it("skips anti-pattern in .env block context", () => {
+    const output = `
+Create a \`.env\` file with:
+
+WORKOS_API_KEY=sk_test_your_api_key_here
+WORKOS_CLIENT_ID=client_xxx
+    `;
+    // sk_test is in an env block — should not count as a real hardcoded key
+    expect(negationAwareRatioFound(["sk_test"], output)).toBe(0);
+  });
+
+  it("still catches real hardcoded key outside env block", () => {
+    const output = 'const workos = new WorkOS("sk_live_abc123def456");';
+    expect(negationAwareRatioFound(["sk_live"], output)).toBe(1);
   });
 });
 
 describe("scoreOutput", () => {
   const expected: ExpectedSignals = {
-    methods: ["workos.sso.getAuthorizationUrl", "workos.sso.getProfileAndToken"],
+    methods: [
+      "workos.sso.getAuthorizationUrl",
+      "workos.sso.getProfileAndToken",
+    ],
     envVars: ["WORKOS_API_KEY", "WORKOS_CLIENT_ID"],
     imports: ["@workos-inc/node"],
     params: ["clientId", "redirectUri", "code"],
