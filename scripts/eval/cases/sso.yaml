@@ -226,8 +226,8 @@
       - verify state matches on callback
       - skip state verification when state is empty string
     antiPatterns:
-      - always require state
-      - skip state verification entirely
+      - always require state for all flows
+      - skip state verification for all requests
     hallucinations:
       - workos.sso.verifyState
       - workos.sso.validateCallback
@@ -347,7 +347,7 @@
     WorkOS Ruby SDK.
   expected:
     methods:
-      - WorkOS::SSO.get_authorization_url
+      - WorkOS::SSO.authorization_url
       - WorkOS::SSO.profile_and_token
     envVars:
       - WORKOS_API_KEY
@@ -382,7 +382,7 @@
     have enterprise SSO working and want social login through the same flow.
   expected:
     methods:
-      - WorkOS::SSO.get_authorization_url
+      - WorkOS::SSO.authorization_url
       - WorkOS::SSO.profile_and_token
     envVars:
       - WORKOS_API_KEY

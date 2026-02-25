@@ -9,7 +9,7 @@
     login, logout, session management, and user profile access.
   expected:
     methods:
-      - WorkOS::UserManagement.get_authorization_url
+      - WorkOS::UserManagement.authorization_url
       - WorkOS::UserManagement.authenticate_with_code
     envVars:
       - WORKOS_API_KEY
