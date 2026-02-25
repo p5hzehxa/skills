@@ -150,17 +150,17 @@
     imports:
       - "@workos-inc/node"
     params:
-      - domainHint
+      - organization
       - redirectUri
       - state
     flowSteps:
       - collect email from user
       - extract domain from email
-      - pass domain as domainHint parameter
-      - generate authorization URL
-      - redirect user to resolved IdP
+      - map domain to organization ID
+      - generate authorization URL with organization
+      - redirect user to IdP
     antiPatterns:
-      - combine domainHint and organization
+      - combine connection selectors
     hallucinations:
       - workos.sso.getConnectionByDomain
       - workos.organizations.getByDomain

@@ -8,9 +8,11 @@
 
 WebFetch these docs — they are the source of truth:
 
+- https://workos.com/docs/sso/guide
 - https://workos.com/docs/sso/login-flows
-- https://workos.com/docs/sso/test-sso
+- https://workos.com/docs/reference/sso/get-authorization-url
 - https://workos.com/docs/sso/redirect-uris
+- https://workos.com/docs/sso/test-sso
 - https://workos.com/docs/sso/launch-checklist
 
 If this skill conflicts with fetched docs, follow the docs.
@@ -26,23 +28,28 @@ Both must pass. Get values from WorkOS Dashboard > API Keys.
 
 ## Step 3: Organization Identification (Decision Tree)
 
-Pick ONE parameter for `getAuthorizationUrl` based on how your app identifies the user's org:
+Pick exactly ONE **connection selector** parameter for `getAuthorizationUrl`. These are mutually exclusive — passing more than one causes an error.
 
 ```
 How does your app identify which SSO connection to use?
   |
-  +-- User enters email → domainHint: "company.com"
-  |     WorkOS resolves domain to org automatically
+  +-- User enters email → organization: "org_01H..."
+  |     YOUR app maps email domain to org_id (from your DB or
+  |     WorkOS Organizations API). WorkOS does NOT auto-resolve.
   |
   +-- User picks org from dropdown → organization: "org_01H..."
-  |     Get org_id from your database
+  |     Store org_id per tenant in your database
   |
   +-- Direct link from admin panel → connection: "conn_01H..."
   |
   +-- Social login (Google, Microsoft) → provider: "GoogleOAuth"
 ```
 
-**Trap:** Do NOT combine `domainHint` + `organization` — use exactly ONE. Passing both causes unpredictable routing.
+The three connection selectors: `connection`, `organization`, `provider`. Exactly one required.
+
+**Optional UX params** (not selectors): `domain_hint` pre-fills the domain field for Microsoft OAuth / Google SAML. `login_hint` pre-fills the email field. Neither routes the request — they only improve UX.
+
+**Trap:** Do NOT combine connection selectors — use exactly ONE of `connection`, `organization`, or `provider`.
 
 ## Step 4: Authorization URL + Callback Handler
 
@@ -52,7 +59,7 @@ auth_url = workos.sso.getAuthorizationUrl({
   clientId: WORKOS_CLIENT_ID,
   redirectUri: "https://yourapp.com/callback",
   state: crypto_random_string,       // CSRF protection — store in session
-  organization: org_id               // OR domainHint OR connection OR provider (Step 3)
+  organization: org_id               // OR connection OR provider — exactly ONE (Step 3)
 })
 // Redirect user to auth_url
 
@@ -140,5 +147,5 @@ echo $WORKOS_CLIENT_ID | grep '^client_' && echo "✓ Client ID" || echo "✗ mi
 **Fix:**
 
 1. Verify domain is added to the org in Dashboard > Organizations
-2. Check if using `domainHint` with an unregistered domain
+2. Check your app's email-to-org mapping logic — is the org_id correct?
 3. For contractor emails outside org domain, enable guest domains in connection settings
