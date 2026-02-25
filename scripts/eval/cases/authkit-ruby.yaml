@@ -1,0 +1,34 @@
+- id: authkit-ruby-rails
+  product: authkit
+  skill: workos-authkit-base
+  skillType: hand-crafted
+  language: ruby
+  framework: rails
+  prompt: |
+    Set up WorkOS AuthKit authentication in my Ruby on Rails app. I need
+    login, logout, session management, and user profile access.
+  expected:
+    methods:
+      - WorkOS::UserManagement.get_authorization_url
+      - WorkOS::UserManagement.authenticate_with_code
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - workos
+    params:
+      - redirect_uri
+      - code
+      - provider
+    flowSteps:
+      - configure WorkOS with API key and client ID
+      - generate authorization URL for login
+      - handle callback with code exchange
+      - store user in session
+      - implement logout by clearing session
+    antiPatterns:
+      - hardcoded API key
+      - store access token in plaintext cookie
+    hallucinations:
+      - WorkOS::AuthKit.login
+      - require "workos-authkit"

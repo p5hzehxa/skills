@@ -137,3 +137,63 @@
     hallucinations:
       - workos.rbac.createRole
       - workos.organizations.addRole
+
+- id: rbac-python-role-assignment
+  product: rbac
+  skill: workos-rbac
+  skillType: generated
+  language: python
+  prompt: |
+    Assign the "billing-admin" role to a user in their organization using
+    the WorkOS Python SDK. The role is already configured in the Dashboard.
+  expected:
+    methods:
+      - workos_client.user_management.list_organization_memberships
+      - workos_client.user_management.update_organization_membership
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - workos
+    params:
+      - role_slug
+      - organization_id
+      - user_id
+    flowSteps:
+      - list organization memberships to find membership ID
+      - update membership with role slug
+      - verify role exists in Dashboard
+    antiPatterns:
+      - create role via API
+    hallucinations:
+      - workos_client.rbac.assign_role
+      - workos_client.roles.assign
+
+- id: rbac-ruby-role-assignment
+  product: rbac
+  skill: workos-rbac
+  skillType: generated
+  language: ruby
+  prompt: |
+    Assign the "billing-admin" role to a user in their organization using
+    the WorkOS Ruby SDK. The role was configured in the WorkOS Dashboard.
+  expected:
+    methods:
+      - WorkOS::UserManagement.list_organization_memberships
+      - WorkOS::UserManagement.update_organization_membership
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - workos
+    params:
+      - role_slug
+      - organization_id
+      - user_id
+    flowSteps:
+      - list organization memberships to find membership ID
+      - update membership with role slug
+      - verify role exists in Dashboard
+    antiPatterns:
+      - create role via API
+    hallucinations:
+      - WorkOS::RBAC.assign_role
+      - WorkOS::Roles.assign

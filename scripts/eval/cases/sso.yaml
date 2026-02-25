@@ -268,3 +268,135 @@
       - workos.sso.authenticate
       - workos.sso.login
       - from workos import SSO
+
+- id: sso-python-basic-flow
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: python
+  prompt: |
+    Implement SSO login for a Python Flask app using WorkOS. Generate the
+    authorization URL, handle the callback, and exchange the code for a
+    user profile. Include state parameter for CSRF protection.
+  expected:
+    methods:
+      - workos_client.sso.get_authorization_url
+      - workos_client.sso.get_profile_and_token
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - workos
+    params:
+      - redirect_uri
+      - state
+      - code
+    flowSteps:
+      - initialize WorkOS client with api_key
+      - generate authorization URL with redirect_uri
+      - generate random state and store in session
+      - redirect user to authorization URL
+      - handle callback and verify state
+      - exchange code for profile
+    antiPatterns:
+      - hardcoded API key
+    hallucinations:
+      - workos.sso.authenticate
+      - from workos import SSO
+      - from workos.sso import SSOClient
+
+- id: sso-python-social-login
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: python
+  prompt: |
+    Add "Sign in with Google" to my Python app using WorkOS SSO. I want
+    to use the same WorkOS flow for both enterprise SSO and social login.
+  expected:
+    methods:
+      - workos_client.sso.get_authorization_url
+      - workos_client.sso.get_profile_and_token
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - workos
+    params:
+      - provider
+      - redirect_uri
+    flowSteps:
+      - initialize WorkOS client
+      - pass provider GoogleOAuth to get_authorization_url
+      - redirect to authorization URL
+      - exchange code in callback
+    antiPatterns:
+      - separate Google OAuth library
+    hallucinations:
+      - workos_client.sso.social_login
+      - workos.oauth.google
+
+- id: sso-ruby-basic-flow
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: ruby
+  prompt: |
+    Implement SSO login in a Ruby on Rails app using WorkOS. Generate the
+    auth URL, handle the callback, exchange code for profile. Use the
+    WorkOS Ruby SDK.
+  expected:
+    methods:
+      - WorkOS::SSO.get_authorization_url
+      - WorkOS::SSO.profile_and_token
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - workos
+    params:
+      - redirect_uri
+      - state
+      - code
+    flowSteps:
+      - configure WorkOS with API key
+      - generate authorization URL
+      - store state in session for CSRF
+      - redirect to IdP
+      - handle callback and verify state
+      - exchange code for profile and token
+    antiPatterns:
+      - hardcoded API key
+    hallucinations:
+      - WorkOS::SSO.authenticate
+      - WorkOS::SSO.login
+      - require "workos-ruby"
+
+- id: sso-ruby-social-login
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: ruby
+  prompt: |
+    Add Google social login to my Rails app using WorkOS SSO. I already
+    have enterprise SSO working and want social login through the same flow.
+  expected:
+    methods:
+      - WorkOS::SSO.get_authorization_url
+      - WorkOS::SSO.profile_and_token
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - workos
+    params:
+      - provider
+      - redirect_uri
+    flowSteps:
+      - pass provider GoogleOAuth to get_authorization_url
+      - redirect to authorization URL
+      - exchange code in callback
+    antiPatterns:
+      - omniauth gem for Google only
+    hallucinations:
+      - WorkOS::SSO.social_login
+      - WorkOS::OAuth.google

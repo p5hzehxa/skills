@@ -146,3 +146,65 @@
     hallucinations:
       - workos.auditLogs.createPortalLink
       - workos.adminPortal.createAuditLogView
+
+- id: audit-logs-python-create
+  product: audit-logs
+  skill: workos-audit-logs
+  skillType: generated
+  language: python
+  prompt: |
+    Create an audit log event in WorkOS when a user updates organization
+    settings in my Python app. Include actor, target, and organization.
+  expected:
+    methods:
+      - workos_client.audit_logs.create_event
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - workos
+    params:
+      - organization_id
+      - action
+      - actor
+      - targets
+    flowSteps:
+      - construct event with actor and target
+      - include organization_id
+      - format action as domain.resource.verb
+      - call create_event
+    antiPatterns:
+      - hardcoded API key
+    hallucinations:
+      - workos_client.audit_logs.log
+      - workos_client.audit_logs.emit
+
+- id: audit-logs-ruby-create
+  product: audit-logs
+  skill: workos-audit-logs
+  skillType: generated
+  language: ruby
+  prompt: |
+    Create an audit log event with WorkOS in my Rails app when a user
+    changes organization settings. Include actor, target, and org context.
+  expected:
+    methods:
+      - WorkOS::AuditLogs.create_event
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - workos
+    params:
+      - organization_id
+      - action
+      - actor
+      - targets
+    flowSteps:
+      - construct event hash with actor and target
+      - include organization_id
+      - format action as domain.resource.verb
+      - call create_event
+    antiPatterns:
+      - hardcoded API key
+    hallucinations:
+      - WorkOS::AuditLogs.log
+      - WorkOS::AuditLogs.emit

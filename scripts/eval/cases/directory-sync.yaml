@@ -174,3 +174,66 @@
     hallucinations:
       - workos.directorySync.listGroups
       - workos.directorySync.addUserToGroup
+
+- id: dsync-python-webhook
+  product: directory-sync
+  skill: workos-directory-sync
+  skillType: generated
+  language: python
+  prompt: |
+    Implement a webhook handler for WorkOS Directory Sync events in my
+    Python Flask app. Handle user provisioning and deprovisioning with
+    signature verification.
+  expected:
+    methods:
+      - workos_client.webhooks.verify_event
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_WEBHOOK_SECRET
+    imports:
+      - workos
+    params:
+      - payload
+      - signature
+      - secret
+    flowSteps:
+      - verify webhook signature
+      - return 200 immediately
+      - handle dsync.user.created
+      - handle dsync.user.updated with state inactive
+    antiPatterns:
+      - no signature verification
+    hallucinations:
+      - workos_client.directory_sync.verify_webhook
+      - workos_client.webhooks.validate
+
+- id: dsync-ruby-webhook
+  product: directory-sync
+  skill: workos-directory-sync
+  skillType: generated
+  language: ruby
+  prompt: |
+    Implement a webhook handler for WorkOS Directory Sync events in my
+    Rails app. Handle user create, update (inactive), and delete events.
+    Verify the webhook signature.
+  expected:
+    methods:
+      - WorkOS::Webhooks.verify_event
+    envVars:
+      - WORKOS_WEBHOOK_SECRET
+    imports:
+      - workos
+    params:
+      - payload
+      - sig_header
+      - secret
+    flowSteps:
+      - verify webhook signature with WorkOS::Webhooks
+      - return 200 immediately
+      - handle dsync.user.created
+      - handle dsync.user.updated with state inactive
+    antiPatterns:
+      - no signature verification
+    hallucinations:
+      - WorkOS::DirectorySync.verify_webhook
+      - WorkOS::Webhooks.validate
