@@ -3,3 +3,6 @@ node_modules/
 dist/
 *.tsbuildinfo
 scripts/output/
+
+# Keep ideation docs untracked
+/docs/ideation/
