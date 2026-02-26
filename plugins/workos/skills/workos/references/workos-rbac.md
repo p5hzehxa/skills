@@ -4,14 +4,14 @@
 
 ## When to Use
 
-Use this skill when you need to assign users to predefined roles (Admin, Member, Viewer) and enforce permission checks based on those roles. This is simpler than Fine-Grained Authorization (FGA) but less flexible — choose RBAC when your authorization model fits a small set of stable roles rather than complex resource-specific permissions.
+Use this skill when you need to assign users to predefined roles with associated permissions, then enforce those permissions in your application. RBAC is appropriate when your authorization model fits hierarchical role structures (admin, editor, viewer) rather than relationship-based access control.
 
 ## Key Vocabulary
 
-- **Role** `role_` — A named set of permissions (e.g., "Admin", "Member")
-- **Resource** `resource_` — An entity users can access (e.g., Project, Repository)
-- **Authorization** `authz_` — A user-role-resource binding
-- **Permission** — A capability granted by a role (e.g., `repo:delete`)
+- **Role** `role_` — Named permission set assigned to users
+- **Resource** `res_` — Protected entity in your application (e.g., documents, projects)
+- **Permission** — Action that can be checked (e.g., `document:read`, `project:delete`)
+- **Authorization Check** — Runtime verification of whether a user's roles grant a specific permission
 
 ## Implementation Guide
 

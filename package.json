@@ -7,8 +7,9 @@
     "plugins"
   ],
   "scripts": {
-    "generate": "bun run scripts/generate.ts",
-    "test": "bun test",
+    "generate": "npx tsx scripts/generate.ts",
+    "eval": "npx tsx scripts/eval.ts",
+    "test": "vitest run",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -26,9 +27,11 @@
     "url": "https://github.com/workos/skills"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/node": "^22.0.0",
     "prettier": "^3.8.1",
-    "typescript": "^5.7.0"
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
   },
   "dependencies": {
     "yaml": "^2.8.2"

@@ -1,0 +1,100 @@
+- id: authkit-nextjs-setup
+  product: authkit
+  skill: workos-authkit-nextjs
+  skillType: hand-crafted
+  language: node
+  framework: nextjs
+  prompt: |
+    Set up WorkOS AuthKit in my Next.js 15 app with the App Router. I need
+    login, logout, and protected routes. Walk me through the full setup.
+  expected:
+    methods:
+      - authkitMiddleware
+      - handleAuth
+      - getUser
+      - AuthKitProvider
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+      - WORKOS_COOKIE_PASSWORD
+      - NEXT_PUBLIC_WORKOS_REDIRECT_URI
+    imports:
+      - "@workos-inc/authkit-nextjs"
+    params: []
+    flowSteps:
+      - install SDK
+      - set environment variables
+      - create middleware
+      - create callback route
+      - wrap app in AuthKitProvider
+      - use getUser in server components
+    antiPatterns:
+      - middleware in app directory
+      - use client for auth logic
+      - custom OAuth implementation
+    hallucinations:
+      - "@workos/nextjs"
+      - "@workos-inc/nextjs"
+      - workos.auth.login
+      - workos.auth.getSession
+
+- id: authkit-nextjs-protected
+  product: authkit
+  skill: workos-authkit-nextjs
+  skillType: hand-crafted
+  language: node
+  framework: nextjs
+  prompt: |
+    I have AuthKit set up in my Next.js app. Now I need to create a protected
+    dashboard page that only authenticated users can see, and a public landing
+    page. How do I check if a user is authenticated in a server component?
+  expected:
+    methods:
+      - getUser
+      - withAuth
+      - signOut
+      - getSignInUrl
+    envVars: []
+    imports:
+      - "@workos-inc/authkit-nextjs"
+    params: []
+    flowSteps:
+      - call getUser in server component
+      - check if user exists
+      - redirect unauthenticated users
+      - render dashboard for authenticated users
+    antiPatterns:
+      - use client for auth check
+      - localStorage for session
+      - manual JWT parsing
+    hallucinations:
+      - useSession
+      - getServerSession
+      - workos.users.getUser
+
+- id: authkit-nextjs-15-fix
+  product: authkit
+  skill: workos-authkit-nextjs
+  skillType: hand-crafted
+  language: node
+  framework: nextjs
+  prompt: |
+    I upgraded from Next.js 14 to 15 and now my AuthKit middleware is broken.
+    I get "cookies was called outside a request scope" error. How do I fix it?
+  expected:
+    methods:
+      - authkitMiddleware
+      - handleAuth
+    envVars: []
+    imports:
+      - "@workos-inc/authkit-nextjs"
+    params: []
+    flowSteps:
+      - cookies is async in Next.js 15
+      - route handler must be async
+      - await cookie operations
+      - check SDK version compatibility
+    antiPatterns:
+      - call cookies at module level
+      - synchronous cookie access
+    hallucinations: []

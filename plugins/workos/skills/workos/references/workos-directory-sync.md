@@ -4,15 +4,14 @@
 
 ## When to Use
 
-Use Directory Sync when you need to provision user accounts and groups from identity providers (Okta, Azure AD, Google Workspace) into your application. This skill handles both real-time webhook-based sync and batch processing via the Events API. Choose webhooks for immediate provisioning; choose Events API for reconciliation, recovery, or batch imports.
+Use this skill when you need to sync user and group data from external identity providers (Okta, Microsoft Entra ID, Google Workspace, etc.) into your application. Directory Sync solves the problem of keeping user rosters, organizational structures, and group memberships automatically synchronized without manual CSV imports or API polling.
 
 ## Key Vocabulary
 
-- **Directory** `directory_` — represents a sync connection to an IdP
-- **Directory User** `directory_user_` — synced user account from the IdP
-- **Directory Group** `directory_group_` — synced group from the IdP
-- **Event types**: `dsync.user.created`, `dsync.user.updated`, `dsync.user.deleted`, `dsync.group.created`, `dsync.group.updated`, `dsync.group.deleted`, `dsync.group.user_added`, `dsync.group.user_removed`
-- **`dsync.deleted`** — triggered when entire Directory is deactivated (does NOT trigger individual user/group delete events)
+- **Directory** `directory_` — represents a configured sync connection to an identity provider
+- **Directory User** `directory_user_` — a synced user entity from the identity provider
+- **Directory Group** `directory_group_` — a synced group/team entity from the identity provider
+- **dsync.\*** events — webhook event types for user/group lifecycle (`dsync.user.created`, `dsync.group.updated`, `dsync.deleted`)
 
 ## Implementation Guide
 

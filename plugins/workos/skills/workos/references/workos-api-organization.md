@@ -4,15 +4,21 @@
 
 ## When to Use
 
-Organizations represent companies or teams in a multi-tenant application. Use this skill when you need to create, retrieve, update, or delete organization records, or when you need to map external system identifiers to WorkOS organization IDs for syncing data between your application and WorkOS.
+Use this skill when you need to manage organizations in WorkOS — creating, reading, updating, or deleting organization records. This is the core entity for multi-tenant applications and is required when implementing Admin Portal, Directory Sync, or SSO connections that belong to specific organizations.
 
 ## Key Vocabulary
 
-- **Organization** `org_` — represents a company or team entity
-- **External ID** — your application's identifier for the organization, used for cross-system mapping
+- **Organization** `org_` — The top-level multi-tenant entity in WorkOS
+- **External ID** — Your system's unique identifier for an organization (used for lookups)
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `references/workos-api-organization.guide.md`
+
+## Related Skills
+
+- workos-admin-portal (organizations own Admin Portal sessions)
+- workos-sso (SSO connections belong to organizations)
+- workos-directory-sync (directory connections belong to organizations)

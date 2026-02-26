@@ -4,15 +4,13 @@
 
 ## When to Use
 
-Migrate existing user authentication from Supabase Auth to WorkOS AuthKit when you need centralized identity management, SSO, or directory sync capabilities. This skill covers both password-based users (with bcrypt hash migration) and OAuth-linked users (email-only migration). Choose this over other migration skills when your source system is specifically Supabase Auth.
+Migrate existing users from Supabase Auth to WorkOS while preserving their ability to sign in with existing passwords. Use this when you need to transition an application from Supabase's authentication system to WorkOS without forcing users to reset passwords or re-authenticate.
 
 ## Key Vocabulary
 
-- **User Management User `user_`** — WorkOS entity created for each migrated Supabase user
-- **Password Hash `$2a$` or `$2b$`** — bcrypt format exported from Supabase `auth.users.encrypted_password`
-- **Migration `migration_`** — WorkOS entity representing a bulk user import operation
-- **Email Verification State** — `email_confirmed_at` in Supabase maps to WorkOS email verification status
-- **OAuth Identity** — Supabase users with `identities` array (Google, GitHub, etc.) migrate email-only without password
+- **User Migration `user_migration_`** — the WorkOS resource that imports user records with password hashes
+- **bcrypt hash format** — Supabase uses bcrypt for password storage; WorkOS accepts bcrypt hashes during migration
+- **User Management** — the WorkOS feature that stores migrated user identities after import
 
 ## Implementation Guide
 
@@ -23,4 +21,5 @@ For step-by-step implementation, verification commands, and error recovery:
 ## Related Skills
 
 - **workos-user-management** — target system for migrated users
-- **workos-authkit-nextjs** — post-migration authentication integration
+- **workos-authkit-react** — post-migration authentication UI
+- **workos-authkit-nextjs** — post-migration authentication for Next.js apps

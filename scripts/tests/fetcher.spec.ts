@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from "bun:test";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { fetchDocs } from "../lib/fetcher.ts";
 import { rm, mkdir } from "fs/promises";
 import { join } from "path";

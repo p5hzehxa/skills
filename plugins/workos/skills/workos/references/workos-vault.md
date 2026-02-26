@@ -4,14 +4,14 @@
 
 ## When to Use
 
-Use Vault when you need to store sensitive data (API keys, tokens, credentials) with encryption at rest and granular access controls. Vault is designed for applications that handle third-party credentials on behalf of users or need to meet compliance requirements for secrets management.
+Use this skill when you need to securely store and retrieve sensitive data like API keys, passwords, or tokens. Vault provides encrypted storage with fine-grained access controls, eliminating the need to manage encryption infrastructure yourself.
 
 ## Key Vocabulary
 
-- **Vault Item** `vitem_` — encrypted key-value store entry
-- **Vault Key** `vkey_` — encryption key for vault items
-- **Secret Type** — predefined schema for common credential types (e.g., `api_key`, `oauth_token`)
-- **Access Policy** — rules defining which users/services can decrypt specific vault items
+- **Secret** `secret_` — encrypted credential or sensitive value
+- **Vault Connection** `vault_conn_` — links Vault to a specific organization
+- **Secret Version** — immutable snapshot of a secret's value at a point in time
+- **Secret Path** — hierarchical identifier for organizing secrets (e.g., `api/stripe/key`)
 
 ## Implementation Guide
 

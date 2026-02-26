@@ -1,5 +1,5 @@
-import { mkdir } from "fs/promises";
-import { join, dirname } from "path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join, dirname } from "node:path";
 import { fetchLlmsFullTxt, fetchLlmsTxt } from "./lib/fetcher.ts";
 import { parseSections } from "./lib/parser.ts";
 import { validateSections } from "./lib/validator.ts";
@@ -18,6 +18,7 @@ import { runQualityGate } from "./lib/quality-gate.ts";
 import { shouldRegenerate } from "./lib/hasher.ts";
 import {
   HAND_CRAFTED_SKILLS,
+  HAND_CRAFTED_GUIDES,
   VALIDATION,
   SUMMARY_VALIDATION,
 } from "./lib/config.ts";
@@ -173,7 +174,7 @@ async function main() {
       process.cwd(),
       "plugins/workos/skills/workos-authkit-nextjs/SKILL.md",
     );
-    const goldStandard = await Bun.file(goldStandardPath).text();
+    const goldStandard = await readFile(goldStandardPath, "utf8");
     console.log(
       `  Gold standard: ${goldStandardPath} (${(goldStandard.length / 1024).toFixed(1)}KB)`,
     );
@@ -268,11 +269,19 @@ async function main() {
   }
 
   console.log("\nWriting skills to disk...");
+  const handCraftedGuideSet = new Set<string>(HAND_CRAFTED_GUIDES);
   let written = 0;
   let skipped = 0;
   for (const skill of generatedSkills) {
     // When --refine-only is set, only write the targeted skill
     if (flags.refineOnly && skill.name !== flags.refineOnly) {
+      skipped++;
+      continue;
+    }
+
+    // Skip hand-crafted guide files (summaries are still generated)
+    if (skill.type === "guide" && handCraftedGuideSet.has(skill.name)) {
+      console.log(`  ⊘ ${skill.path}  (hand-crafted guide, protected)`);
       skipped++;
       continue;
     }
@@ -283,7 +292,7 @@ async function main() {
     // Content-addressed locking: skip if source hash unchanged
     if (skill.sourceHash) {
       try {
-        const existing = await Bun.file(fullPath).text();
+        const existing = await readFile(fullPath, "utf8");
         const check = shouldRegenerate(existing, skill.sourceHash, flags.force);
         if (check.skip) {
           console.log(`  ⊘ ${skill.path}  (${check.reason})`);
@@ -295,7 +304,7 @@ async function main() {
       }
     }
 
-    await Bun.write(fullPath, skill.content);
+    await writeFile(fullPath, skill.content);
     console.log(`  ✓ ${skill.path}`);
     written++;
   }
@@ -333,7 +342,7 @@ async function main() {
   // Write quality report
   const reportPath = join(process.cwd(), "scripts/output/quality-report.json");
   await mkdir(dirname(reportPath), { recursive: true });
-  await Bun.write(reportPath, JSON.stringify(qualityReport, null, 2));
+  await writeFile(reportPath, JSON.stringify(qualityReport, null, 2));
   console.log(`\n  Report: ${reportPath}`);
   console.log(
     `  ${qualityReport.passed} passed, ${qualityReport.failed} failed out of ${qualityReport.total}`,

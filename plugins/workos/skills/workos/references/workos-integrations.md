@@ -1,3 +1,8 @@
+---
+name: workos-integrations
+description: Set up identity provider integrations with WorkOS. Covers SSO, SCIM, and OAuth for 40+ providers.
+---
+
 <!-- generated:sha256:cd3ef709325d -->
 
 # WorkOS Integrations

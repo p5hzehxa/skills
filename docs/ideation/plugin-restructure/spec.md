@@ -103,27 +103,45 @@ All path changes follow the same pattern: `skills/` → `plugins/workos/skills/`
 
 ### 3.1 scripts/lib/generator.ts (4 references)
 
-| Line | Old | New |
-|------|-----|-----|
-| ~27 | `` `skills/workos/references/${spec.name}.md` `` | `` `plugins/workos/skills/workos/references/${spec.name}.md` `` |
-| ~37 | `` `skills/workos/references/${spec.name}.guide.md` `` | `` `plugins/workos/skills/workos/references/${spec.name}.guide.md` `` |
-| ~204 | `"skills/workos/SKILL.md"` | `"plugins/workos/skills/workos/SKILL.md"` |
-| ~435 | `"skills/workos/references/workos-integrations.md"` | `"plugins/workos/skills/workos/references/workos-integrations.md"` |
+| Line | Old                                                    | New                                                                   |
+| ---- | ------------------------------------------------------ | --------------------------------------------------------------------- |
+| ~27  | `` `skills/workos/references/${spec.name}.md` ``       | `` `plugins/workos/skills/workos/references/${spec.name}.md` ``       |
+| ~37  | `` `skills/workos/references/${spec.name}.guide.md` `` | `` `plugins/workos/skills/workos/references/${spec.name}.guide.md` `` |
+| ~204 | `"skills/workos/SKILL.md"`                             | `"plugins/workos/skills/workos/SKILL.md"`                             |
+| ~435 | `"skills/workos/references/workos-integrations.md"`    | `"plugins/workos/skills/workos/references/workos-integrations.md"`    |
 
 ### 3.2 scripts/lib/feedback.ts (1 reference)
 
 Change path join from:
+
 ```typescript
-join(process.cwd(), "skills", "workos", "references", `${skillName}.feedback.md`)
+join(
+  process.cwd(),
+  "skills",
+  "workos",
+  "references",
+  `${skillName}.feedback.md`,
+);
 ```
+
 To:
+
 ```typescript
-join(process.cwd(), "plugins", "workos", "skills", "workos", "references", `${skillName}.feedback.md`)
+join(
+  process.cwd(),
+  "plugins",
+  "workos",
+  "skills",
+  "workos",
+  "references",
+  `${skillName}.feedback.md`,
+);
 ```
 
 ### 3.3 scripts/lib/types.ts (1 comment)
 
 Update comment example path:
+
 ```typescript
 /** Relative write path, e.g. "plugins/workos/skills/workos/references/workos-sso.md" */
 ```
@@ -131,20 +149,22 @@ Update comment example path:
 ### 3.4 scripts/generate.ts (1 reference)
 
 Update gold standard path:
+
 ```
 "skills/workos-authkit-nextjs/SKILL.md" → "plugins/workos/skills/workos-authkit-nextjs/SKILL.md"
 ```
 
 ### 3.5 scripts/refine-batch.ts (2 references)
 
-| Old | New |
-|-----|-----|
-| `` `skills/${name}/SKILL.md` `` | `` `plugins/workos/skills/${name}/SKILL.md` `` |
+| Old                                       | New                                                      |
+| ----------------------------------------- | -------------------------------------------------------- |
+| `` `skills/${name}/SKILL.md` ``           | `` `plugins/workos/skills/${name}/SKILL.md` ``           |
 | `"skills/workos-authkit-nextjs/SKILL.md"` | `"plugins/workos/skills/workos-authkit-nextjs/SKILL.md"` |
 
 ### 3.6 scripts/lib/refiner.ts (1 reference)
 
 Change skills directory lookup:
+
 ```typescript
 // Old:
 const skillsDir = join(process.cwd(), "skills");
@@ -164,19 +184,19 @@ const skillsDir = join(process.cwd(), "plugins", "workos", "skills");
 
 ### 4.1 scripts/tests/generator.spec.ts (4 assertions)
 
-| Old | New |
-|-----|-----|
-| `"skills/workos/references/workos-sso.md"` | `"plugins/workos/skills/workos/references/workos-sso.md"` |
-| `"skills/workos/references/workos-sso.guide.md"` | `"plugins/workos/skills/workos/references/workos-sso.guide.md"` |
-| `"skills/workos/SKILL.md"` | `"plugins/workos/skills/workos/SKILL.md"` |
+| Old                                                 | New                                                                |
+| --------------------------------------------------- | ------------------------------------------------------------------ |
+| `"skills/workos/references/workos-sso.md"`          | `"plugins/workos/skills/workos/references/workos-sso.md"`          |
+| `"skills/workos/references/workos-sso.guide.md"`    | `"plugins/workos/skills/workos/references/workos-sso.guide.md"`    |
+| `"skills/workos/SKILL.md"`                          | `"plugins/workos/skills/workos/SKILL.md"`                          |
 | `"skills/workos/references/workos-integrations.md"` | `"plugins/workos/skills/workos/references/workos-integrations.md"` |
 
 ### 4.2 scripts/tests/quality-gate.spec.ts (2 defaults)
 
-| Old | New |
-|-----|-----|
+| Old                                                     | New                                                                    |
+| ------------------------------------------------------- | ---------------------------------------------------------------------- |
 | `"skills/workos/references/workos-test-skill.guide.md"` | `"plugins/workos/skills/workos/references/workos-test-skill.guide.md"` |
-| `"skills/workos/references/workos-test-skill.md"` | `"plugins/workos/skills/workos/references/workos-test-skill.md"` |
+| `"skills/workos/references/workos-test-skill.md"`       | `"plugins/workos/skills/workos/references/workos-test-skill.md"`       |
 
 ### 4.3 scripts/tests/paths.spec.ts (2 constants + 1 regex)
 
@@ -196,6 +216,7 @@ Regex pattern (line ~59): Already matches relative `references/` paths — **no 
 ### 5.1 package.json
 
 Change `"files"` array:
+
 ```json
 "files": ["plugins"]
 ```

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { parseSections, parseSubsections } from "../lib/parser.ts";
 
 describe("parseSections", () => {

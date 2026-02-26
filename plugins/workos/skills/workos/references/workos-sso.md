@@ -4,13 +4,13 @@
 
 ## When to Use
 
-Use this skill when you need to let users authenticate through their company's identity provider (Okta, Azure AD, Google Workspace, etc.) instead of managing passwords yourself. This enables enterprise customers to use their existing SSO infrastructure and enforces their security policies in your app.
+Use this skill when you need to let users sign in using their organization's identity provider (Okta, Azure AD, Google Workspace, etc.) instead of managing passwords yourself. This skill handles the OAuth/SAML flow for enterprise SSO, returning authenticated user profiles to your application.
 
 ## Key Vocabulary
 
-- **Organization** `org_` — represents a company/tenant using SSO
-- **Connection** `conn_` — links an Organization to a specific IdP (one per provider type)
-- **Profile** `prof_` — the authenticated user identity returned after SSO
+- **Organization** `org_` — the company/tenant whose IdP users authenticate through
+- **Connection** `conn_` — the configured link between an Organization and their IdP (e.g., `conn_okta_123`)
+- **Profile** `profile_` — the authenticated user object returned after SSO, containing email/name/IdP metadata
 
 ## Implementation Guide
 

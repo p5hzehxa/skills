@@ -1,0 +1,199 @@
+- id: rbac-node-check-permission
+  product: rbac
+  skill: workos-rbac
+  skillType: generated
+  language: node
+  prompt: |
+    I need to check if the current user has the "videos.create" permission
+    before allowing them to upload a video in my Node.js app. I'm using WorkOS
+    AuthKit with organization-level roles. Show me the authorization check pattern.
+  expected:
+    methods: []
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - "@workos-inc/node"
+    params:
+      - permissions
+      - organizationId
+    flowSteps:
+      - get user session or access token
+      - read permissions from session or JWT claims
+      - check if permissions include required permission
+      - deny access if permission missing
+    antiPatterns:
+      - check role name instead of permission
+      - check role slug instead of permission
+    hallucinations:
+      - workos.rbac.checkPermission
+      - workos.rbac.authorize
+      - workos.permissions.check
+
+- id: rbac-node-role-assignment
+  product: rbac
+  skill: workos-rbac
+  skillType: generated
+  language: node
+  prompt: |
+    I need to assign the "billing-admin" role to a user in their organization
+    using the WorkOS Node.js SDK. The role was configured in the WorkOS Dashboard.
+  expected:
+    methods:
+      - workos.userManagement.listOrganizationMemberships
+      - workos.userManagement.updateOrganizationMembership
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - "@workos-inc/node"
+    params:
+      - roleSlug
+      - organizationId
+      - userId
+    flowSteps:
+      - list organization memberships to find membership ID
+      - update organization membership with role slug
+      - verify role exists in Dashboard
+    antiPatterns:
+      - create role via API instead of Dashboard
+    hallucinations:
+      - workos.rbac.assignRole
+      - workos.roles.assign
+      - workos.rbac.createRole
+
+- id: rbac-node-permission-vs-slug
+  product: rbac
+  skill: workos-rbac
+  skillType: generated
+  language: node
+  prompt: |
+    I'm building an admin panel with different access levels. I have roles
+    "admin", "editor", and "viewer" in WorkOS. Should I check `if (role ===
+    'admin')` or check specific permissions? What's the correct pattern for
+    authorization checks with WorkOS RBAC?
+  expected:
+    methods: []
+    envVars: []
+    imports: []
+    params:
+      - permissions
+    flowSteps:
+      - check permissions not role slugs
+      - permissions survive role refactoring
+      - slug checks break with custom roles
+      - slug checks only for UI display
+    antiPatterns:
+      - check role slug for access control
+      - role.slug === admin
+    hallucinations:
+      - workos.rbac.checkPermission
+      - workos.rbac.hasRole
+
+- id: rbac-node-idp-override
+  product: rbac
+  skill: workos-rbac
+  skillType: generated
+  language: node
+  prompt: |
+    I assigned a user the "billing-admin" role via the WorkOS API, but after
+    they log in again through Okta SSO, their role reverts to "member". What's
+    happening and how do I fix it?
+  expected:
+    methods: []
+    envVars: []
+    imports: []
+    params: []
+    flowSteps:
+      - IdP group mapping overrides API assignments
+      - role assignment reverts on re-authentication
+      - either remove IdP mapping or manage roles through IdP groups
+      - check Dashboard connections for active role mappings
+    antiPatterns:
+      - retry role assignment after each login
+    hallucinations:
+      - workos.rbac.lockRole
+      - workos.rbac.overrideIdp
+
+- id: rbac-node-org-vs-env-roles
+  product: rbac
+  skill: workos-rbac
+  skillType: generated
+  language: node
+  prompt: |
+    I have a multi-tenant SaaS app. Most organizations use the same roles
+    (admin, editor, viewer), but one enterprise customer needs a custom
+    "compliance-officer" role. Can I create custom roles per-org in WorkOS,
+    or do all orgs share the same roles?
+  expected:
+    methods: []
+    envVars: []
+    imports: []
+    params: []
+    flowSteps:
+      - environment-level roles shared across all organizations
+      - organization-level roles scoped to specific org
+      - first org role creation makes org independent
+      - org stops inheriting environment role changes
+    antiPatterns: []
+    hallucinations:
+      - workos.rbac.createRole
+      - workos.organizations.addRole
+
+- id: rbac-python-role-assignment
+  product: rbac
+  skill: workos-rbac
+  skillType: generated
+  language: python
+  prompt: |
+    Assign the "billing-admin" role to a user in their organization using
+    the WorkOS Python SDK. The role is already configured in the Dashboard.
+  expected:
+    methods:
+      - workos_client.user_management.list_organization_memberships
+      - workos_client.user_management.update_organization_membership
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - workos
+    params:
+      - role_slug
+      - organization_id
+      - user_id
+    flowSteps:
+      - list organization memberships to find membership ID
+      - update membership with role slug
+      - verify role exists in Dashboard
+    antiPatterns:
+      - create role via API
+    hallucinations:
+      - workos_client.rbac.assign_role
+      - workos_client.roles.assign
+
+- id: rbac-ruby-role-assignment
+  product: rbac
+  skill: workos-rbac
+  skillType: generated
+  language: ruby
+  prompt: |
+    Assign the "billing-admin" role to a user in their organization using
+    the WorkOS Ruby SDK. The role was configured in the WorkOS Dashboard.
+  expected:
+    methods:
+      - WorkOS::UserManagement.list_organization_memberships
+      - WorkOS::UserManagement.update_organization_membership
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - workos
+    params:
+      - role_slug
+      - organization_id
+      - user_id
+    flowSteps:
+      - list organization memberships to find membership ID
+      - update membership with role slug
+      - verify role exists in Dashboard
+    antiPatterns:
+      - create role via API
+    hallucinations:
+      - WorkOS::RBAC.assign_role
+      - WorkOS::Roles.assign

@@ -1,327 +1,179 @@
-<!-- refined:sha256:a3a31bdb28d7 -->
+<!-- hand-crafted -->
 
-# WorkOS Directory Sync
+# WorkOS Directory Sync — Implementation Guide
 
 ## Step 1: Fetch Documentation (BLOCKING)
 
 **STOP. Do not proceed until complete.**
 
-WebFetch these URLs before continuing:
+WebFetch these docs — they are the source of truth:
 
-- https://workos.com/docs/directory-sync/understanding-events
 - https://workos.com/docs/directory-sync/quick-start
-- https://workos.com/docs/directory-sync/index
-- https://workos.com/docs/directory-sync/identity-provider-role-assignment
+- https://workos.com/docs/directory-sync/understanding-events
 - https://workos.com/docs/directory-sync/handle-inactive-users
-- https://workos.com/docs/directory-sync/example-apps
 - https://workos.com/docs/directory-sync/attributes
 
-The fetched docs are the source of truth. If this skill conflicts with docs, follow docs.
+If this skill conflicts with fetched docs, follow the docs.
 
 ## Step 2: Pre-Flight Validation
 
-### API Keys
-
-Check environment variables:
-
-- `WORKOS_API_KEY` - starts with `sk_`
-- `WORKOS_CLIENT_ID` - starts with `client_`
-
-### WorkOS Dashboard Setup
-
-Confirm in dashboard.workos.com:
-
-- Organization exists for the customer
-- Directory connection configured (provider selected)
-- Webhooks endpoint configured OR Events API access enabled
-
-### SDK Installation
-
-Verify SDK package exists in project dependencies before writing integration code.
-
-## Step 3: Event Processing Strategy (Decision Tree)
-
-Choose event ingestion method:
-
-```
-Event processing needs?
-  |
-  +-- Real-time, low latency?
-  |   |
-  |   +-- Yes --> Use Webhooks (recommended)
-  |   |           - POST requests to your endpoint
-  |   |           - Verify signatures with workos.webhooks.verifyEvent()
-  |   |           - Return 200 immediately, process async
-  |   |
-  |   +-- No  --> Use Events API
-  |               - Poll with workos.events.listEvents()
-  |               - Filter by directory_id, after cursor
-  |               - Use for batch processing, reconciliation
-  |
-  +-- Recovering missed events?
-      |
-      +-- Yes --> Events API
-                  - Query historical events
-                  - Backfill from specific timestamp
+```bash
+echo $WORKOS_API_KEY | grep '^sk_' && echo "✓ valid" || echo "✗ missing WORKOS_API_KEY"
+echo $WORKOS_WEBHOOK_SECRET | grep '^wh_secret_' && echo "✓ valid" || echo "✗ missing WORKOS_WEBHOOK_SECRET"
 ```
 
-**CRITICAL:** Webhooks and Events API are NOT mutually exclusive. You can use both:
+`WORKOS_WEBHOOK_SECRET` only needed for webhooks. Skip if using Events API only.
 
-- Webhooks for real-time processing
-- Events API for batch reconciliation or recovering missed events
-
-Do NOT claim webhooks are mandatory or that polling is not supported.
-
-## Step 4: Event Handler Implementation
-
-Create handler endpoint (webhooks) or polling function (Events API).
-
-### Webhook Pattern
+## Step 3: Event Consumption (Decision Tree)
 
 ```
-POST /webhooks/workos
+How will you receive directory sync events?
   |
-  1. Verify signature with workos.webhooks.verifyEvent(payload, signature, secret)
+  +-- Need real-time user provisioning/deprovisioning
+  |     → Use Webhooks (push-based)
+  |     → Endpoint: POST /webhooks/workos
+  |     → MUST: verify signature, return 200 within 10s, process async
   |
-  2. Return 200 immediately (< 5 seconds)
+  +-- Batch reconciliation or recovering missed events
+  |     → Use Events API (pull-based)
+  |     → Method: workos.events.listEvents({ events: ['dsync.*'], after: cursor })
+  |     → Poll on cron (e.g., every 60s)
   |
-  3. Queue event for async processing
-  |
-  4. Process event in background job
+  +-- Both (recommended for production)
+        → Webhooks for real-time + Events API for backfill
 ```
 
-### Events API Pattern
+**Trap:** Webhooks are NOT mandatory. The Events API is a fully supported alternative for batch processing and recovering missed events.
+
+## Step 4: Webhook Handler
 
 ```
-Polling loop (cron job, background worker):
-  |
-  1. Call workos.events.listEvents({
-       events: ['dsync.user.created', 'dsync.user.updated', ...],
-       after: last_cursor
-     })
-  |
-  2. Process events in batch
-  |
-  3. Store cursor for next poll
+app.post('/webhooks/workos', async (req, res) => {
+  // 1. Verify signature FIRST (raw body, NOT parsed JSON)
+  verified = workos.webhooks.verifyEvent({
+    payload: req.body,
+    sigHeader: req.headers['workos-signature'],
+    secret: WORKOS_WEBHOOK_SECRET
+  })
+
+  // 2. Return 200 IMMEDIATELY (WorkOS times out at 10s)
+  res.status(200).send('OK')
+
+  // 3. Process event asynchronously
+  switch (verified.event) {
+    case 'dsync.user.created':
+      upsert_user(verified.data)       // Upsert, not insert (idempotency)
+    case 'dsync.user.updated':
+      if (verified.data.state === 'inactive') deprovision_user(verified.data)
+      else update_user(verified.data)
+    case 'dsync.user.deleted':
+      delete_user(verified.data)       // Rare — most providers use state:inactive
+    case 'dsync.deleted':
+      cascade_delete_directory(verified.data.id)  // CRITICAL: see Step 5
+  }
+})
 ```
 
-Check fetched docs for exact method signatures and parameters.
-
-### Event Processing Rules (ALL must pass)
-
-For EVERY event received:
-
-1. **Upsert pattern** - use `ON CONFLICT` or equivalent to handle duplicate events
-2. **Idempotency** - processing same event twice should be safe
-3. **Ordering** - events may arrive out of order; use timestamps to resolve conflicts
-4. **Retry** - failed processing must retry with exponential backoff
-
-## Step 5: Event Type Handling
-
-### Directory Lifecycle
-
-**`dsync.activated`**
-
-- Store `directory_id` in your database
-- Associate with `organization_id`
-- Directory is now live and will send user/group events
-
-**`dsync.deleted`** (CRITICAL TRAP)
-
-- Remove directory association from organization
-- Delete or mark as deleted ALL users in that directory
-- Delete or mark as deleted ALL groups in that directory
-- **IMPORTANT:** WorkOS sends ONLY `dsync.deleted` — no individual `dsync.user.deleted` or `dsync.group.deleted` events follow
-- Process cleanup in single transaction to avoid partial state
-
-### User Lifecycle
-
-**`dsync.user.created`**
-
-- Insert user into your users table
-- Link to `directory_id` and `organization_id`
-- Trigger onboarding flow (welcome email, provisioning, etc.)
-- During initial directory sync, you'll receive this for EVERY existing user
-
-**`dsync.user.updated`**
-
-- Update user attributes from event payload
-- Check `previous_attributes` to see what changed
-- Handle `state` changes (especially `active` → `inactive`)
-- Custom attributes are shallow-diffed; `null` in `previous_attributes` means new attribute
-
-**`dsync.user.deleted`**
-
-- Hard delete user from directory
-- **RARE EVENT** - most providers soft-delete via `dsync.user.updated` with `state: inactive`
-- Check fetched docs for provider-specific deletion behavior
-
-### Soft vs Hard Deletion (CRITICAL)
+### Ruby (Rails) Signature Verification
 
 ```
-User removed from directory?
-  |
-  +-- Most providers (Azure AD, Okta, etc.)
-  |   |
-  |   +-- Emit: dsync.user.updated with state: inactive
-  |   +-- Action: Deprovision access, retain user record
-  |
-  +-- Some providers (rare)
-      |
-      +-- Emit: dsync.user.deleted
-      +-- Action: Hard delete user record
+# config/initializers/workos.rb
+require "workos"
+WorkOS.key = ENV["WORKOS_API_KEY"]
+
+# app/controllers/workos_webhooks_controller.rb
+class WorkosWebhooksController < ActionController::API
+  # Ensure raw body is available (disable JSON parsing for this endpoint)
+  def receive
+    payload   = request.raw_post
+    sig       = request.headers["Workos-Signature"]
+    secret    = ENV["WORKOS_WEBHOOK_SECRET"]
+
+    event = WorkOS::Webhooks.verify_event(payload: payload, sig_header: sig, secret: secret)
+
+    # Acknowledge immediately (WorkOS timeout ~10s)
+    head :ok
+
+    case event["event"]
+    when "dsync.user.created"
+      # upsert user
+    when "dsync.user.updated"
+      if event.dig("data", "state") == "inactive"
+        # deprovision user
+      end
+    when "dsync.deleted"
+      # cascade delete by directory_id
+    end
+  rescue WorkOS::SignatureVerificationError
+    head :unauthorized
+  end
+end
 ```
 
-**IMPORTANT:** As of Oct 19, 2023, new WorkOS environments delete users moved to `inactive` state. Check fetched docs for your environment's behavior and retention options.
+## Step 5: Critical Traps
 
-### Group Lifecycle
+### Trap 1: `dsync.deleted` Cascade
 
-**`dsync.group.created`**
+When a directory is deleted, WorkOS sends ONE `dsync.deleted` event. It does NOT send individual `dsync.user.deleted` or `dsync.group.deleted` events.
 
-- Insert group into your groups table
-- Link to `directory_id` and `organization_id`
-- Event order: `dsync.user.created` → `dsync.group.created` → `dsync.group.user_added`
+```
+dsync.deleted fires:
+  |
+  +-- What you expect: dsync.user.deleted × N (one per user)
+  |     → WRONG. These events never arrive.
+  |
+  +-- What actually happens: just dsync.deleted (one event)
+        → DELETE FROM users WHERE directory_id = $1
+        → DELETE FROM groups WHERE directory_id = $1
+        → Run both in a transaction
+```
 
-**`dsync.group.updated`**
+### Trap 2: User Identity Key
 
-- Update group attributes (name, description, etc.)
-- Check `previous_attributes` for changes
-
-**`dsync.group.deleted`**
-
-- Remove group from your database
-- Handle user-group association cleanup
-
-**`dsync.group.user_added`**
-
-- Add user to group in your system
-- Update user permissions/roles based on group membership
-
-**`dsync.group.user_removed`**
-
-- Remove user from group
-- Revoke permissions granted by group membership
-
-## Step 6: Implementation Checklist
-
-### Database Schema
-
-- [ ] `directories` table with `workos_directory_id`, `organization_id`
-- [ ] `users` table with `workos_user_id`, `directory_id`, `organization_id`, `state`
-- [ ] `groups` table with `workos_group_id`, `directory_id`, `organization_id`
-- [ ] `group_memberships` junction table
-- [ ] Event processing cursor/offset storage (if using Events API)
-
-### Event Handler
-
-- [ ] Signature verification (webhooks) or authentication (Events API)
-- [ ] Immediate 200 response (webhooks)
-- [ ] Async processing queue
-- [ ] Idempotent upsert logic
-- [ ] Transaction safety for multi-record operations
-
-### Error Handling
-
-- [ ] Retry logic with exponential backoff
-- [ ] Dead letter queue for permanently failed events
-- [ ] Alerting for processing failures
-- [ ] Fallback to Events API if webhook delivery fails
+Use `email` as stable user identity, NOT the WorkOS `id`. The directory user ID (`directory_user_*`) changes if the user is recreated in the provider. Email is stable. Use for upserts: `WHERE email = $1`.
 
 ## Verification Checklist (ALL MUST PASS)
 
-Run these commands to confirm integration:
-
 ```bash
-# 1. Check environment variables exist
-env | grep -E 'WORKOS_(API_KEY|CLIENT_ID)' || echo "FAIL: Missing env vars"
+# 1. Webhook endpoint rejects unsigned requests
+curl -s -o /dev/null -w "%{http_code}" -X POST localhost:3000/webhooks/workos \
+  -H "Content-Type: application/json" -d '{}' | grep -q "401" && echo "✓ rejects unsigned" || echo "✗ FAIL"
 
-# 2. Check webhook endpoint returns 200 (if using webhooks)
-curl -X POST http://localhost:3000/webhooks/workos -H "Content-Type: application/json" -d '{}' | grep -q "200" || echo "FAIL: Webhook endpoint not responding"
+# 2. Signature verification exists in code
+grep -r "verifyEvent\|verifySignature\|constructEvent" src/ || echo "FAIL: No signature verification"
 
-# 3. Check database tables exist
-# (Replace with your database inspection command)
-psql -c "\dt directories" | grep -q "directories" || echo "FAIL: Missing directories table"
+# 3. dsync.deleted handler cascades (not just user-level deletes)
+grep -r "dsync.deleted" src/ | grep -v "dsync.user.deleted\|dsync.group.deleted" || echo "FAIL: No dsync.deleted handler"
 
-# 4. Verify signature verification exists in code
-grep -r "verifyEvent\|constructEvent" . || echo "FAIL: No signature verification found"
+# 4. Uses upsert pattern for idempotency
+grep -ri "upsert\|on conflict\|ON DUPLICATE" src/ || echo "WARN: No upsert pattern found"
 ```
 
 ## Error Recovery
 
-### "Invalid signature" for webhook events
+### "Invalid signature"
 
-**Root cause:** Webhook secret mismatch or signature verification missing.
+**Cause:** Secret mismatch or payload parsing
+**Fix:**
 
-Fix:
+1. Verify `WORKOS_WEBHOOK_SECRET` matches Dashboard value (`wh_secret_*`)
+2. Pass payload as raw string, not parsed JSON
+3. Check header name: `workos-signature`
 
-1. Verify `WORKOS_WEBHOOK_SECRET` matches value in WorkOS Dashboard
-2. Ensure signature from `WorkOS-Signature` header is passed to verification function
-3. Check payload is passed as raw string (not parsed JSON) to verification
+### Events API returns empty array
 
-### Events arrive out of order
+**Cause:** Wrong event filter or stale cursor
+**Fix:**
 
-**Root cause:** Network latency, retries, or concurrent delivery.
+1. Use `dsync.*` wildcard, not `dsync` alone
+2. Verify `after` param is within 30-day retention window
+3. Test with `workos.events.listEvents({ limit: 1 })` to confirm connectivity
 
-Fix:
+### Users still active after directory deletion
 
-1. Add `occurred_at` timestamp comparison in upsert logic
-2. Reject older events: `WHERE occurred_at > existing_record.occurred_at`
-3. Do NOT rely on event receive order for correctness
+**Cause:** Missing cascade logic for `dsync.deleted`
+**Fix:**
 
-### `dsync.deleted` leaves orphaned users
-
-**Root cause:** Missing bulk delete logic for directory deletion.
-
-Fix:
-
-1. Add `ON DELETE CASCADE` to foreign keys, OR
-2. Query all users with matching `directory_id` and delete in transaction
-3. Do NOT wait for individual `dsync.user.deleted` events (they won't come)
-
-### Duplicate user creation
-
-**Root cause:** Processing same `dsync.user.created` event twice.
-
-Fix:
-
-1. Use `ON CONFLICT (workos_user_id) DO UPDATE` in SQL, or equivalent
-2. Store event ID and skip if already processed
-3. Never use plain INSERT for event processing
-
-### Missed events during downtime
-
-**Root cause:** Webhook endpoint was unreachable.
-
-Fix:
-
-1. Use Events API to backfill: `workos.events.listEvents({ after: last_known_cursor })`
-2. Filter events by timestamp range covering downtime
-3. Process backfill events with same idempotent logic as webhooks
-
-### "User not found" when processing group events
-
-**Root cause:** `dsync.group.user_added` processed before `dsync.user.created`.
-
-Fix:
-
-1. Check if user exists before adding to group
-2. If missing, fetch user via workos.directorySync.getUser() and create
-3. Retry group event after short delay if user creation is in-flight
-
-### Inactive users not deprovisioned
-
-**Root cause:** Not handling `state: inactive` in `dsync.user.updated`.
-
-Fix:
-
-1. Add explicit check: `if (event.data.state === 'inactive') { deprovisionUser() }`
-2. Revoke sessions, disable login, remove from groups
-3. Decide if you want to retain user data or delete (check environment settings)
-
-## Related Skills
-
-For authentication integration with Directory Sync users:
-
-- workos-authkit-nextjs
-- workos-authkit-react
-- workos-authkit-vanilla-js
+1. Add `DELETE FROM users WHERE directory_id = $1` to `dsync.deleted` handler
+2. Add `DELETE FROM groups WHERE directory_id = $1` in same transaction
+3. Do NOT wait for individual user delete events — they never fire

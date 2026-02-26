@@ -90,7 +90,9 @@ async function scoreSummary(
   if (!content.match(/^---\n([\s\S]*?)\n---/)) {
     score += 20;
   } else {
-    issues.push("Summary should not have frontmatter (interferes with plugin skill discovery)");
+    issues.push(
+      "Summary should not have frontmatter (interferes with plugin skill discovery)",
+    );
   }
 
   // 2. Generated/refined marker (5 pts)
@@ -236,9 +238,21 @@ async function scoreGuide(
     issues.push(`Only ${h2Count} section(s), skill lacks structure`);
   }
 
-  // 5. Content length > 1KB (10 pts)
-  if (skill.sizeBytes > 1024) {
-    score += 10;
+  // 5. Content size (10 pts, tiered — reward lean guides)
+  const sizeKB = skill.sizeBytes / 1024;
+  if (sizeKB >= 1 && sizeKB <= 4) {
+    score += 10; // Sweet spot: lean and focused
+  } else if (sizeKB > 4 && sizeKB <= 6) {
+    score += 7;
+  } else if (sizeKB > 6 && sizeKB <= 10) {
+    score += 3;
+    issues.push(
+      `Guide is ${sizeKB.toFixed(1)}KB — aim for ≤4KB for focused content`,
+    );
+  } else if (sizeKB > 10) {
+    issues.push(
+      `Guide is ${sizeKB.toFixed(1)}KB — over target, likely restating docs`,
+    );
   } else {
     issues.push(`Content is only ${skill.sizeBytes}B, below 1KB minimum`);
   }
@@ -260,6 +274,14 @@ async function scoreGuide(
     }
   } else {
     issues.push("Missing verification checklist or error recovery section");
+  }
+
+  // 6b. Bash verification bonus (+5 for 3+ runnable bash one-liners)
+  const bashOneLinerCount = (
+    content.match(/^(echo |grep |curl |test -|ls |env \|)/gm) ?? []
+  ).length;
+  if (bashOneLinerCount >= 3) {
+    score += 5;
   }
 
   // 7. No doc dump (15 pts)
@@ -317,6 +339,12 @@ async function scoreGuide(
     issues.push(
       "No code example found (guides should have one 10-25 line SDK pattern)",
     );
+  }
+
+  // 8b. Implementation decision tree bonus (+5 for code-block decision trees)
+  const hasDecisionTree = /```[\s\S]*?(→|-->)[\s\S]*?```/.test(content);
+  if (hasDecisionTree) {
+    score += 5;
   }
 
   // --- Behavioral claim check (penalty: -10 pts) ---

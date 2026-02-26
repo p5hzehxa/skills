@@ -38,6 +38,13 @@ export const HAND_CRAFTED_SKILLS = [
   "workos-authkit-vanilla-js",
 ] as const;
 
+/** Hand-crafted guide files that must never be overwritten by generation */
+export const HAND_CRAFTED_GUIDES = [
+  "workos-sso",
+  "workos-directory-sync",
+  "workos-rbac",
+] as const;
+
 /** Per-section split strategy configuration */
 export const SECTION_CONFIG: Record<string, SectionConfig> = {
   postman: { split: { strategy: "single" }, skip: true },

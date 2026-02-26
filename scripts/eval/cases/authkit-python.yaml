@@ -1,0 +1,35 @@
+- id: authkit-python-flask
+  product: authkit
+  skill: workos-authkit-base
+  skillType: hand-crafted
+  language: python
+  framework: flask
+  prompt: |
+    Set up WorkOS AuthKit authentication in my Python Flask app. I need
+    login, logout, session management, and access to user profile info.
+    Use the WorkOS Python SDK.
+  expected:
+    methods:
+      - workos_client.user_management.get_authorization_url
+      - workos_client.user_management.authenticate_with_code
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - workos
+    params:
+      - redirect_uri
+      - code
+      - provider
+    flowSteps:
+      - configure WorkOS client with API key and client ID
+      - generate authorization URL for login
+      - handle callback with code exchange
+      - store session with user profile
+      - implement logout by clearing session
+    antiPatterns:
+      - hardcoded API key
+      - store access token in cookie without encryption
+    hallucinations:
+      - workos_client.authkit.login
+      - from workos.authkit import AuthKit

@@ -4,13 +4,13 @@
 
 ## When to Use
 
-Use the Widgets API when you need to generate time-limited access tokens for embedding WorkOS UI components (like User Management or Directory Sync configuration screens) directly into your application. This API provides a secure way to delegate user interface rendering to WorkOS-hosted widgets without exposing sensitive API credentials to the browser.
+Use this skill when you need to generate secure, short-lived tokens for embedded WorkOS UI components (widgets). The Widgets API provides a single endpoint (`/get-token`) that creates tokens scoped to specific widget types and contexts, allowing you to embed WorkOS functionality directly in your application's interface without building custom UI.
 
 ## Key Vocabulary
 
-- **Widget Token** — Short-lived JWT returned by `/get-token`, used to authenticate widget sessions
-- **Session Duration** — Token validity period, specified in seconds during token generation
-- **Widget Scope** — Determines which UI component the token grants access to (e.g., user management, directory sync)
+- **Widget Token** — short-lived JWT that authorizes a specific widget instance
+- **Widget Type** — identifier for the embedded component (e.g., `user_management`, `organization_switcher`)
+- **Scope Context** — parameters that limit what the widget can access (organization ID, user ID, etc.)
 
 ## Implementation Guide
 

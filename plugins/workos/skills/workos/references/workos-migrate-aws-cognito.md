@@ -4,18 +4,22 @@
 
 ## When to Use
 
-Migrate existing user accounts from AWS Cognito User Pools to WorkOS authentication. Use this when you want to preserve user identities during a platform transition, but note that AWS Cognito does not export password hashes or MFA keys—migrated users must reset their passwords.
+Migrate existing AWS Cognito user pools to WorkOS when consolidating identity providers or moving to WorkOS AuthKit. This is a **bulk import** process — AWS Cognito does not export password hashes or MFA keys (Cognito platform limitation), so all migrated users must reset their password.
 
 ## Key Vocabulary
 
-- **User `user_`** — WorkOS user entity created via Create User API
-- **Environment `environment_`** — WorkOS environment ID where users are imported
-- **Directory `directory_`** — optional WorkOS directory for organizational mapping
-- **Password Reset Email** — proactive workflow via Send Password Reset Email API
-- **JIT (Just-In-Time) migration** — NOT supported for Cognito (no password verification endpoint)
+- **User Profile** `user_` — WorkOS user entity created via bulk import from Cognito user attributes
+- **Organization** `org_` — WorkOS tenant structure (optional, for multi-tenant Cognito pools)
+- **Password Reset Email** — WorkOS API endpoint to trigger forced password reset after migration
 
 ## Implementation Guide
 
 For step-by-step implementation, verification commands, and error recovery:
 
 → Read `references/workos-migrate-aws-cognito.guide.md`
+
+## Related Skills
+
+- `workos-authkit-nextjs` — integrate AuthKit post-migration (Next.js)
+- `workos-authkit-react` — integrate AuthKit post-migration (React SPA)
+- `workos-authkit-base` — core AuthKit concepts for any framework

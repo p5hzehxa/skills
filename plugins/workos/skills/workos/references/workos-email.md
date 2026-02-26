@@ -4,13 +4,13 @@
 
 ## When to Use
 
-Use this skill when you need to send transactional emails (password resets, magic links, verification codes) through WorkOS's managed email infrastructure instead of maintaining your own SMTP service or third-party provider. WorkOS handles deliverability, rate limiting, and template rendering.
+Use this skill when you need to send transactional emails (password resets, notifications, OTPs) through WorkOS's managed SMTP infrastructure. This offloads email delivery, bounce handling, and reputation management to WorkOS instead of managing your own mail server or third-party provider.
 
 ## Key Vocabulary
 
-- **Email `email_`** — A sent email record with delivery status
-- **Email Template `email_template_`** — Reusable HTML/text template with variable substitution
-- **Email Event** — Webhook notification for delivery status (`email.sent`, `email.delivered`, `email.bounced`, `email.opened`)
+- **Email Message** `email_msg_` — a sent email with delivery tracking
+- **Email Template** `email_tpl_` — reusable HTML/text template with variable substitution
+- **Email Event** — delivery status notifications (`email.sent`, `email.delivered`, `email.bounced`, `email.complained`)
 
 ## Implementation Guide
 

@@ -1,0 +1,492 @@
+- id: sso-node-basic
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    Implement SSO login flow for a Node.js Express app using the WorkOS SDK.
+    Include the authorization URL generation and callback handler that exchanges
+    the code for a user profile. Handle both SP-initiated and IdP-initiated flows.
+  expected:
+    methods:
+      - workos.sso.getAuthorizationUrl
+      - workos.sso.getProfileAndToken
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - "@workos-inc/node"
+    params:
+      - clientId
+      - redirectUri
+      - code
+      - state
+    flowSteps:
+      - generate authorization URL
+      - redirect user to IdP
+      - handle callback
+      - verify state
+      - exchange code for profile
+      - create session
+    antiPatterns:
+      - hardcoded API key
+      - sk_live
+      - sk_test
+    hallucinations:
+      - workos.sso.authenticate
+      - workos.sso.login
+      - workos.sso.verifyToken
+      - "@workos/node"
+
+- id: sso-node-org-level
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    I have a multi-tenant SaaS app where each customer organization has its own
+    SSO connection (some use Okta, some use Azure AD). When a user enters their
+    email on my login page, I need to route them to the correct IdP. Implement
+    this using the WorkOS Node.js SDK.
+  expected:
+    methods:
+      - workos.sso.getAuthorizationUrl
+      - workos.sso.getProfileAndToken
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - "@workos-inc/node"
+    params:
+      - organization
+      - domainHint
+      - redirectUri
+      - state
+    flowSteps:
+      - identify organization from email
+      - generate authorization URL with organization
+      - redirect to IdP
+      - handle callback
+      - extract organizationId from profile
+    antiPatterns:
+      - hardcoded API key
+    hallucinations:
+      - workos.sso.authenticate
+      - workos.sso.getConnection
+      - workos.organizations.getByDomain
+
+- id: sso-node-idp-initiated
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    My SSO callback handler works for SP-initiated flow but breaks when users
+    click our app tile in their Okta dashboard (IdP-initiated flow). The error
+    is "Invalid state". How do I fix this?
+  expected:
+    methods: []
+    envVars: []
+    imports: []
+    params:
+      - state
+    flowSteps:
+      - check if state parameter is present
+      - handle missing state for IdP-initiated
+      - validate state only when present
+      - log IdP-initiated attempt
+    antiPatterns:
+      - always require state
+      - reject requests without state
+    hallucinations: []
+
+- id: sso-node-error-handling
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    Users are reporting random SSO failures in my Express app. Some get
+    "invalid_grant" errors after sitting on the IdP page too long, and others
+    get stuck in a loop after clicking Cancel on the consent screen. How do I
+    properly handle SSO errors in my WorkOS callback handler?
+  expected:
+    methods:
+      - workos.sso.getProfileAndToken
+    envVars: []
+    imports: []
+    params:
+      - error
+      - code
+    flowSteps:
+      - check error query parameter first
+      - handle user denial or consent denied
+      - exchange code for profile
+      - handle invalid_grant for expired code
+      - show user-friendly error message
+    antiPatterns:
+      - retry code exchange
+    hallucinations:
+      - workos.sso.refreshToken
+      - workos.sso.retryAuth
+      - workos.sso.revokeToken
+
+- id: sso-node-domain-routing
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    I'm building a login page where users type their work email and get
+    automatically routed to their company's SSO provider. Some customers use
+    Okta, some Azure AD, some Google Workspace. How do I use the email domain
+    to route to the right IdP with the WorkOS Node.js SDK?
+  expected:
+    methods:
+      - workos.sso.getAuthorizationUrl
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - "@workos-inc/node"
+    params:
+      - organization
+      - redirectUri
+      - state
+    flowSteps:
+      - collect email from user
+      - extract domain from email
+      - map domain to organization ID
+      - generate authorization URL with organization
+      - redirect user to IdP
+    antiPatterns:
+      - combine connection selectors
+    hallucinations:
+      - workos.sso.getConnectionByDomain
+      - workos.organizations.getByDomain
+      - workos.sso.listConnections
+
+- id: sso-node-social-login
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    I want to add "Sign in with Google" alongside my enterprise SSO in a
+    Node.js app. I'm already using WorkOS for SSO. Can I handle social login
+    through WorkOS too, or do I need a separate Google OAuth library?
+  expected:
+    methods:
+      - workos.sso.getAuthorizationUrl
+      - workos.sso.getProfileAndToken
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - "@workos-inc/node"
+    params:
+      - provider
+      - redirectUri
+      - state
+    flowSteps:
+      - generate authorization URL with provider parameter
+      - use GoogleOAuth as provider value
+      - redirect user to Google
+      - handle callback with same handler
+      - exchange code for profile
+    antiPatterns:
+      - separate Google OAuth library
+      - passport-google-oauth
+    hallucinations:
+      - workos.sso.socialLogin
+      - workos.oauth.google
+      - workos.sso.getProviders
+
+- id: sso-node-state-csrf
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: node
+  prompt: |
+    Our security team flagged our WorkOS SSO integration for missing CSRF
+    protection on the callback. I need to implement the state parameter
+    properly. But we also support IdP-initiated logins where users click our
+    app tile in their Okta dashboard — will adding state break that?
+  expected:
+    methods: []
+    envVars: []
+    imports: []
+    params:
+      - state
+    flowSteps:
+      - generate cryptographically random state
+      - store state in session
+      - verify state on callback
+      - empty string state means IdP-initiated
+    antiPatterns:
+      - always require state for all flows
+      - skip state verification for all requests
+    hallucinations:
+      - workos.sso.verifyState
+      - workos.sso.validateCallback
+      - workos.sso.generateState
+
+- id: sso-python-basic
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: python
+  prompt: |
+    Implement SSO login for a Python Flask app using the WorkOS Python SDK.
+    I need the authorization URL endpoint, callback handler with state
+    verification, and session creation from the user profile.
+  expected:
+    methods:
+      - workos.sso.get_authorization_url
+      - workos.sso.get_profile_and_token
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - workos
+    params:
+      - redirect_uri
+      - state
+      - code
+    flowSteps:
+      - generate authorization URL
+      - redirect user to IdP
+      - handle callback
+      - verify state parameter
+      - exchange code for profile
+      - create session
+    antiPatterns:
+      - hardcoded API key
+    hallucinations:
+      - workos.sso.authenticate
+      - workos.sso.login
+      - from workos import SSO
+
+- id: sso-python-basic-flow
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: python
+  prompt: |
+    Implement SSO login for a Python Flask app using WorkOS. Generate the
+    authorization URL, handle the callback, and exchange the code for a
+    user profile. Include state parameter for CSRF protection.
+  expected:
+    methods:
+      - workos_client.sso.get_authorization_url
+      - workos_client.sso.get_profile_and_token
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - workos
+    params:
+      - redirect_uri
+      - state
+      - code
+    flowSteps:
+      - initialize WorkOS client with api_key
+      - generate authorization URL with redirect_uri
+      - generate random state and store in session
+      - redirect user to authorization URL
+      - handle callback and verify state
+      - exchange code for profile
+    antiPatterns:
+      - hardcoded API key
+    hallucinations:
+      - workos.sso.authenticate
+      - from workos import SSO
+      - from workos.sso import SSOClient
+
+- id: sso-python-social-login
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: python
+  prompt: |
+    Add "Sign in with Google" to my Python app using WorkOS SSO. I want
+    to use the same WorkOS flow for both enterprise SSO and social login.
+  expected:
+    methods:
+      - workos_client.sso.get_authorization_url
+      - workos_client.sso.get_profile_and_token
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - workos
+    params:
+      - provider
+      - redirect_uri
+    flowSteps:
+      - initialize WorkOS client
+      - pass provider GoogleOAuth to get_authorization_url
+      - redirect to authorization URL
+      - exchange code in callback
+    antiPatterns:
+      - separate Google OAuth library
+    hallucinations:
+      - workos_client.sso.social_login
+      - workos.oauth.google
+
+- id: sso-ruby-basic-flow
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: ruby
+  prompt: |
+    Implement SSO login in a Ruby on Rails app using WorkOS. Generate the
+    auth URL, handle the callback, exchange code for profile. Use the
+    WorkOS Ruby SDK.
+  expected:
+    methods:
+      - WorkOS::SSO.authorization_url
+      - WorkOS::SSO.profile_and_token
+    envVars:
+      - WORKOS_API_KEY
+      - WORKOS_CLIENT_ID
+    imports:
+      - workos
+    params:
+      - redirect_uri
+      - state
+      - code
+    flowSteps:
+      - configure WorkOS with API key
+      - generate authorization URL (auth URL)
+      - store state in session for CSRF
+      - redirect user to provider (IdP)
+      - handle callback and verify state
+      - exchange code for profile and token
+    antiPatterns:
+      - hardcoded API key
+    hallucinations:
+      - WorkOS::SSO.authenticate
+      - WorkOS::SSO.login
+      - require "workos-ruby"
+
+- id: sso-ruby-social-login
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: ruby
+  prompt: |
+    Add Google social login to my Rails app using WorkOS SSO. I already
+    have enterprise SSO working and want social login through the same flow.
+  expected:
+    methods:
+      - WorkOS::SSO.authorization_url
+      - WorkOS::SSO.profile_and_token
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - workos
+    params:
+      - provider
+      - redirect_uri
+    flowSteps:
+      - pass provider GoogleOAuth to get_authorization_url
+    antiPatterns:
+      - omniauth gem for Google only
+    hallucinations:
+      - WorkOS::SSO.social_login
+      - WorkOS::OAuth.google
+
+- id: sso-ruby-idp-initiated
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: ruby
+  prompt: |
+    My Rails app supports SP-initiated SSO with WorkOS. Now users want to
+    click our app tile in their Okta dashboard (IdP-initiated flow). My
+    callback crashes because state is empty. How do I handle IdP-initiated
+    login without breaking the SP-initiated flow that uses state for CSRF?
+  expected:
+    methods:
+      - WorkOS::SSO.authorization_url
+      - WorkOS::SSO.profile_and_token
+    envVars: []
+    imports:
+      - workos
+    params:
+      - state
+      - code
+    flowSteps:
+      - check if state parameter is present
+      - verify state only when present
+      - state is empty string for IdP-initiated not nil
+      - exchange code for profile
+    antiPatterns:
+      - always require state for all flows
+    hallucinations:
+      - WorkOS::SSO.verify_state
+      - WorkOS::SSO.validate_callback
+
+- id: sso-ruby-error-handling
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: ruby
+  prompt: |
+    Users report two SSO failures in my Rails app: some get "invalid_grant"
+    after waiting too long on the IdP page, and others get stuck after
+    clicking Cancel on the consent screen. How do I handle SSO errors
+    properly in my WorkOS callback?
+  expected:
+    methods:
+      - WorkOS::SSO.profile_and_token
+    envVars: []
+    imports:
+      - workos
+    params:
+      - error
+      - code
+    flowSteps:
+      - check error query parameter first
+      - handle user denial or consent denied
+      - exchange code for profile
+      - handle invalid_grant for expired code
+    antiPatterns:
+      - retry code exchange
+    hallucinations:
+      - WorkOS::SSO.refresh_token
+      - WorkOS::SSO.retry_auth
+
+- id: sso-ruby-domain-routing
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: ruby
+  prompt: |
+    My Rails app serves multiple enterprise customers. When a user enters
+    their email on the login page, I need to route them to the correct SSO
+    provider (Okta for acme.com, Azure AD for contoso.com). How do I
+    implement email-domain-based SSO routing with WorkOS in Ruby?
+  expected:
+    methods:
+      - WorkOS::SSO.authorization_url
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - workos
+    params:
+      - organization
+      - redirect_uri
+      - state
+    flowSteps:
+      - collect email from user
+      - extract domain from email
+      - map domain to organization ID
+      - pass organization to authorization_url
+      - exactly one connection selector per request
+    antiPatterns:
+      - combine organization and connection params
+    hallucinations:
+      - WorkOS::SSO.get_connection_by_domain
+      - WorkOS::Organizations.find_by_domain

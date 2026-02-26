@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { validateSections } from "../lib/validator.ts";
 import { KNOWN_ANCHORS } from "../lib/config.ts";
 import type { Section } from "../lib/types.ts";

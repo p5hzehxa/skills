@@ -4,15 +4,15 @@
 
 ## When to Use
 
-Use Vault when you need to encrypt sensitive data (PII, credentials, tokens) at rest while maintaining searchability and queryability. Vault provides envelope encryption (data keys + master keys) and object storage with versioning. Choose this over client-side encryption when you need server-side search or WorkOS-managed key rotation.
+Use the Vault API when you need to encrypt sensitive data at rest or manage encryption keys programmatically. This skill provides endpoints for creating data encryption keys (DEKs), encrypting/decrypting data, and storing encrypted objects with metadata. It is NOT for storing secrets like API keys — use environment variables or secret managers for those.
 
 ## Key Vocabulary
 
-- **Vault Object** `vault_obj_` — encrypted data container with metadata and versions
-- **Data Key** — ephemeral AES-256 key for encrypting individual objects
-- **Master Key** — WorkOS-managed key that encrypts data keys (never exposed)
-- **Object Version** `vault_obj_ver_` — immutable snapshot of object state
-- **Object Metadata** — queryable key-value pairs (unencrypted)
+- **Data Encryption Key (DEK)** — ephemeral key for encrypting specific data blobs, encrypted by WorkOS KEK
+- **Key Encryption Key (KEK)** — master key managed by WorkOS, never exposed to your application
+- **Vault Object** — encrypted data blob with metadata, referenced by `object_id` or `name`
+- **Object Version** — immutable snapshot of a Vault object, created on every update
+- **Encrypted Data Key** — DEK encrypted by KEK, safe to store alongside ciphertext
 
 ## Implementation Guide
 

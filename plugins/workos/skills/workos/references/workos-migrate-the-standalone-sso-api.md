@@ -4,14 +4,15 @@
 
 ## When to Use
 
-Use this skill when you have an existing WorkOS integration using the standalone SSO API (`sso.getAuthorizationUrl()`, `sso.getProfileAndToken()`) and want to migrate to AuthKit for better security, simpler session management, and built-in UI components. This migration applies to production workloads where you need to preserve existing SSO connections and user sessions without downtime.
+Use this skill when migrating from WorkOS's standalone SSO API to AuthKit. This is relevant if your app currently calls `sso.getAuthorizationUrl()` or `sso.getProfileAndToken()` for authentication and you want to adopt WorkOS's newer session-based authentication system with built-in UI components.
 
 ## Key Vocabulary
 
-- **Organization** `org_` — entity that manages SSO connections
-- **Connection** `conn_` — SSO provider link (SAML, Google OAuth, Microsoft OAuth)
-- **Profile** — user identity returned after authentication
-- **Session** — authenticated state managed by AuthKit (replaces manual token handling)
+- **Standalone SSO API** — the older WorkOS authentication system using explicit authorization URL construction and token exchange
+- **AuthKit** — the newer WorkOS authentication system with hosted UI and session management
+- **Connection `conn_`** — SSO configuration entity (unchanged between systems)
+- **Organization `org_`** — tenant entity (unchanged between systems)
+- **User `user_`** — authenticated user entity (structure differs between systems)
 
 ## Implementation Guide
 
@@ -21,6 +22,6 @@ For step-by-step implementation, verification commands, and error recovery:
 
 ## Related Skills
 
-- `workos-authkit-nextjs` — if migrating a Next.js app to AuthKit
-- `workos-authkit-react` — if migrating a React SPA to AuthKit
-- `workos-authkit-base` — core AuthKit concepts and session management
+- `workos-authkit-nextjs` — if migrating to Next.js
+- `workos-authkit-react` — if migrating to React SPA
+- `workos-authkit-vanilla-js` — if migrating to vanilla JavaScript

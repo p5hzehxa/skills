@@ -206,10 +206,8 @@ export function renderImplementationGuide(spec: SkillSpec): string {
     lines.push("");
     lines.push("### General Flow");
     lines.push("");
-    lines.push("1. Configure WorkOS Dashboard settings");
-    lines.push("2. Install and configure the SDK");
-    lines.push("3. Implement the feature endpoints/handlers");
-    lines.push("4. Test the integration");
+    lines.push("1. Implement the primary integration pattern");
+    lines.push("2. Verify with runnable checks");
   }
 
   lines.push("");
@@ -331,6 +329,10 @@ function extractSteps(content: string): string[] {
   const steps: string[] = [];
   const lines = content.split("\n");
 
+  // Skip non-actionable headings that bloat scaffolds
+  const SKIP_HEADINGS =
+    /test.*with.*real|launch.*checklist|optional|admin portal|signing certificate/i;
+
   // Look for ### headings that describe steps/flow
   let currentHeading = "";
   let currentContent: string[] = [];
@@ -346,6 +348,11 @@ function extractSteps(content: string): string[] {
       }
       currentHeading = headingMatch[1];
       currentContent = [];
+      // Skip non-actionable sections
+      if (SKIP_HEADINGS.test(currentHeading)) {
+        currentHeading = "";
+        currentContent = [];
+      }
       continue;
     }
     if (currentHeading) {
@@ -362,7 +369,7 @@ function extractSteps(content: string): string[] {
     steps.push("");
   }
 
-  return steps.slice(0, 60); // Keep implementation guide reasonable
+  return steps.slice(0, 30); // Keep scaffold lean — refiner adds value, not bulk
 }
 
 /** Extract verification-like items */

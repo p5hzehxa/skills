@@ -4,15 +4,15 @@
 
 ## When to Use
 
-Use this skill when migrating users from a custom authentication system or database to WorkOS. This guide covers exporting user data from your own data store and importing it into WorkOS User Management, including password hash handling and field mapping strategies.
+Migrate users from a custom authentication system or data store where you control password hash formats and user data structures. Use this when migrating from non-standard auth providers, legacy in-house systems, or services not covered by WorkOS's provider-specific guides.
 
 ## Key Vocabulary
 
-- **User `user_`** — WorkOS user entity created during import
-- **Password Hash** — exported credential data requiring transformation for WorkOS compatibility
-- **Email Verification Status** — user email confirmation state preserved during migration
-- **Profile Attributes** — custom user metadata fields mapped during import
-- **Bulk Import** — batch user creation operation for migration scenarios
+- **User Management Organization** `org_` — the WorkOS org containing your user base
+- **User** `user_` — migrated user identity with email and optional password hash
+- **Password Hash** — bcrypt or Firebase scrypt format required for import
+- **Email Verification** — user email confirmation state (verified/unverified)
+- **Migration Token** — short-lived credential for user self-service password resets during cutover
 
 ## Implementation Guide
 
