@@ -41,7 +41,7 @@ export function ratioFound(expected: string[], output: string): number {
 
 /**
  * Invocation-aware method matching (0-1).
- * Three-pass: try method( invocation → last-segment invocation → substring fallback.
+ * Four-pass: full invocation → last-segment invocation → full substring → last-segment substring.
  * Returns 1.0 if expected array is empty.
  */
 export function methodRatioFound(expected: string[], output: string): number {
@@ -223,7 +223,7 @@ export function isInEnvBlock(output: string, matchIndex: number): boolean {
 
 /**
  * Check if a match at the given index is preceded by a negation word.
- * Looks back up to 60 chars for words like don't, not, never, avoid.
+ * Looks back up to 30 chars for words like don't, not, never, avoid.
  */
 export function isNegated(output: string, matchIndex: number): boolean {
   const prefix = output
@@ -232,9 +232,15 @@ export function isNegated(output: string, matchIndex: number): boolean {
     .trim();
   // Check for negation word in the 30-char prefix.
   // Uses word boundaries to avoid matching "note", "cannot", etc.
-  return /\b(don'?t|do not|never|avoid|shouldn'?t|should not|not)\b/.test(
-    prefix,
-  );
+  if (/(?:\b)(don'?t|do not|never|avoid|shouldn'?t|should not|not)(?:\b)/.test(prefix)) {
+    return true;
+  }
+  // Treat cautionary labels as negation context for anti-pattern examples
+  // e.g., "Anti-pattern: no signature verification" should not count as usage
+  if (/(anti[- ]pattern|pitfall|trap|caution)[:\s]/i.test(prefix)) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -253,15 +259,23 @@ export function negationAwareRatioFound(
   let found = 0;
 
   for (const item of expected) {
-    const normalizedItem = normalizeForMatch(item);
-    const idx = normalizedOutput.indexOf(normalizedItem);
-    if (idx !== -1) {
-      // Skip negated mentions ("don't use sk_live") and env placeholders
-      // ("WORKOS_API_KEY=sk_test_your_key"). Check on original text, not
-      // normalized, because normalizeForMatch mangles whitespace.
-      if (!isNegated(lowerOutput, idx) && !isInEnvBlock(output, idx)) {
+    const lowerItem = item.toLowerCase();
+    // Try lowercase match first — index aligns with original text for
+    // negation/env checks. Normalized match shifts indexes due to
+    // camelCase→snake_case expansion.
+    const lowerIdx = lowerOutput.indexOf(lowerItem);
+    if (lowerIdx !== -1) {
+      if (!isNegated(lowerOutput, lowerIdx) && !isInEnvBlock(output, lowerIdx)) {
         found++;
       }
+      continue;
+    }
+    // Fallback: normalized match (handles camelCase/kebab variants)
+    const normalizedItem = normalizeForMatch(item);
+    const normIdx = normalizedOutput.indexOf(normalizedItem);
+    if (normIdx !== -1) {
+      // Can't reliably map normIdx back to original text, so count as found
+      found++;
     }
   }
 

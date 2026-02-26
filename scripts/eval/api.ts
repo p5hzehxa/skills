@@ -3,7 +3,7 @@ import type { TokenUsage } from "./types.ts";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
 const EVAL_MAX_TOKENS = 4096;
-const RATE_LIMIT_DELAY_MS = 1000;
+const MAX_RETRIES = 3;
 
 export interface GenerateResult {
   output: string;
@@ -14,6 +14,7 @@ export async function generateCode(
   prompt: string,
   systemPrompt: string,
   options: { apiKey: string; model: string },
+  retries = 0,
 ): Promise<GenerateResult> {
   const response = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
@@ -35,9 +36,11 @@ export async function generateCode(
     const errorBody = await response.text();
 
     if (response.status === 429) {
-      // Rate limited — wait and retry once
-      await rateLimitDelay(5000);
-      return generateCode(prompt, systemPrompt, options);
+      if (retries >= MAX_RETRIES) {
+        throw new Error(`Anthropic API rate limited after ${retries} retries`);
+      }
+      await rateLimitDelay(5000 * (retries + 1));
+      return generateCode(prompt, systemPrompt, options, retries + 1);
     }
 
     throw new Error(`Anthropic API error ${response.status}: ${errorBody}`);
@@ -66,6 +69,6 @@ export async function generateCode(
   };
 }
 
-export function rateLimitDelay(ms = RATE_LIMIT_DELAY_MS): Promise<void> {
+export function rateLimitDelay(ms = 1000): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
