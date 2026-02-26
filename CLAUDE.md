@@ -5,13 +5,13 @@ Claude Code plugin providing WorkOS integration skills (AuthKit, SSO, Directory 
 ## Commands
 
 ```bash
-npm run generate              # fetch docs, parse, split, generate skills
-npm run generate -- --refine  # + AI refinement pass (requires ANTHROPIC_API_KEY)
-npm run generate -- --refine --force  # force regenerate + refine all
-npm run generate -- --refine-only=workos-sso --force  # refine single skill
-npm test                      # run tests (vitest)
-npm run format                # prettier --write
-npm run format:check          # prettier --check
+pnpm generate                 # fetch docs, parse, split, generate skills
+pnpm generate -- --refine    # + AI refinement pass (requires ANTHROPIC_API_KEY)
+pnpm generate -- --refine --force  # force regenerate + refine all
+pnpm generate -- --refine-only=workos-sso --force  # refine single skill
+pnpm test                     # run tests (vitest)
+pnpm format                   # prettier --write
+pnpm format:check             # prettier --check
 ```
 
 ## Project Structure
