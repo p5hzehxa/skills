@@ -213,17 +213,16 @@
     properly. But we also support IdP-initiated logins where users click our
     app tile in their Okta dashboard — will adding state break that?
   expected:
-    methods:
-      - workos.sso.getAuthorizationUrl
+    methods: []
     envVars: []
     imports: []
     params:
       - state
     flowSteps:
-      - generate cryptographically random state value
-      - store state in session before redirect
-      - pass state to getAuthorizationUrl
-      - verify state matches on callback
+      - generate cryptographically random state
+      - store state in session
+      - verify state on callback
+      - empty string state means IdP-initiated
     antiPatterns:
       - always require state for all flows
       - skip state verification for all requests

@@ -81,6 +81,47 @@ callback_handler(request):
   create_session(profile)
 ```
 
+### Ruby Quick Checklist
+
+For Ruby on Rails using the `workos` gem:
+
+1) Configure API key
+
+```
+require "workos"
+WorkOS.key = ENV["WORKOS_API_KEY"]
+```
+
+2) Generate authorization URL (one selector: `organization` | `connection` | `provider`)
+
+```
+auth_url = WorkOS::SSO.authorization_url(
+  client_id: ENV["WORKOS_CLIENT_ID"],
+  redirect_uri: callback_url,
+  provider: "GoogleOAuth",      # or: organization: "org_..." / connection: "conn_..."
+  state: SecureRandom.hex(16)    # store in session for CSRF
+)
+redirect_to auth_url
+```
+
+3) Handle callback, verify state (skip only if state == ""), then exchange code
+
+```
+def callback
+  if params[:error]
+    return render status: 400, plain: params[:error]
+  end
+
+  if params[:state].present? && params[:state] != session[:state]
+    return render status: 400, plain: "Invalid state"
+  end
+
+  profile = WorkOS::SSO.profile_and_token(code: params[:code])
+  session[:user_id] = profile["id"]
+  redirect_to dashboard_path
+end
+```
+
 ## Step 5: IdP-Initiated Flow (Critical Trap)
 
 When users click your app tile in their IdP portal (Okta, Azure AD), the callback receives `state=""` (empty string, not missing). **If you always require state verification, IdP-initiated flow breaks with "Invalid state".**
