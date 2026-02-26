@@ -55,13 +55,13 @@ Measures whether skills improve agent-generated WorkOS implementations.
 ### Eval Commands
 
 ```bash
-bun run scripts/eval.ts --dry-run                        # verify cases load
-bun run scripts/eval.ts --no-cache --product=sso         # run specific product
-bun run scripts/eval.ts --no-cache --lang=python         # run specific language
-bun run scripts/eval.ts --no-cache --case=sso-node-basic # run single case
-bun run scripts/eval.ts --no-cache --fail-on-regression  # full run with gates
-bash scripts/eval-ci.sh                                  # CI wrapper
-bash scripts/eval-ci.sh --dry-run                        # CI dry run (no API key needed)
+pnpm eval -- --dry-run                        # verify cases load
+pnpm eval -- --no-cache --product=sso         # run specific product
+pnpm eval -- --no-cache --lang=python         # run specific language
+pnpm eval -- --no-cache --case=sso-node-basic # run single case
+pnpm eval -- --no-cache --fail-on-regression  # full run with gates
+bash scripts/eval-ci.sh                       # CI wrapper
+bash scripts/eval-ci.sh --dry-run             # CI dry run (no API key needed)
 ```
 
 ### Interpreting Results
