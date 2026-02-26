@@ -74,6 +74,42 @@ app.post('/webhooks/workos', async (req, res) => {
 })
 ```
 
+### Ruby (Rails) Signature Verification
+
+```
+# config/initializers/workos.rb
+require "workos"
+WorkOS.key = ENV["WORKOS_API_KEY"]
+
+# app/controllers/workos_webhooks_controller.rb
+class WorkosWebhooksController < ActionController::API
+  # Ensure raw body is available (disable JSON parsing for this endpoint)
+  def receive
+    payload   = request.raw_post
+    sig       = request.headers["Workos-Signature"]
+    secret    = ENV["WORKOS_WEBHOOK_SECRET"]
+
+    event = WorkOS::Webhooks.verify_event(payload: payload, sig_header: sig, secret: secret)
+
+    # Acknowledge immediately (WorkOS timeout ~10s)
+    head :ok
+
+    case event["event"]
+    when "dsync.user.created"
+      # upsert user
+    when "dsync.user.updated"
+      if event.dig("data", "state") == "inactive"
+        # deprovision user
+      end
+    when "dsync.deleted"
+      # cascade delete by directory_id
+    end
+  rescue WorkOS::SignatureVerificationError
+    head :unauthorized
+  end
+end
+```
+
 ## Step 5: Critical Traps
 
 ### Trap 1: `dsync.deleted` Cascade

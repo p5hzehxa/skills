@@ -219,6 +219,9 @@
   expected:
     methods:
       - WorkOS::Webhooks.verify_event
+      - WorkOS::Webhooks.construct_event
+      - verify_event
+      - construct_event
     envVars:
       - WORKOS_WEBHOOK_SECRET
     imports:
@@ -233,7 +236,7 @@
       - handle dsync.user.created
       - handle dsync.user.updated with state inactive
     antiPatterns:
-      - no signature verification
+      - skip signature verification
     hallucinations:
       - WorkOS::DirectorySync.verify_webhook
       - WorkOS::Webhooks.validate
