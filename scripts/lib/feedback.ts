@@ -1,6 +1,6 @@
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
-import type { SkillFeedback } from "./types.ts";
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
+import type { SkillFeedback } from './types.ts';
 
 /**
  * Load feedback from plugins/workos/skills/workos/references/{skillName}.feedback.md.
@@ -9,11 +9,11 @@ import type { SkillFeedback } from "./types.ts";
 export function loadFeedback(skillName: string): SkillFeedback {
   const feedbackPath = join(
     process.cwd(),
-    "plugins",
-    "workos",
-    "skills",
-    "workos",
-    "references",
+    'plugins',
+    'workos',
+    'skills',
+    'workos',
+    'references',
     `${skillName}.feedback.md`,
   );
 
@@ -22,7 +22,7 @@ export function loadFeedback(skillName: string): SkillFeedback {
   }
 
   try {
-    const raw = readFileSync(feedbackPath, "utf8");
+    const raw = readFileSync(feedbackPath, 'utf8');
     if (!raw.trim()) return { corrections: [], emphasis: [] };
 
     return parseFeedbackMarkdown(raw);
@@ -41,18 +41,18 @@ export function parseFeedbackMarkdown(raw: string): SkillFeedback {
   const corrections: string[] = [];
   const emphasis: string[] = [];
 
-  let currentSection: "corrections" | "emphasis" | null = null;
+  let currentSection: 'corrections' | 'emphasis' | null = null;
 
-  for (const line of raw.split("\n")) {
+  for (const line of raw.split('\n')) {
     const trimmed = line.trim();
 
     // Detect section headings
     if (/^##\s+corrections/i.test(trimmed)) {
-      currentSection = "corrections";
+      currentSection = 'corrections';
       continue;
     }
     if (/^##\s+emphasis/i.test(trimmed)) {
-      currentSection = "emphasis";
+      currentSection = 'emphasis';
       continue;
     }
     // Any other heading resets the section
@@ -63,9 +63,9 @@ export function parseFeedbackMarkdown(raw: string): SkillFeedback {
 
     // Extract list items (- or *)
     if (currentSection && /^[-*]\s+/.test(trimmed)) {
-      const item = trimmed.replace(/^[-*]\s+/, "").trim();
+      const item = trimmed.replace(/^[-*]\s+/, '').trim();
       if (item) {
-        if (currentSection === "corrections") {
+        if (currentSection === 'corrections') {
           corrections.push(item);
         } else {
           emphasis.push(item);
@@ -76,9 +76,9 @@ export function parseFeedbackMarkdown(raw: string): SkillFeedback {
 
     // Continuation lines (indented text after a list item) — append to last item
     if (currentSection && trimmed && corrections.length + emphasis.length > 0) {
-      const target = currentSection === "corrections" ? corrections : emphasis;
+      const target = currentSection === 'corrections' ? corrections : emphasis;
       if (target.length > 0) {
-        target[target.length - 1] += " " + trimmed;
+        target[target.length - 1] += ' ' + trimmed;
       }
     }
   }
@@ -92,29 +92,29 @@ export function parseFeedbackMarkdown(raw: string): SkillFeedback {
  */
 export function formatFeedbackForPrompt(feedback: SkillFeedback): string {
   if (feedback.corrections.length === 0 && feedback.emphasis.length === 0) {
-    return "";
+    return '';
   }
 
   const lines = [
-    "\n## Domain Expert Feedback (CRITICAL)\n",
-    "The following feedback comes from domain experts who reviewed previous versions of this skill.\n",
+    '\n## Domain Expert Feedback (CRITICAL)\n',
+    'The following feedback comes from domain experts who reviewed previous versions of this skill.\n',
   ];
 
   if (feedback.corrections.length > 0) {
-    lines.push("### Corrections (MUST respect)\n");
+    lines.push('### Corrections (MUST respect)\n');
     for (const c of feedback.corrections) {
       lines.push(`- ${c}`);
     }
-    lines.push("");
+    lines.push('');
   }
 
   if (feedback.emphasis.length > 0) {
-    lines.push("### Emphasis (SHOULD highlight)\n");
+    lines.push('### Emphasis (SHOULD highlight)\n');
     for (const e of feedback.emphasis) {
       lines.push(`- ${e}`);
     }
-    lines.push("");
+    lines.push('');
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }

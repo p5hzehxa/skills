@@ -1,4 +1,4 @@
-import type { ExpectedSignals, ScoreCard, ErrorCategory } from "./types.ts";
+import type { ExpectedSignals, ScoreCard, ErrorCategory } from './types.ts';
 
 /**
  * Normalize a string for flexible matching across naming conventions.
@@ -6,16 +6,16 @@ import type { ExpectedSignals, ScoreCard, ErrorCategory } from "./types.ts";
  * Preserves dots for method chains (e.g., workos.sso.getAuthorizationUrl).
  */
 export function normalizeForMatch(s: string): string {
-  if (!s) return "";
+  if (!s) return '';
 
   return (
     s
       // Insert underscore before uppercase runs: getAuthorizationUrl → get_Authorization_Url
-      .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+      .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
       // Handle consecutive caps: getHTTPResponse → get_HTTP_Response → get_h_t_t_p_response after lowercase
-      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
       // kebab-case to snake_case
-      .replace(/-/g, "_")
+      .replace(/-/g, '_')
       .toLowerCase()
   );
 }
@@ -54,15 +54,15 @@ export function methodRatioFound(expected: string[], output: string): number {
     const normalized = normalizeForMatch(method);
 
     // Pass 1: full invocation form — method_name( or workos.sso.method(
-    if (normalizedOutput.includes(normalized + "(")) {
+    if (normalizedOutput.includes(normalized + '(')) {
       found++;
       continue;
     }
 
     // Pass 2: last segment invocation — get_authorization_url(
-    const dotParts = normalized.split(".");
+    const dotParts = normalized.split('.');
     if (dotParts.length > 1) {
-      const lastPart = dotParts[dotParts.length - 1] + "(";
+      const lastPart = dotParts[dotParts.length - 1] + '(';
       if (normalizedOutput.includes(lastPart)) {
         found++;
         continue;
@@ -76,7 +76,7 @@ export function methodRatioFound(expected: string[], output: string): number {
     }
 
     // Pass 4: last segment substring — catches "use getAuthorizationUrl to..."
-    const parts = normalized.split(".");
+    const parts = normalized.split('.');
     if (parts.length > 1 && normalizedOutput.includes(parts[parts.length - 1])) {
       found++;
     }
@@ -121,10 +121,7 @@ export function scoreFlowOrder(steps: string[], output: string): number {
 
         // Count how many other keywords appear within WINDOW of this anchor
         const windowStart = Math.max(0, anchor - WINDOW);
-        const windowEnd = Math.min(
-          lowerOutput.length,
-          anchor + kw.length + WINDOW,
-        );
+        const windowEnd = Math.min(lowerOutput.length, anchor + kw.length + WINDOW);
         const window = lowerOutput.slice(windowStart, windowEnd);
 
         let coCount = 0;
@@ -193,15 +190,11 @@ export function countFound(items: string[], output: string): number {
  */
 export function isInEnvBlock(output: string, matchIndex: number): boolean {
   // Look back ~150 chars for env context
-  const lookback = output
-    .slice(Math.max(0, matchIndex - 150), matchIndex)
-    .toLowerCase();
+  const lookback = output.slice(Math.max(0, matchIndex - 150), matchIndex).toLowerCase();
   // Look at the line containing the match
-  const lineStart = output.lastIndexOf("\n", matchIndex) + 1;
-  const lineEnd = output.indexOf("\n", matchIndex);
-  const line = output
-    .slice(lineStart, lineEnd === -1 ? undefined : lineEnd)
-    .trim();
+  const lineStart = output.lastIndexOf('\n', matchIndex) + 1;
+  const lineEnd = output.indexOf('\n', matchIndex);
+  const line = output.slice(lineStart, lineEnd === -1 ? undefined : lineEnd).trim();
 
   // Env file header nearby: `.env`, `# .env`, `env vars`, `environment variables`
   if (/(?:^|\s|#\s*)\.env\b|env(?:ironment)?\s*var/i.test(lookback)) {
@@ -248,10 +241,7 @@ export function isNegated(output: string, matchIndex: number): boolean {
  * Returns 0 if expected is empty (no anti-patterns to check = 0 found).
  * Skips matches preceded by negation words.
  */
-export function negationAwareRatioFound(
-  expected: string[],
-  output: string,
-): number {
+export function negationAwareRatioFound(expected: string[], output: string): number {
   if (expected.length === 0) return 0;
 
   const normalizedOutput = normalizeForMatch(output);
@@ -288,9 +278,7 @@ export function negationAwareRatioFound(
  * Clean bonus: 5 points for zero hallucinations.
  * Hallucination penalty: -5 per hallucination, capped at -25.
  */
-export function weightedScore(
-  dimensions: Omit<ScoreCard, "composite">,
-): number {
+export function weightedScore(dimensions: Omit<ScoreCard, 'composite'>): number {
   const base =
     dimensions.methodAccuracy * 20 +
     dimensions.paramAccuracy * 15 +
@@ -307,18 +295,13 @@ export function weightedScore(
 /**
  * Score an LLM output against expected signals.
  */
-export function scoreOutput(
-  output: string,
-  expected: ExpectedSignals,
-): ScoreCard {
+export function scoreOutput(output: string, expected: ExpectedSignals): ScoreCard {
   const methodAccuracy = methodRatioFound(expected.methods, output);
   const paramAccuracy = ratioFound(expected.params, output);
   const envVarCoverage = ratioFound(expected.envVars, output);
-  const importAccuracy =
-    expected.imports.length > 0 ? ratioFound(expected.imports, output) : 1;
+  const importAccuracy = expected.imports.length > 0 ? ratioFound(expected.imports, output) : 1;
   const flowCorrectness = scoreFlowOrder(expected.flowSteps, output);
-  const antiPatternAvoidance =
-    1 - negationAwareRatioFound(expected.antiPatterns, output);
+  const antiPatternAvoidance = 1 - negationAwareRatioFound(expected.antiPatterns, output);
   const hallucinationCount = countFound(expected.hallucinations ?? [], output);
 
   const dimensions = {
@@ -340,35 +323,29 @@ export function scoreOutput(
 /**
  * Categorize errors in an LLM output based on expected signals.
  */
-export function categorizeErrors(
-  output: string,
-  expected: ExpectedSignals,
-): ErrorCategory[] {
+export function categorizeErrors(output: string, expected: ExpectedSignals): ErrorCategory[] {
   const errors: ErrorCategory[] = [];
 
   if (countFound(expected.hallucinations ?? [], output) > 0) {
-    errors.push("hallucinated_method");
+    errors.push('hallucinated_method');
   }
-  if (
-    expected.methods.length > 0 &&
-    methodRatioFound(expected.methods, output) < 1
-  ) {
-    errors.push("missing_method");
+  if (expected.methods.length > 0 && methodRatioFound(expected.methods, output) < 1) {
+    errors.push('missing_method');
   }
   if (expected.params.length > 0 && ratioFound(expected.params, output) < 1) {
-    errors.push("wrong_params");
+    errors.push('wrong_params');
   }
   if (ratioFound(expected.envVars, output) < 1) {
-    errors.push("missing_env_var");
+    errors.push('missing_env_var');
   }
   if (ratioFound(expected.imports, output) < 1) {
-    errors.push("wrong_import");
+    errors.push('wrong_import');
   }
   if (scoreFlowOrder(expected.flowSteps, output) < 0.8) {
-    errors.push("wrong_flow_order");
+    errors.push('wrong_flow_order');
   }
   if (negationAwareRatioFound(expected.antiPatterns, output) > 0) {
-    errors.push("security_issue");
+    errors.push('security_issue');
   }
 
   return errors;

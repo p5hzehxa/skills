@@ -15,7 +15,7 @@
       - WORKOS_API_KEY
       - WORKOS_WEBHOOK_SECRET
     imports:
-      - "@workos-inc/node"
+      - '@workos-inc/node'
     params:
       - payload
       - signature
@@ -49,7 +49,7 @@
     envVars:
       - WORKOS_API_KEY
     imports:
-      - "@workos-inc/node"
+      - '@workos-inc/node'
     params:
       - events
       - after
@@ -160,7 +160,7 @@
     envVars:
       - WORKOS_WEBHOOK_SECRET
     imports:
-      - "@workos-inc/node"
+      - '@workos-inc/node'
     params:
       - group
       - user

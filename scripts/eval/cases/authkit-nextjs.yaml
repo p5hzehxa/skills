@@ -19,7 +19,7 @@
       - WORKOS_COOKIE_PASSWORD
       - NEXT_PUBLIC_WORKOS_REDIRECT_URI
     imports:
-      - "@workos-inc/authkit-nextjs"
+      - '@workos-inc/authkit-nextjs'
     params: []
     flowSteps:
       - install SDK
@@ -33,8 +33,8 @@
       - use client for auth logic
       - custom OAuth implementation
     hallucinations:
-      - "@workos/nextjs"
-      - "@workos-inc/nextjs"
+      - '@workos/nextjs'
+      - '@workos-inc/nextjs'
       - workos.auth.login
       - workos.auth.getSession
 
@@ -56,7 +56,7 @@
       - getSignInUrl
     envVars: []
     imports:
-      - "@workos-inc/authkit-nextjs"
+      - '@workos-inc/authkit-nextjs'
     params: []
     flowSteps:
       - call getUser in server component
@@ -87,7 +87,7 @@
       - handleAuth
     envVars: []
     imports:
-      - "@workos-inc/authkit-nextjs"
+      - '@workos-inc/authkit-nextjs'
     params: []
     flowSteps:
       - cookies is async in Next.js 15

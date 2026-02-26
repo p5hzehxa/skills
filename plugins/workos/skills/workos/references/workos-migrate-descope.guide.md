@@ -110,7 +110,7 @@ users.forEach((descopeUser) => {
     lastName: descopeUser.familyName,
     emailVerified: descopeUser.verifiedEmail,
     passwordHash: descopeUser.passwordHash, // If exported
-    passwordHashType: "bcrypt", // From support ticket
+    passwordHashType: 'bcrypt', // From support ticket
   });
 });
 ```

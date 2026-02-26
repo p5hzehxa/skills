@@ -1,12 +1,10 @@
-import type { Section, Subsection } from "./types.ts";
+import type { Section, Subsection } from './types.ts';
 
 /**
  * Find positions of all fenced code blocks (``` ... ```) so we can
  * skip any headers that appear inside them.
  */
-function findCodeBlockRanges(
-  content: string,
-): Array<{ start: number; end: number }> {
+function findCodeBlockRanges(content: string): Array<{ start: number; end: number }> {
   const ranges: Array<{ start: number; end: number }> = [];
   const fenceRe = /^```/gm;
   let match: RegExpExecArray | null;
@@ -24,10 +22,7 @@ function findCodeBlockRanges(
   return ranges;
 }
 
-function isInsideCodeBlock(
-  position: number,
-  ranges: Array<{ start: number; end: number }>,
-): boolean {
+function isInsideCodeBlock(position: number, ranges: Array<{ start: number; end: number }>): boolean {
   return ranges.some((r) => position >= r.start && position <= r.end);
 }
 
@@ -73,8 +68,8 @@ export function parseSections(markdown: string): Section[] {
       name: header.name,
       anchor: header.anchor,
       content,
-      sizeBytes: Buffer.byteLength(content, "utf8"),
-      lineCount: content.split("\n").length,
+      sizeBytes: Buffer.byteLength(content, 'utf8'),
+      lineCount: content.split('\n').length,
       subsections,
     });
   }
@@ -112,15 +107,14 @@ export function parseSubsections(sectionContent: string): Subsection[] {
   for (let i = 0; i < headers.length; i++) {
     const header = headers[i];
     const start = header.fullMatchEnd;
-    const end =
-      i + 1 < headers.length ? headers[i + 1].index : sectionContent.length;
+    const end = i + 1 < headers.length ? headers[i + 1].index : sectionContent.length;
     const content = sectionContent.slice(start, end).trim();
 
     subsections.push({
       title: header.title,
       level: 3,
       content,
-      sizeBytes: Buffer.byteLength(content, "utf8"),
+      sizeBytes: Buffer.byteLength(content, 'utf8'),
     });
   }
 

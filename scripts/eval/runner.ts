@@ -1,39 +1,30 @@
-import { join } from "path";
-import { createHash } from "crypto";
-import { readdirSync, readFileSync } from "fs";
-import { parse } from "yaml";
-import { HAND_CRAFTED_SKILLS } from "../lib/config.ts";
-import { generateCode } from "./api.ts";
-import { getCacheKey, readCache, writeCache } from "./cache.ts";
-import { scoreOutput, categorizeErrors } from "./scorer.ts";
-import { median, percentile } from "./reporter.ts";
-import type {
-  EvalCase,
-  EvalOptions,
-  EvalReport,
-  EvalResult,
-  ProductSummary,
-  ErrorCategory,
-} from "./types.ts";
+import { join } from 'path';
+import { createHash } from 'crypto';
+import { readdirSync, readFileSync } from 'fs';
+import { parse } from 'yaml';
+import { HAND_CRAFTED_SKILLS } from '../lib/config.ts';
+import { generateCode } from './api.ts';
+import { getCacheKey, readCache, writeCache } from './cache.ts';
+import { scoreOutput, categorizeErrors } from './scorer.ts';
+import { median, percentile } from './reporter.ts';
+import type { EvalCase, EvalOptions, EvalReport, EvalResult, ProductSummary, ErrorCategory } from './types.ts';
 
-const CASES_DIR = join(process.cwd(), "scripts", "eval", "cases");
-const PLUGIN_DIR = join(process.cwd(), "plugins", "workos", "skills");
-const REFS_DIR = join(PLUGIN_DIR, "workos", "references");
+const CASES_DIR = join(process.cwd(), 'scripts', 'eval', 'cases');
+const PLUGIN_DIR = join(process.cwd(), 'plugins', 'workos', 'skills');
+const REFS_DIR = join(PLUGIN_DIR, 'workos', 'references');
 
 /** Load and parse all YAML test cases, optionally filtered */
 export function loadCases(
   casesDir = CASES_DIR,
   filter?: { product?: string; caseId?: string; lang?: string },
 ): EvalCase[] {
-  const files = readdirSync(casesDir).filter(
-    (f) => f.endsWith(".yaml") || f.endsWith(".yml"),
-  );
+  const files = readdirSync(casesDir).filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'));
 
   const cases: EvalCase[] = [];
 
   for (const file of files) {
     try {
-      const raw = readFileSync(join(casesDir, file), "utf8");
+      const raw = readFileSync(join(casesDir, file), 'utf8');
       const parsed = parse(raw) as EvalCase[];
       if (Array.isArray(parsed)) {
         cases.push(...parsed);
@@ -53,12 +44,10 @@ export function loadCases(
 
 /** Load skill content from disk. Concatenates summary + guide for generated skills. */
 export function loadSkillContent(skillName: string): string {
-  const isHandCrafted = (HAND_CRAFTED_SKILLS as readonly string[]).includes(
-    skillName,
-  );
+  const isHandCrafted = (HAND_CRAFTED_SKILLS as readonly string[]).includes(skillName);
 
   if (isHandCrafted) {
-    return readFileSync(join(PLUGIN_DIR, skillName, "SKILL.md"), "utf8");
+    return readFileSync(join(PLUGIN_DIR, skillName, 'SKILL.md'), 'utf8');
   }
 
   // Generated: summary + guide
@@ -68,13 +57,13 @@ export function loadSkillContent(skillName: string): string {
   const parts: string[] = [];
 
   try {
-    parts.push(readFileSync(summaryPath, "utf8"));
+    parts.push(readFileSync(summaryPath, 'utf8'));
   } catch {
     // Summary may not exist for some skills
   }
 
   try {
-    parts.push(readFileSync(guidePath, "utf8"));
+    parts.push(readFileSync(guidePath, 'utf8'));
   } catch {
     // Guide may not exist
   }
@@ -83,13 +72,13 @@ export function loadSkillContent(skillName: string): string {
     throw new Error(`No skill files found for ${skillName}`);
   }
 
-  return parts.join("\n\n---\n\n");
+  return parts.join('\n\n---\n\n');
 }
 
 /** Hash unique skill file contents for cache provenance. */
 function hashSkills(cases: EvalCase[]): string {
   const uniqueSkills = [...new Set(cases.map((c) => c.skill))].sort();
-  const hash = createHash("sha256");
+  const hash = createHash('sha256');
   for (const skill of uniqueSkills) {
     try {
       hash.update(loadSkillContent(skill));
@@ -97,7 +86,7 @@ function hashSkills(cases: EvalCase[]): string {
       hash.update(skill);
     }
   }
-  return hash.digest("hex").slice(0, 12);
+  return hash.digest('hex').slice(0, 12);
 }
 
 /** Aggregate results by product */
@@ -105,7 +94,7 @@ export function aggregateResults(results: EvalResult[]): ProductSummary[] {
   const byProduct = new Map<string, EvalResult[]>();
 
   for (const r of results) {
-    const key = r.skillType === "hand-crafted" ? `${r.product}*` : r.product;
+    const key = r.skillType === 'hand-crafted' ? `${r.product}*` : r.product;
     if (!byProduct.has(key)) byProduct.set(key, []);
     byProduct.get(key)!.push(r);
   }
@@ -113,15 +102,11 @@ export function aggregateResults(results: EvalResult[]): ProductSummary[] {
   const summaries: ProductSummary[] = [];
 
   for (const [key, productResults] of byProduct) {
-    const isHandCrafted = key.endsWith("*");
+    const isHandCrafted = key.endsWith('*');
     const product = isHandCrafted ? key.slice(0, -1) : key;
 
-    const avgWith =
-      productResults.reduce((s, r) => s + r.withSkill.scores.composite, 0) /
-      productResults.length;
-    const avgWithout =
-      productResults.reduce((s, r) => s + r.withoutSkill.scores.composite, 0) /
-      productResults.length;
+    const avgWith = productResults.reduce((s, r) => s + r.withSkill.scores.composite, 0) / productResults.length;
+    const avgWithout = productResults.reduce((s, r) => s + r.withoutSkill.scores.composite, 0) / productResults.length;
 
     // Collect and count error categories
     const errorCounts = new Map<ErrorCategory, number>();
@@ -148,7 +133,7 @@ export function aggregateResults(results: EvalResult[]): ProductSummary[] {
       minDelta: Math.round(Math.min(...deltas)),
       maxDelta: Math.round(Math.max(...deltas)),
       topErrors,
-      skillType: isHandCrafted ? "hand-crafted" : "generated",
+      skillType: isHandCrafted ? 'hand-crafted' : 'generated',
     });
   }
 
@@ -156,20 +141,17 @@ export function aggregateResults(results: EvalResult[]): ProductSummary[] {
 }
 
 /** Evaluate a single case (both arms) */
-async function evalCase(
-  c: EvalCase,
-  options: EvalOptions,
-): Promise<EvalResult | null> {
+async function evalCase(c: EvalCase, options: EvalOptions): Promise<EvalResult | null> {
   try {
     const skillContent = loadSkillContent(c.skill);
 
     const systemWith =
-      "You have access to the following WorkOS integration skill. " +
-      "Use it to inform your implementation.\n\n" +
+      'You have access to the following WorkOS integration skill. ' +
+      'Use it to inform your implementation.\n\n' +
       skillContent +
-      "\n\nYou are a software engineer implementing a WorkOS integration. Write working code. Include imports, environment variable setup, and error handling. Use the WorkOS SDK appropriate for the requested language.";
+      '\n\nYou are a software engineer implementing a WorkOS integration. Write working code. Include imports, environment variable setup, and error handling. Use the WorkOS SDK appropriate for the requested language.';
     const systemWithout =
-      "You are a software engineer implementing a WorkOS integration. Write working code. Include imports, environment variable setup, and error handling. Use the WorkOS SDK appropriate for the requested language.";
+      'You are a software engineer implementing a WorkOS integration. Write working code. Include imports, environment variable setup, and error handling. Use the WorkOS SDK appropriate for the requested language.';
 
     // Run both arms in parallel — they're independent API calls
     const [withResult, withoutResult] = await Promise.all([
@@ -244,7 +226,7 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
   });
 
   if (cases.length === 0) {
-    console.log("No eval cases found matching filters.");
+    console.log('No eval cases found matching filters.');
     return {
       runId: new Date().toISOString(),
       model: options.model,
@@ -258,21 +240,11 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
 
   if (options.dryRun) {
     console.log(`\nDry run: ${cases.length} cases would be evaluated\n`);
-    console.log(
-      "ID".padEnd(30) +
-        "Product".padEnd(15) +
-        "Lang".padEnd(8) +
-        "Skill".padEnd(25) +
-        "Type",
-    );
-    console.log("-".repeat(88));
+    console.log('ID'.padEnd(30) + 'Product'.padEnd(15) + 'Lang'.padEnd(8) + 'Skill'.padEnd(25) + 'Type');
+    console.log('-'.repeat(88));
     for (const c of cases) {
       console.log(
-        c.id.padEnd(30) +
-          c.product.padEnd(15) +
-          (c.language ?? "node").padEnd(8) +
-          c.skill.padEnd(25) +
-          c.skillType,
+        c.id.padEnd(30) + c.product.padEnd(15) + (c.language ?? 'node').padEnd(8) + c.skill.padEnd(25) + c.skillType,
       );
     }
     return {
@@ -286,54 +258,43 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
   }
 
   const concurrency = Math.max(1, options.concurrency);
-  console.log(
-    concurrency > 1
-      ? `\nRunning ${cases.length} cases with concurrency ${concurrency}\n`
-      : "",
-  );
+  console.log(concurrency > 1 ? `\nRunning ${cases.length} cases with concurrency ${concurrency}\n` : '');
 
   const results: EvalResult[] = [];
 
   // Process in batches of `concurrency`
   for (let batch = 0; batch < cases.length; batch += concurrency) {
     const batchCases = cases.slice(batch, batch + concurrency);
-    const batchResults = await Promise.allSettled(
-      batchCases.map((c) => evalCase(c, options)),
-    );
+    const batchResults = await Promise.allSettled(batchCases.map((c) => evalCase(c, options)));
 
     // Print results in case order after batch completes
     for (let i = 0; i < batchResults.length; i++) {
       const r = batchResults[i];
       const caseNum = batch + i + 1;
       const caseId = batchCases[i].id;
-      if (r.status === "fulfilled" && r.value) {
+      if (r.status === 'fulfilled' && r.value) {
         const v = r.value;
-        const deltaStr = `${v.delta > 0 ? "+" : ""}${v.delta}%`;
+        const deltaStr = `${v.delta > 0 ? '+' : ''}${v.delta}%`;
         console.log(
           `[${caseNum}/${cases.length}] ${caseId.padEnd(30)} with: ${v.withSkill.scores.composite}% | without: ${v.withoutSkill.scores.composite}% | delta: ${deltaStr}`,
         );
         results.push(r.value);
-      } else if (r.status === "rejected") {
-        console.error(
-          `[${caseNum}/${cases.length}] ${caseId.padEnd(30)} ✗ ${r.reason}`,
-        );
+      } else if (r.status === 'rejected') {
+        console.error(`[${caseNum}/${cases.length}] ${caseId.padEnd(30)} ✗ ${r.reason}`);
       }
     }
   }
 
   // Compute language breakdown
-  const langAccum: Record<
-    string,
-    { count: number; withSum: number; withoutSum: number }
-  > = {};
+  const langAccum: Record<string, { count: number; withSum: number; withoutSum: number }> = {};
   for (const r of results) {
-    const lang = r.language || "node";
+    const lang = r.language || 'node';
     if (!langAccum[lang]) langAccum[lang] = { count: 0, withSum: 0, withoutSum: 0 };
     langAccum[lang].count++;
     langAccum[lang].withSum += r.withSkill.scores.composite;
     langAccum[lang].withoutSum += r.withoutSkill.scores.composite;
   }
-  const languageBreakdown: EvalReport["languageBreakdown"] = {};
+  const languageBreakdown: EvalReport['languageBreakdown'] = {};
   for (const [lang, acc] of Object.entries(langAccum)) {
     const avgWith = Math.round(acc.withSum / acc.count);
     const avgWithout = Math.round(acc.withoutSum / acc.count);

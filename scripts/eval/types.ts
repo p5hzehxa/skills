@@ -3,7 +3,7 @@ export interface EvalCase {
   id: string;
   product: string;
   skill: string;
-  skillType: "generated" | "hand-crafted";
+  skillType: 'generated' | 'hand-crafted';
   language?: string;
   framework?: string;
   prompt: string;
@@ -34,15 +34,15 @@ export interface ScoreCard {
 }
 
 export type ErrorCategory =
-  | "hallucinated_method"
-  | "missing_method"
-  | "wrong_params"
-  | "missing_env_var"
-  | "wrong_flow_order"
-  | "incorrect_config"
-  | "missing_error_handling"
-  | "wrong_import"
-  | "security_issue";
+  | 'hallucinated_method'
+  | 'missing_method'
+  | 'wrong_params'
+  | 'missing_env_var'
+  | 'wrong_flow_order'
+  | 'incorrect_config'
+  | 'missing_error_handling'
+  | 'wrong_import'
+  | 'security_issue';
 
 export interface TokenUsage {
   input: number;
@@ -54,7 +54,7 @@ export interface EvalResult {
   caseId: string;
   product: string;
   language?: string;
-  skillType: "generated" | "hand-crafted";
+  skillType: 'generated' | 'hand-crafted';
   withSkill: { output: string; scores: ScoreCard; tokenUsage: TokenUsage };
   withoutSkill: { output: string; scores: ScoreCard; tokenUsage: TokenUsage };
   delta: number;
@@ -75,7 +75,7 @@ export interface ProductSummary {
   minDelta: number;
   maxDelta: number;
   topErrors: ErrorCategory[];
-  skillType?: "generated" | "hand-crafted";
+  skillType?: 'generated' | 'hand-crafted';
 }
 
 /** Full eval run report */

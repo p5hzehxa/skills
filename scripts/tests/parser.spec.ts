@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { parseSections, parseSubsections } from "../lib/parser.ts";
+import { describe, expect, it } from 'vitest';
+import { parseSections, parseSubsections } from '../lib/parser.ts';
 
-describe("parseSections", () => {
-  it("extracts sections delimited by ## Name {#anchor}", () => {
+describe('parseSections', () => {
+  it('extracts sections delimited by ## Name {#anchor}', () => {
     const markdown = `# Header
 
 Some intro text.
@@ -21,14 +21,14 @@ Vault content here.
 `;
     const sections = parseSections(markdown);
     expect(sections).toHaveLength(2);
-    expect(sections[0].name).toBe("Widgets");
-    expect(sections[0].anchor).toBe("widgets");
-    expect(sections[0].content).toContain("Widget content here");
-    expect(sections[1].name).toBe("Vault");
-    expect(sections[1].anchor).toBe("vault");
+    expect(sections[0].name).toBe('Widgets');
+    expect(sections[0].anchor).toBe('widgets');
+    expect(sections[0].content).toContain('Widget content here');
+    expect(sections[1].name).toBe('Vault');
+    expect(sections[1].anchor).toBe('vault');
   });
 
-  it("does not split on ## inside fenced code blocks", () => {
+  it('does not split on ## inside fenced code blocks', () => {
     const markdown = `## Real Section {#real}
 
 Some content.
@@ -47,12 +47,12 @@ Another content.
 `;
     const sections = parseSections(markdown);
     expect(sections).toHaveLength(2);
-    expect(sections[0].anchor).toBe("real");
-    expect(sections[0].content).toContain("Fake Section");
-    expect(sections[1].anchor).toBe("another");
+    expect(sections[0].anchor).toBe('real');
+    expect(sections[0].content).toContain('Fake Section');
+    expect(sections[1].anchor).toBe('another');
   });
 
-  it("calculates sizeBytes and lineCount", () => {
+  it('calculates sizeBytes and lineCount', () => {
     const markdown = `## Test {#test}
 
 Line one.
@@ -64,7 +64,7 @@ Line three.
     expect(sections[0].sizeBytes).toBeGreaterThan(0);
   });
 
-  it("handles empty content between headers", () => {
+  it('handles empty content between headers', () => {
     const markdown = `## Empty {#empty}
 
 ## Next {#next}
@@ -73,11 +73,11 @@ Has content.
 `;
     const sections = parseSections(markdown);
     expect(sections).toHaveLength(2);
-    expect(sections[0].content).toBe("");
-    expect(sections[1].content).toBe("Has content.");
+    expect(sections[0].content).toBe('');
+    expect(sections[1].content).toBe('Has content.');
   });
 
-  it("extracts subsections", () => {
+  it('extracts subsections', () => {
     const markdown = `## SSO {#sso}
 
 ### Getting Started
@@ -94,14 +94,14 @@ Questions.
 `;
     const sections = parseSections(markdown);
     expect(sections[0].subsections).toHaveLength(3);
-    expect(sections[0].subsections[0].title).toBe("Getting Started");
-    expect(sections[0].subsections[1].title).toBe("Configuration");
-    expect(sections[0].subsections[2].title).toBe("FAQ");
+    expect(sections[0].subsections[0].title).toBe('Getting Started');
+    expect(sections[0].subsections[1].title).toBe('Configuration');
+    expect(sections[0].subsections[2].title).toBe('FAQ');
   });
 });
 
-describe("parseSubsections", () => {
-  it("splits on ### headings", () => {
+describe('parseSubsections', () => {
+  it('splits on ### headings', () => {
     const content = `
 ### First
 
@@ -113,12 +113,12 @@ Second content.
 `;
     const subs = parseSubsections(content);
     expect(subs).toHaveLength(2);
-    expect(subs[0].title).toBe("First");
-    expect(subs[0].content).toBe("First content.");
-    expect(subs[1].title).toBe("Second");
+    expect(subs[0].title).toBe('First');
+    expect(subs[0].content).toBe('First content.');
+    expect(subs[1].title).toBe('Second');
   });
 
-  it("skips ### inside code blocks", () => {
+  it('skips ### inside code blocks', () => {
     const content = `
 ### Real
 
@@ -134,13 +134,13 @@ More content.
 `;
     const subs = parseSubsections(content);
     expect(subs).toHaveLength(2);
-    expect(subs[0].title).toBe("Real");
-    expect(subs[0].content).toContain("Not a heading");
-    expect(subs[1].title).toBe("Also Real");
+    expect(subs[0].title).toBe('Real');
+    expect(subs[0].content).toContain('Not a heading');
+    expect(subs[1].title).toBe('Also Real');
   });
 
-  it("returns empty array for content with no subsections", () => {
-    const subs = parseSubsections("Just plain content with no headings.");
+  it('returns empty array for content with no subsections', () => {
+    const subs = parseSubsections('Just plain content with no headings.');
     expect(subs).toHaveLength(0);
   });
 });

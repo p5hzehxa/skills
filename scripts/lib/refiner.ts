@@ -1,14 +1,14 @@
-import { readdirSync } from "fs";
-import { join } from "path";
-import type { GeneratedSkill } from "./types.ts";
-import { parseMarker } from "./hasher.ts";
-import { loadFeedback, formatFeedbackForPrompt } from "./feedback.ts";
+import { readdirSync } from 'fs';
+import { join } from 'path';
+import type { GeneratedSkill } from './types.ts';
+import { parseMarker } from './hasher.ts';
+import { loadFeedback, formatFeedbackForPrompt } from './feedback.ts';
 
 /** Read valid skill names from disk to prevent phantom references */
 function getValidSkillNames(): string[] {
   try {
-    const skillsDir = join(process.cwd(), "plugins", "workos", "skills");
-    return readdirSync(skillsDir).filter((d) => d.startsWith("workos-"));
+    const skillsDir = join(process.cwd(), 'plugins', 'workos', 'skills');
+    return readdirSync(skillsDir).filter((d) => d.startsWith('workos-'));
   } catch {
     return [];
   }
@@ -75,13 +75,13 @@ function getAttributionBlock(): string {
 ## Related Skills References (CRITICAL)
 
 Only reference these skills in "Related Skills" sections — these are the ONLY valid skill names:
-${validSkills.map((s) => `- ${s}`).join("\n")}
+${validSkills.map((s) => `- ${s}`).join('\n')}
 
 Do NOT invent skill names. If no related skill exists for a topic, omit it.`;
 }
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
 const MAX_TOKENS = 8192;
 
 /** Delay between API calls to avoid rate limiting */
@@ -101,10 +101,7 @@ export interface RefineOptions {
  * Preserves: frontmatter, `<!-- generated -->` marker, doc URLs
  * Rewrites: implementation guide, verification, error recovery, when to use
  */
-export async function refineSkill(
-  skill: GeneratedSkill,
-  options: RefineOptions,
-): Promise<GeneratedSkill> {
+export async function refineSkill(skill: GeneratedSkill, options: RefineOptions): Promise<GeneratedSkill> {
   const { frontmatter, body } = splitFrontmatter(skill.content);
   const docUrls = extractDocUrls(body);
   const skillName = skill.name;
@@ -113,36 +110,28 @@ export async function refineSkill(
   const existingMarker = parseMarker(skill.content);
   const sourceHash = skill.sourceHash ?? existingMarker.hash;
 
-  const isSummary = skill.type === "summary";
-  const isRouter = skillName === "workos";
-  const isApiRef = skillName.startsWith("workos-api-");
+  const isSummary = skill.type === 'summary';
+  const isRouter = skillName === 'workos';
+  const isApiRef = skillName.startsWith('workos-api-');
   const prompt = isSummary
     ? buildSummaryRefinePrompt(skillName, frontmatter, body)
     : isRouter
       ? buildRouterRefinePrompt(skillName, frontmatter, body)
       : isApiRef
         ? buildApiRefRefinePrompt(skillName, frontmatter, body, docUrls)
-        : buildRefinePrompt(
-            skillName,
-            frontmatter,
-            body,
-            docUrls,
-            options.goldStandard,
-          );
+        : buildRefinePrompt(skillName, frontmatter, body, docUrls, options.goldStandard);
 
   // Feature guides get a tighter token cap to enforce leaner output
-  const maxTokens = skill.type === "guide" && !isApiRef ? 4096 : MAX_TOKENS;
+  const maxTokens = skill.type === 'guide' && !isApiRef ? 4096 : MAX_TOKENS;
   const refined = await callAnthropic(prompt, options, maxTokens);
   // Guides have no frontmatter — use ensureGuideMarkers for them
   const content =
-    skill.type === "guide"
-      ? ensureGuideMarkers(refined, sourceHash)
-      : ensureMarkers(frontmatter, refined, sourceHash);
+    skill.type === 'guide' ? ensureGuideMarkers(refined, sourceHash) : ensureMarkers(frontmatter, refined, sourceHash);
 
   return {
     ...skill,
     content,
-    sizeBytes: Buffer.byteLength(content, "utf8"),
+    sizeBytes: Buffer.byteLength(content, 'utf8'),
   };
 }
 
@@ -271,7 +260,7 @@ function buildApiRefRefinePrompt(
 ## Rules for API reference refinement
 
 1. Output ONLY the skill body (everything after frontmatter). Do NOT include frontmatter or the \`<!-- generated -->\` marker.
-2. KEEP the "Step 1: Fetch Documentation" section with these exact doc URLs: ${docUrls.map((u) => `\n   - ${u}`).join("")}
+2. KEEP the "Step 1: Fetch Documentation" section with these exact doc URLs: ${docUrls.map((u) => `\n   - ${u}`).join('')}
 3. PRESERVE endpoint tables (method + path + purpose) — these are structural
 4. DEFER request/response schemas to fetched docs — these are behavioral
 5. ADD a clear operation decision tree (CRUD mapping)
@@ -333,7 +322,7 @@ Key patterns:
 ## Rules
 
 1. Output ONLY the skill body. No frontmatter, no \`<!-- generated -->\` marker.
-2. KEEP Step 1 with these doc URLs: ${docUrls.map((u) => `\n   - ${u}`).join("")}
+2. KEEP Step 1 with these doc URLs: ${docUrls.map((u) => `\n   - ${u}`).join('')}
 3. For topics the docs cover well: write "Check fetched docs for [specific topic]" — do NOT restate.
 4. For topics that span multiple doc pages or are confusing: ADD a decision tree.
 5. ADD a verification checklist with RUNNABLE bash commands.
@@ -379,17 +368,17 @@ async function callAnthropic(
   maxTokens?: number,
 ): Promise<string> {
   const response = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
-      "x-api-key": options.apiKey,
-      "anthropic-version": "2023-06-01",
+      'Content-Type': 'application/json',
+      'x-api-key': options.apiKey,
+      'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
       model: options.model ?? DEFAULT_MODEL,
       max_tokens: maxTokens ?? MAX_TOKENS,
       system: prompt.system,
-      messages: [{ role: "user", content: prompt.user }],
+      messages: [{ role: 'user', content: prompt.user }],
     }),
   });
 
@@ -403,12 +392,12 @@ async function callAnthropic(
   };
 
   const text = data.content
-    .filter((c) => c.type === "text")
+    .filter((c) => c.type === 'text')
     .map((c) => c.text)
-    .join("");
+    .join('');
 
   if (!text.trim()) {
-    throw new Error("Anthropic API returned empty response");
+    throw new Error('Anthropic API returned empty response');
   }
 
   return text.trim();
@@ -421,7 +410,7 @@ function splitFrontmatter(content: string): {
 } {
   const match = content.match(/^(---\n[\s\S]*?\n---)\n([\s\S]*)$/);
   if (!match) {
-    return { frontmatter: "", body: content };
+    return { frontmatter: '', body: content };
   }
   return { frontmatter: match[1], body: match[2].trim() };
 }
@@ -438,31 +427,20 @@ function extractDocUrls(body: string): string[] {
 }
 
 /** Reassemble frontmatter + marker + refined body */
-function ensureMarkers(
-  frontmatter: string,
-  body: string,
-  sourceHash: string | null,
-): string {
+function ensureMarkers(frontmatter: string, body: string, sourceHash: string | null): string {
   // Strip any frontmatter the LLM may have included
   let cleanBody = body;
-  if (cleanBody.startsWith("---")) {
-    const endIdx = cleanBody.indexOf("---", 3);
+  if (cleanBody.startsWith('---')) {
+    const endIdx = cleanBody.indexOf('---', 3);
     if (endIdx !== -1) {
       cleanBody = cleanBody.slice(endIdx + 3).trim();
     }
   }
 
   // Strip any marker the LLM included (generated or refined, with or without hash)
-  cleanBody = cleanBody
-    .replace(
-      /<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->\s*\n?/,
-      "",
-    )
-    .trim();
+  cleanBody = cleanBody.replace(/<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->\s*\n?/, '').trim();
 
-  const marker = sourceHash
-    ? `<!-- refined:sha256:${sourceHash} -->`
-    : "<!-- generated -->";
+  const marker = sourceHash ? `<!-- refined:sha256:${sourceHash} -->` : '<!-- generated -->';
 
   return `${frontmatter}\n\n${marker}\n\n${cleanBody}\n`;
 }
@@ -471,24 +449,17 @@ function ensureMarkers(
 function ensureGuideMarkers(body: string, sourceHash: string | null): string {
   // Strip any frontmatter the LLM may have included
   let cleanBody = body;
-  if (cleanBody.startsWith("---")) {
-    const endIdx = cleanBody.indexOf("---", 3);
+  if (cleanBody.startsWith('---')) {
+    const endIdx = cleanBody.indexOf('---', 3);
     if (endIdx !== -1) {
       cleanBody = cleanBody.slice(endIdx + 3).trim();
     }
   }
 
   // Strip any marker the LLM included
-  cleanBody = cleanBody
-    .replace(
-      /<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->\s*\n?/,
-      "",
-    )
-    .trim();
+  cleanBody = cleanBody.replace(/<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->\s*\n?/, '').trim();
 
-  const marker = sourceHash
-    ? `<!-- refined:sha256:${sourceHash} -->`
-    : "<!-- generated -->";
+  const marker = sourceHash ? `<!-- refined:sha256:${sourceHash} -->` : '<!-- generated -->';
 
   return `${marker}\n\n${cleanBody}\n`;
 }

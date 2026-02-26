@@ -1,4 +1,4 @@
-import type { SkillSpec } from "./types.ts";
+import type { SkillSpec } from './types.ts';
 
 /** Generate YAML frontmatter block */
 export function renderFrontmatter(spec: SkillSpec): string {
@@ -11,62 +11,54 @@ export function renderFrontmatter(spec: SkillSpec): string {
 export function renderSummary(spec: SkillSpec, sourceHash?: string): string {
   const parts: string[] = [];
 
-  parts.push(
-    sourceHash
-      ? `<!-- generated:sha256:${sourceHash} -->`
-      : "<!-- generated -->",
-  );
+  parts.push(sourceHash ? `<!-- generated:sha256:${sourceHash} -->` : '<!-- generated -->');
 
-  parts.push("");
+  parts.push('');
   parts.push(`# ${spec.title}`);
-  parts.push("");
+  parts.push('');
   parts.push(renderWhenToUse(spec));
   parts.push(renderKeyVocabularyPlaceholder(spec));
   parts.push(renderGuidePointer(spec.name));
   parts.push(renderRelatedSkills(spec));
 
-  return parts.join("\n");
+  return parts.join('\n');
 }
 
 /** Generate the guide file content — full implementation details */
 export function renderGuide(spec: SkillSpec, sourceHash?: string): string {
   const parts: string[] = [];
 
-  parts.push(
-    sourceHash
-      ? `<!-- generated:sha256:${sourceHash} -->`
-      : "<!-- generated -->",
-  );
+  parts.push(sourceHash ? `<!-- generated:sha256:${sourceHash} -->` : '<!-- generated -->');
 
-  parts.push("");
+  parts.push('');
   parts.push(`# ${spec.title} — Implementation Guide`);
-  parts.push("");
+  parts.push('');
   parts.push(renderDocFetchSection(spec.docUrls));
   parts.push(renderPrerequisites(spec));
   parts.push(renderImplementationGuide(spec));
   parts.push(renderVerificationChecklist(spec));
   parts.push(renderErrorRecovery(spec));
 
-  return parts.join("\n");
+  return parts.join('\n');
 }
 
 /** Documentation URLs section for summaries */
 export function renderDocumentation(docUrls: string[]): string {
-  if (docUrls.length === 0) return "";
-  const lines = ["## Documentation", ""];
+  if (docUrls.length === 0) return '';
+  const lines = ['## Documentation', ''];
   const urls = docUrls.slice(0, 5);
   for (const url of urls) {
     lines.push(`- ${url}`);
   }
-  lines.push("");
-  return lines.join("\n");
+  lines.push('');
+  return lines.join('\n');
 }
 
 /** Key Vocabulary placeholder — populated by the refiner */
 export function renderKeyVocabularyPlaceholder(spec: SkillSpec): string {
   return `## Key Vocabulary
 
-_Entity names, ID prefixes, and structural terms for ${spec.title.replace("WorkOS ", "")}. Populated during refinement._
+_Entity names, ID prefixes, and structural terms for ${spec.title.replace('WorkOS ', '')}. Populated during refinement._
 
 `;
 }
@@ -85,56 +77,48 @@ For step-by-step implementation, verification commands, and error recovery:
 /** Deterministic stub for API reference guides — endpoint table + doc pointer */
 export function renderApiRefStub(spec: SkillSpec, sourceHash?: string): string {
   const parts: string[] = [];
-  parts.push(
-    sourceHash
-      ? `<!-- generated:sha256:${sourceHash} -->`
-      : "<!-- generated -->",
-  );
-  parts.push("");
+  parts.push(sourceHash ? `<!-- generated:sha256:${sourceHash} -->` : '<!-- generated -->');
+  parts.push('');
   parts.push(`# ${spec.title} — Quick Reference`);
-  parts.push("");
-  parts.push("## Step 1: Fetch Documentation");
-  parts.push("");
-  parts.push("**WebFetch the API reference before making calls.**");
-  parts.push("");
+  parts.push('');
+  parts.push('## Step 1: Fetch Documentation');
+  parts.push('');
+  parts.push('**WebFetch the API reference before making calls.**');
+  parts.push('');
   for (const url of spec.docUrls.slice(0, 5)) {
     parts.push(`- ${url}`);
   }
-  parts.push("");
+  parts.push('');
   // Extract endpoint table if present
-  const tableMatch = spec.content.match(
-    /\|[^\n]*(?:Endpoint|Method|Path)[^\n]*\|[\s\S]*?(?=\n\n|\n[^|]|$)/i,
-  );
+  const tableMatch = spec.content.match(/\|[^\n]*(?:Endpoint|Method|Path)[^\n]*\|[\s\S]*?(?=\n\n|\n[^|]|$)/i);
   if (tableMatch) {
-    parts.push("## Endpoints");
-    parts.push("");
+    parts.push('## Endpoints');
+    parts.push('');
     parts.push(tableMatch[0].trim());
-    parts.push("");
+    parts.push('');
   }
   // Pointer to feature guide
-  const featureName = spec.name.replace("workos-api-", "workos-");
-  parts.push("## Implementation");
-  parts.push("");
-  parts.push("For integration patterns, error recovery, and verification:");
-  parts.push("");
+  const featureName = spec.name.replace('workos-api-', 'workos-');
+  parts.push('## Implementation');
+  parts.push('');
+  parts.push('For integration patterns, error recovery, and verification:');
+  parts.push('');
   parts.push(`> Read \`references/${featureName}.guide.md\``);
-  parts.push("");
-  return parts.join("\n");
+  parts.push('');
+  return parts.join('\n');
 }
 
 /** Step 1: Fetch Documentation section with doc URLs */
 export function renderDocFetchSection(docUrls: string[]): string {
   const lines = [
-    "## Step 1: Fetch Documentation",
-    "",
-    "**STOP. WebFetch the relevant docs for latest implementation details before proceeding.**",
-    "",
+    '## Step 1: Fetch Documentation',
+    '',
+    '**STOP. WebFetch the relevant docs for latest implementation details before proceeding.**',
+    '',
   ];
 
   if (docUrls.length === 0) {
-    lines.push(
-      "No specific doc URLs available. Check https://workos.com/docs for current documentation.",
-    );
+    lines.push('No specific doc URLs available. Check https://workos.com/docs for current documentation.');
   } else {
     // Show up to 8 URLs to keep it focused
     const urls = docUrls.slice(0, 8);
@@ -142,41 +126,37 @@ export function renderDocFetchSection(docUrls: string[]): string {
       lines.push(`- ${url}`);
     }
     if (docUrls.length > 8) {
-      lines.push(
-        `\n_${docUrls.length - 8} additional doc pages available at https://workos.com/docs_`,
-      );
+      lines.push(`\n_${docUrls.length - 8} additional doc pages available at https://workos.com/docs_`);
     }
   }
 
-  lines.push("");
-  return lines.join("\n");
+  lines.push('');
+  return lines.join('\n');
 }
 
 /** Extract a "When to Use" section from the content */
 export function renderWhenToUse(spec: SkillSpec): string {
-  const lines = ["## When to Use", ""];
+  const lines = ['## When to Use', ''];
 
   // Try to extract intro paragraph (first non-empty paragraph before any heading)
   const intro = extractIntro(spec.content);
   if (intro) {
     lines.push(intro);
   } else {
-    lines.push(
-      `Use this skill when implementing ${spec.title.replace("WorkOS ", "")} in your application.`,
-    );
+    lines.push(`Use this skill when implementing ${spec.title.replace('WorkOS ', '')} in your application.`);
   }
 
-  lines.push("");
-  return lines.join("\n");
+  lines.push('');
+  return lines.join('\n');
 }
 
 /** Extract prerequisites from content */
 export function renderPrerequisites(spec: SkillSpec): string {
   const lines = [
-    "## Prerequisites",
-    "",
-    "- A WorkOS account and API keys (`WORKOS_API_KEY`, `WORKOS_CLIENT_ID`)",
-    "- WorkOS SDK installed in your project",
+    '## Prerequisites',
+    '',
+    '- A WorkOS account and API keys (`WORKOS_API_KEY`, `WORKOS_CLIENT_ID`)',
+    '- WorkOS SDK installed in your project',
   ];
 
   // Look for prerequisite-like content
@@ -185,13 +165,13 @@ export function renderPrerequisites(spec: SkillSpec): string {
     lines.push(`- ${p}`);
   }
 
-  lines.push("");
-  return lines.join("\n");
+  lines.push('');
+  return lines.join('\n');
 }
 
 /** Build the implementation guide with decision trees and steps */
 export function renderImplementationGuide(spec: SkillSpec): string {
-  const lines = ["## Implementation Guide", ""];
+  const lines = ['## Implementation Guide', ''];
 
   // Extract steps/flow from content
   const steps = extractSteps(spec.content);
@@ -200,23 +180,21 @@ export function renderImplementationGuide(spec: SkillSpec): string {
       lines.push(step);
     }
   } else {
-    lines.push(
-      "Refer to the fetched documentation for step-by-step implementation details.",
-    );
-    lines.push("");
-    lines.push("### General Flow");
-    lines.push("");
-    lines.push("1. Implement the primary integration pattern");
-    lines.push("2. Verify with runnable checks");
+    lines.push('Refer to the fetched documentation for step-by-step implementation details.');
+    lines.push('');
+    lines.push('### General Flow');
+    lines.push('');
+    lines.push('1. Implement the primary integration pattern');
+    lines.push('2. Verify with runnable checks');
   }
 
-  lines.push("");
-  return lines.join("\n");
+  lines.push('');
+  return lines.join('\n');
 }
 
 /** Build verification checklist */
 export function renderVerificationChecklist(spec: SkillSpec): string {
-  const lines = ["## Verification Checklist", ""];
+  const lines = ['## Verification Checklist', ''];
 
   const checks = extractVerificationItems(spec.content);
   if (checks.length > 0) {
@@ -224,74 +202,74 @@ export function renderVerificationChecklist(spec: SkillSpec): string {
       lines.push(`- [ ] ${check}`);
     }
   } else {
-    lines.push("- [ ] WorkOS Dashboard configuration is complete");
-    lines.push("- [ ] SDK is installed and imported correctly");
-    lines.push("- [ ] Feature endpoints respond correctly");
-    lines.push("- [ ] Error cases are handled gracefully");
-    lines.push("- [ ] Application builds without errors");
+    lines.push('- [ ] WorkOS Dashboard configuration is complete');
+    lines.push('- [ ] SDK is installed and imported correctly');
+    lines.push('- [ ] Feature endpoints respond correctly');
+    lines.push('- [ ] Error cases are handled gracefully');
+    lines.push('- [ ] Application builds without errors');
   }
 
-  lines.push("");
-  return lines.join("\n");
+  lines.push('');
+  return lines.join('\n');
 }
 
 /** Build error recovery section */
 export function renderErrorRecovery(spec: SkillSpec): string {
-  const lines = ["## Error Recovery", ""];
+  const lines = ['## Error Recovery', ''];
 
   const errors = extractErrorPatterns(spec.content);
   if (errors.length > 0) {
     for (const err of errors) {
       lines.push(`### ${err.title}`);
-      lines.push("");
+      lines.push('');
       lines.push(err.fix);
-      lines.push("");
+      lines.push('');
     }
   } else {
-    lines.push("### API Key Issues");
-    lines.push("");
-    lines.push("- Verify `WORKOS_API_KEY` starts with `sk_`");
-    lines.push("- Check key has appropriate permissions in WorkOS Dashboard");
-    lines.push("");
-    lines.push("### SDK Import Errors");
-    lines.push("");
-    lines.push("- Verify SDK package is installed");
-    lines.push("- Check import paths match SDK version");
+    lines.push('### API Key Issues');
+    lines.push('');
+    lines.push('- Verify `WORKOS_API_KEY` starts with `sk_`');
+    lines.push('- Check key has appropriate permissions in WorkOS Dashboard');
+    lines.push('');
+    lines.push('### SDK Import Errors');
+    lines.push('');
+    lines.push('- Verify SDK package is installed');
+    lines.push('- Check import paths match SDK version');
   }
 
-  lines.push("");
-  return lines.join("\n");
+  lines.push('');
+  return lines.join('\n');
 }
 
 /** Build related skills section */
 export function renderRelatedSkills(spec: SkillSpec): string {
   const related = getRelatedSkills(spec.anchor);
-  if (related.length === 0) return "";
+  if (related.length === 0) return '';
 
-  const lines = ["## Related Skills", ""];
+  const lines = ['## Related Skills', ''];
   for (const r of related) {
     lines.push(`- **${r.name}**: ${r.description}`);
   }
-  lines.push("");
-  return lines.join("\n");
+  lines.push('');
+  return lines.join('\n');
 }
 
 // --- Content extraction helpers ---
 
 /** Extract the intro paragraph before any heading */
 function extractIntro(content: string): string | null {
-  const lines = content.split("\n");
+  const lines = content.split('\n');
   const introParts: string[] = [];
 
   for (const line of lines) {
-    if (line.startsWith("#")) break;
-    if (line.startsWith("---")) break;
+    if (line.startsWith('#')) break;
+    if (line.startsWith('---')) break;
     const trimmed = line.trim();
     if (trimmed) introParts.push(trimmed);
     if (introParts.length > 0 && !trimmed) break; // Stop at first blank line after content
   }
 
-  const intro = introParts.join(" ").trim();
+  const intro = introParts.join(' ').trim();
   // Only return if we got something meaningful (>20 chars)
   return intro.length > 20 ? intro : null;
 }
@@ -299,16 +277,12 @@ function extractIntro(content: string): string | null {
 /** Extract prerequisite-like items from content */
 function extractPrerequisites(content: string): string[] {
   const prereqs: string[] = [];
-  const lines = content.split("\n");
+  const lines = content.split('\n');
 
   // Look for sections with "prerequisite", "before you", "requirements"
   let inPrereqSection = false;
   for (const line of lines) {
-    if (
-      /^#{2,4}\s.*(prerequisit|before you|requirement|getting started)/i.test(
-        line,
-      )
-    ) {
+    if (/^#{2,4}\s.*(prerequisit|before you|requirement|getting started)/i.test(line)) {
       inPrereqSection = true;
       continue;
     }
@@ -317,7 +291,7 @@ function extractPrerequisites(content: string): string[] {
       continue;
     }
     if (inPrereqSection && line.match(/^[-*]\s+(.+)/)) {
-      prereqs.push(line.replace(/^[-*]\s+/, "").trim());
+      prereqs.push(line.replace(/^[-*]\s+/, '').trim());
     }
   }
 
@@ -327,14 +301,13 @@ function extractPrerequisites(content: string): string[] {
 /** Extract ordered steps from content */
 function extractSteps(content: string): string[] {
   const steps: string[] = [];
-  const lines = content.split("\n");
+  const lines = content.split('\n');
 
   // Skip non-actionable headings that bloat scaffolds
-  const SKIP_HEADINGS =
-    /test.*with.*real|launch.*checklist|optional|admin portal|signing certificate/i;
+  const SKIP_HEADINGS = /test.*with.*real|launch.*checklist|optional|admin portal|signing certificate/i;
 
   // Look for ### headings that describe steps/flow
-  let currentHeading = "";
+  let currentHeading = '';
   let currentContent: string[] = [];
 
   for (const line of lines) {
@@ -342,15 +315,15 @@ function extractSteps(content: string): string[] {
     if (headingMatch) {
       if (currentHeading && currentContent.length > 0) {
         steps.push(`### ${currentHeading}`);
-        steps.push("");
+        steps.push('');
         steps.push(...currentContent.slice(0, 8)); // Cap content per section
-        steps.push("");
+        steps.push('');
       }
       currentHeading = headingMatch[1];
       currentContent = [];
       // Skip non-actionable sections
       if (SKIP_HEADINGS.test(currentHeading)) {
-        currentHeading = "";
+        currentHeading = '';
         currentContent = [];
       }
       continue;
@@ -364,9 +337,9 @@ function extractSteps(content: string): string[] {
   // Last section
   if (currentHeading && currentContent.length > 0) {
     steps.push(`### ${currentHeading}`);
-    steps.push("");
+    steps.push('');
     steps.push(...currentContent.slice(0, 8));
-    steps.push("");
+    steps.push('');
   }
 
   return steps.slice(0, 30); // Keep scaffold lean — refiner adds value, not bulk
@@ -375,7 +348,7 @@ function extractSteps(content: string): string[] {
 /** Extract verification-like items */
 function extractVerificationItems(content: string): string[] {
   const checks: string[] = [];
-  const lines = content.split("\n");
+  const lines = content.split('\n');
 
   // Look for checklist items, test steps, verification patterns
   for (const line of lines) {
@@ -385,9 +358,7 @@ function extractVerificationItems(content: string): string[] {
       continue;
     }
     // Look for "verify", "confirm", "test" in list items
-    const verifyMatch = line.match(
-      /^[-*]\s+((?:verify|confirm|test|check|ensure).+)/i,
-    );
+    const verifyMatch = line.match(/^[-*]\s+((?:verify|confirm|test|check|ensure).+)/i);
     if (verifyMatch) {
       checks.push(verifyMatch[1]);
     }
@@ -397,15 +368,13 @@ function extractVerificationItems(content: string): string[] {
 }
 
 /** Extract error patterns from content */
-function extractErrorPatterns(
-  content: string,
-): Array<{ title: string; fix: string }> {
+function extractErrorPatterns(content: string): Array<{ title: string; fix: string }> {
   const errors: Array<{ title: string; fix: string }> = [];
-  const lines = content.split("\n");
+  const lines = content.split('\n');
 
   // Look for error-related headings
   let inErrorSection = false;
-  let errorTitle = "";
+  let errorTitle = '';
   let errorContent: string[] = [];
 
   for (const line of lines) {
@@ -414,7 +383,7 @@ function extractErrorPatterns(
       const title = headingMatch[1];
       if (/error|troubleshoot|debug|issue|problem|fix/i.test(title)) {
         if (errorTitle && errorContent.length > 0) {
-          errors.push({ title: errorTitle, fix: errorContent.join("\n") });
+          errors.push({ title: errorTitle, fix: errorContent.join('\n') });
         }
         inErrorSection = true;
         errorTitle = title;
@@ -423,10 +392,10 @@ function extractErrorPatterns(
       }
       if (inErrorSection) {
         if (errorTitle && errorContent.length > 0) {
-          errors.push({ title: errorTitle, fix: errorContent.join("\n") });
+          errors.push({ title: errorTitle, fix: errorContent.join('\n') });
         }
         inErrorSection = false;
-        errorTitle = "";
+        errorTitle = '';
         errorContent = [];
       }
     }
@@ -437,83 +406,70 @@ function extractErrorPatterns(
   }
 
   if (errorTitle && errorContent.length > 0) {
-    errors.push({ title: errorTitle, fix: errorContent.join("\n") });
+    errors.push({ title: errorTitle, fix: errorContent.join('\n') });
   }
 
   return errors.slice(0, 5);
 }
 
 /** Map of anchor → related skill references */
-function getRelatedSkills(
-  anchor: string,
-): Array<{ name: string; description: string }> {
-  const relationships: Record<
-    string,
-    Array<{ name: string; description: string }>
-  > = {
+function getRelatedSkills(anchor: string): Array<{ name: string; description: string }> {
+  const relationships: Record<string, Array<{ name: string; description: string }>> = {
     sso: [
       {
-        name: "workos-integrations",
-        description: "Provider-specific SSO setup",
+        name: 'workos-integrations',
+        description: 'Provider-specific SSO setup',
       },
-      { name: "workos-rbac", description: "Role-based access after SSO" },
+      { name: 'workos-rbac', description: 'Role-based access after SSO' },
       {
-        name: "workos-directory-sync",
-        description: "Sync user directories from IdPs",
+        name: 'workos-directory-sync',
+        description: 'Sync user directories from IdPs',
       },
     ],
-    "directory-sync": [
-      { name: "workos-sso", description: "Single Sign-On configuration" },
+    'directory-sync': [
+      { name: 'workos-sso', description: 'Single Sign-On configuration' },
       {
-        name: "workos-integrations",
-        description: "Provider-specific directory setup",
+        name: 'workos-integrations',
+        description: 'Provider-specific directory setup',
       },
     ],
     rbac: [
-      { name: "workos-fga", description: "Fine-grained authorization" },
-      { name: "workos-sso", description: "SSO for authenticated access" },
+      { name: 'workos-fga', description: 'Fine-grained authorization' },
+      { name: 'workos-sso', description: 'SSO for authenticated access' },
     ],
-    fga: [{ name: "workos-rbac", description: "Role-based access control" }],
-    "audit-logs": [
-      { name: "workos-events", description: "Webhook event handling" },
-    ],
-    events: [
-      { name: "workos-audit-logs", description: "Audit log integration" },
-    ],
-    mfa: [
-      { name: "workos-sso", description: "SSO for primary authentication" },
-    ],
-    "magic-link": [
-      { name: "workos-mfa", description: "Add MFA to passwordless flows" },
-    ],
-    vault: [{ name: "workos-audit-logs", description: "Audit data access" }],
+    fga: [{ name: 'workos-rbac', description: 'Role-based access control' }],
+    'audit-logs': [{ name: 'workos-events', description: 'Webhook event handling' }],
+    events: [{ name: 'workos-audit-logs', description: 'Audit log integration' }],
+    mfa: [{ name: 'workos-sso', description: 'SSO for primary authentication' }],
+    'magic-link': [{ name: 'workos-mfa', description: 'Add MFA to passwordless flows' }],
+    vault: [{ name: 'workos-audit-logs', description: 'Audit data access' }],
     widgets: [
       {
-        name: "workos-admin-portal",
-        description: "Admin Portal for enterprise management",
+        name: 'workos-admin-portal',
+        description: 'Admin Portal for enterprise management',
       },
     ],
-    "admin-portal": [
-      { name: "workos-sso", description: "SSO configuration via portal" },
+    'admin-portal': [
+      { name: 'workos-sso', description: 'SSO configuration via portal' },
       {
-        name: "workos-directory-sync",
-        description: "Directory setup via portal",
+        name: 'workos-directory-sync',
+        description: 'Directory setup via portal',
       },
-      { name: "workos-widgets", description: "Embeddable UI components" },
+      { name: 'workos-widgets', description: 'Embeddable UI components' },
     ],
     integrations: [
-      { name: "workos-sso", description: "General SSO implementation" },
-      { name: "workos-directory-sync", description: "Directory Sync setup" },
+      { name: 'workos-sso', description: 'General SSO implementation' },
+      { name: 'workos-directory-sync', description: 'Directory Sync setup' },
     ],
-    "domain-verification": [
-      { name: "workos-sso", description: "SSO requires verified domains" },
+    'domain-verification': [
+      { name: 'workos-sso', description: 'SSO requires verified domains' },
       {
-        name: "workos-directory-sync",
-        description: "Directory Sync requires verified domains",
+        name: 'workos-directory-sync',
+        description: 'Directory Sync requires verified domains',
       },
     ],
-    "feature-flags": [],
-    "custom-domains": [],
+    'feature-flags': [],
+    'custom-domains': [],
     email: [],
     pipes: [],
   };

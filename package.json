@@ -1,39 +1,43 @@
 {
   "name": "@workos/skills",
   "version": "0.1.0",
-  "type": "module",
   "description": "WorkOS Skills for AI coding agents — AuthKit, SSO, Directory Sync, RBAC, and more",
-  "files": [
-    "plugins"
-  ],
-  "scripts": {
-    "generate": "npx tsx scripts/generate.ts",
-    "eval": "npx tsx scripts/eval.ts",
-    "test": "vitest run",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  },
   "keywords": [
-    "workos",
-    "skills",
+    "ai-agents",
     "authkit",
-    "sso",
     "claude-code",
-    "ai-agents"
+    "skills",
+    "sso",
+    "workos"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/workos/skills"
   },
+  "files": [
+    "plugins"
+  ],
+  "type": "module",
+  "scripts": {
+    "generate": "npx tsx scripts/generate.ts",
+    "eval": "npx tsx scripts/eval.ts",
+    "test": "vitest run",
+    "format": "oxfmt .",
+    "format:check": "prettier --check .",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix"
+  },
+  "dependencies": {
+    "yaml": "^2.8.2"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "oxfmt": "^0.35.0",
+    "oxlint": "^1.50.0",
     "prettier": "^3.8.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
-  },
-  "dependencies": {
-    "yaml": "^2.8.2"
   }
 }

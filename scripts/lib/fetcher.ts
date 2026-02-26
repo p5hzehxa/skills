@@ -1,18 +1,18 @@
-import { join } from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { setTimeout } from "node:timers/promises";
-import type { FetchResult, FetchOptions } from "./types.ts";
+import { join } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { setTimeout } from 'node:timers/promises';
+import type { FetchResult, FetchOptions } from './types.ts';
 
-const LLMS_TXT_URL = "https://workos.com/docs/llms.txt";
-const LLMS_FULL_TXT_URL = "https://workos.com/docs/llms-full.txt";
+const LLMS_TXT_URL = 'https://workos.com/docs/llms.txt';
+const LLMS_FULL_TXT_URL = 'https://workos.com/docs/llms-full.txt';
 
-const DEFAULT_CACHE_DIR = ".cache";
+const DEFAULT_CACHE_DIR = '.cache';
 const DEFAULT_MAX_AGE = 60 * 60 * 1000; // 1 hour
 const DEFAULT_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 
 function getCacheFilePath(cacheDir: string, url: string): string {
-  const filename = url.split("/").pop() ?? "unknown";
+  const filename = url.split('/').pop() ?? 'unknown';
   return join(cacheDir, filename);
 }
 
@@ -20,22 +20,19 @@ function getMetaFilePath(cachePath: string): string {
   return `${cachePath}.meta.json`;
 }
 
-async function readCache(
-  cachePath: string,
-  maxAge: number,
-): Promise<FetchResult | null> {
+async function readCache(cachePath: string, maxAge: number): Promise<FetchResult | null> {
   const metaPath = getMetaFilePath(cachePath);
 
   try {
-    const meta = JSON.parse(await readFile(metaPath, "utf8"));
+    const meta = JSON.parse(await readFile(metaPath, 'utf8'));
     const age = Date.now() - new Date(meta.fetchedAt).getTime();
     if (age > maxAge) return null;
 
-    const content = await readFile(cachePath, "utf8");
+    const content = await readFile(cachePath, 'utf8');
 
     return {
       content,
-      source: "cache",
+      source: 'cache',
       fetchedAt: new Date(meta.fetchedAt),
     };
   } catch {
@@ -43,20 +40,13 @@ async function readCache(
   }
 }
 
-async function writeCache(
-  cachePath: string,
-  content: string,
-  fetchedAt: Date,
-): Promise<void> {
+async function writeCache(cachePath: string, content: string, fetchedAt: Date): Promise<void> {
   try {
-    await mkdir(cachePath.split("/").slice(0, -1).join("/"), {
+    await mkdir(cachePath.split('/').slice(0, -1).join('/'), {
       recursive: true,
     });
     await writeFile(cachePath, content);
-    await writeFile(
-      getMetaFilePath(cachePath),
-      JSON.stringify({ fetchedAt: fetchedAt.toISOString() }),
-    );
+    await writeFile(getMetaFilePath(cachePath), JSON.stringify({ fetchedAt: fetchedAt.toISOString() }));
   } catch (err) {
     console.warn(`Warning: Could not write cache to ${cachePath}:`, err);
   }
@@ -67,7 +57,7 @@ async function fetchWithRetry(url: string, retries: number): Promise<string> {
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const response = await fetch(url, { redirect: "follow" });
+      const response = await fetch(url, { redirect: 'follow' });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -80,15 +70,10 @@ async function fetchWithRetry(url: string, retries: number): Promise<string> {
     }
   }
 
-  throw new Error(
-    `Failed to fetch ${url} after ${retries} retries. Last error: ${lastError?.message}`,
-  );
+  throw new Error(`Failed to fetch ${url} after ${retries} retries. Last error: ${lastError?.message}`);
 }
 
-export async function fetchDocs(
-  url: string,
-  opts?: FetchOptions,
-): Promise<FetchResult> {
+export async function fetchDocs(url: string, opts?: FetchOptions): Promise<FetchResult> {
   const cacheDir = opts?.cacheDir ?? DEFAULT_CACHE_DIR;
   const maxAge = opts?.maxAge ?? DEFAULT_MAX_AGE;
   const retries = opts?.retries ?? DEFAULT_RETRIES;
@@ -103,15 +88,13 @@ export async function fetchDocs(
 
   await writeCache(cachePath, content, fetchedAt);
 
-  return { content, source: "network", fetchedAt };
+  return { content, source: 'network', fetchedAt };
 }
 
 export async function fetchLlmsTxt(opts?: FetchOptions): Promise<FetchResult> {
   return fetchDocs(LLMS_TXT_URL, opts);
 }
 
-export async function fetchLlmsFullTxt(
-  opts?: FetchOptions,
-): Promise<FetchResult> {
+export async function fetchLlmsFullTxt(opts?: FetchOptions): Promise<FetchResult> {
   return fetchDocs(LLMS_FULL_TXT_URL, opts);
 }

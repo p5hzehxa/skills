@@ -85,14 +85,14 @@ callback_handler(request):
 
 For Ruby on Rails using the `workos` gem:
 
-1) Configure API key
+1. Configure API key
 
 ```
 require "workos"
 WorkOS.key = ENV["WORKOS_API_KEY"]
 ```
 
-2) Generate authorization URL (one selector: `organization` | `connection` | `provider`)
+2. Generate authorization URL (one selector: `organization` | `connection` | `provider`)
 
 ```
 auth_url = WorkOS::SSO.authorization_url(
@@ -104,7 +104,7 @@ auth_url = WorkOS::SSO.authorization_url(
 redirect_to auth_url
 ```
 
-3) Handle callback, verify state (skip only if state == ""), then exchange code
+3. Handle callback, verify state (skip only if state == ""), then exchange code
 
 ```
 def callback

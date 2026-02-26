@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 import {
   normalizeForMatch,
   ratioFound,
@@ -11,42 +11,36 @@ import {
   isNegated,
   isInEnvBlock,
   negationAwareRatioFound,
-} from "../eval/scorer.ts";
-import type { ExpectedSignals } from "../eval/types.ts";
+} from '../eval/scorer.ts';
+import type { ExpectedSignals } from '../eval/types.ts';
 
-describe("normalizeForMatch", () => {
-  it("lowercases", () => {
-    expect(normalizeForMatch("WORKOS_API_KEY")).toBe("workos_api_key");
+describe('normalizeForMatch', () => {
+  it('lowercases', () => {
+    expect(normalizeForMatch('WORKOS_API_KEY')).toBe('workos_api_key');
   });
 
-  it("converts camelCase to snake_case", () => {
-    expect(normalizeForMatch("getAuthorizationUrl")).toBe(
-      "get_authorization_url",
-    );
+  it('converts camelCase to snake_case', () => {
+    expect(normalizeForMatch('getAuthorizationUrl')).toBe('get_authorization_url');
   });
 
-  it("converts kebab-case to snake_case", () => {
-    expect(normalizeForMatch("get-authorization-url")).toBe(
-      "get_authorization_url",
-    );
+  it('converts kebab-case to snake_case', () => {
+    expect(normalizeForMatch('get-authorization-url')).toBe('get_authorization_url');
   });
 
-  it("preserves dots in method chains", () => {
-    expect(normalizeForMatch("workos.sso.getAuthorizationUrl")).toBe(
-      "workos.sso.get_authorization_url",
-    );
+  it('preserves dots in method chains', () => {
+    expect(normalizeForMatch('workos.sso.getAuthorizationUrl')).toBe('workos.sso.get_authorization_url');
   });
 
-  it("handles empty string", () => {
-    expect(normalizeForMatch("")).toBe("");
+  it('handles empty string', () => {
+    expect(normalizeForMatch('')).toBe('');
   });
 
-  it("handles already-normalized strings", () => {
-    expect(normalizeForMatch("workos_api_key")).toBe("workos_api_key");
+  it('handles already-normalized strings', () => {
+    expect(normalizeForMatch('workos_api_key')).toBe('workos_api_key');
   });
 });
 
-describe("ratioFound", () => {
+describe('ratioFound', () => {
   const output = `
 import { WorkOS } from "@workos-inc/node";
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
@@ -54,102 +48,76 @@ const url = workos.sso.getAuthorizationUrl({ clientId, redirectUri });
 const profile = workos.sso.getProfileAndToken({ code });
   `;
 
-  it("returns 1.0 for empty expected array", () => {
+  it('returns 1.0 for empty expected array', () => {
     expect(ratioFound([], output)).toBe(1);
   });
 
-  it("finds all expected items", () => {
-    expect(
-      ratioFound(
-        ["workos.sso.getAuthorizationUrl", "workos.sso.getProfileAndToken"],
-        output,
-      ),
-    ).toBe(1);
+  it('finds all expected items', () => {
+    expect(ratioFound(['workos.sso.getAuthorizationUrl', 'workos.sso.getProfileAndToken'], output)).toBe(1);
   });
 
-  it("returns partial ratio for partial matches", () => {
+  it('returns partial ratio for partial matches', () => {
     expect(
       ratioFound(
-        [
-          "workos.sso.getAuthorizationUrl",
-          "workos.sso.nonExistentMethod",
-          "workos.sso.getProfileAndToken",
-        ],
+        ['workos.sso.getAuthorizationUrl', 'workos.sso.nonExistentMethod', 'workos.sso.getProfileAndToken'],
         output,
       ),
     ).toBeCloseTo(2 / 3, 2);
   });
 
-  it("returns 0 when nothing found", () => {
-    expect(ratioFound(["totally.fake.method"], output)).toBe(0);
+  it('returns 0 when nothing found', () => {
+    expect(ratioFound(['totally.fake.method'], output)).toBe(0);
   });
 
-  it("matches case-insensitively", () => {
-    expect(ratioFound(["WORKOS_API_KEY"], output)).toBe(1);
+  it('matches case-insensitively', () => {
+    expect(ratioFound(['WORKOS_API_KEY'], output)).toBe(1);
   });
 
-  it("matches snake_case against camelCase", () => {
-    expect(ratioFound(["get_authorization_url"], output)).toBe(1);
+  it('matches snake_case against camelCase', () => {
+    expect(ratioFound(['get_authorization_url'], output)).toBe(1);
   });
 });
 
-describe("methodRatioFound", () => {
-  it("matches full invocation form", () => {
-    const output = "const url = workos.sso.getAuthorizationUrl({ clientId });";
-    expect(
-      methodRatioFound(["workos.sso.getAuthorizationUrl"], output),
-    ).toBe(1);
+describe('methodRatioFound', () => {
+  it('matches full invocation form', () => {
+    const output = 'const url = workos.sso.getAuthorizationUrl({ clientId });';
+    expect(methodRatioFound(['workos.sso.getAuthorizationUrl'], output)).toBe(1);
   });
 
-  it("matches last-segment invocation", () => {
-    const output = "Call getAuthorizationUrl({ clientId }) to start SSO.";
-    expect(
-      methodRatioFound(["workos.sso.getAuthorizationUrl"], output),
-    ).toBe(1);
+  it('matches last-segment invocation', () => {
+    const output = 'Call getAuthorizationUrl({ clientId }) to start SSO.';
+    expect(methodRatioFound(['workos.sso.getAuthorizationUrl'], output)).toBe(1);
   });
 
-  it("falls back to substring for prose mentions", () => {
-    const output =
-      "Use the getAuthorizationUrl method to generate the login URL.";
-    expect(
-      methodRatioFound(["workos.sso.getAuthorizationUrl"], output),
-    ).toBe(1);
+  it('falls back to substring for prose mentions', () => {
+    const output = 'Use the getAuthorizationUrl method to generate the login URL.';
+    expect(methodRatioFound(['workos.sso.getAuthorizationUrl'], output)).toBe(1);
   });
 
-  it("returns 0 when method not found", () => {
-    const output = "Use getAuth to log in.";
-    expect(
-      methodRatioFound(["workos.sso.getAuthorizationUrl"], output),
-    ).toBe(0);
+  it('returns 0 when method not found', () => {
+    const output = 'Use getAuth to log in.';
+    expect(methodRatioFound(['workos.sso.getAuthorizationUrl'], output)).toBe(0);
   });
 
-  it("handles multiple methods with mixed match types", () => {
+  it('handles multiple methods with mixed match types', () => {
     const output = `
 const url = workos.sso.getAuthorizationUrl({ clientId });
 Use getProfileAndToken to exchange the code.
     `;
-    expect(
-      methodRatioFound(
-        ["workos.sso.getAuthorizationUrl", "workos.sso.getProfileAndToken"],
-        output,
-      ),
-    ).toBe(1);
+    expect(methodRatioFound(['workos.sso.getAuthorizationUrl', 'workos.sso.getProfileAndToken'], output)).toBe(1);
   });
 
-  it("returns 1.0 for empty expected", () => {
-    expect(methodRatioFound([], "any output")).toBe(1);
+  it('returns 1.0 for empty expected', () => {
+    expect(methodRatioFound([], 'any output')).toBe(1);
   });
 
-  it("handles Python snake_case methods", () => {
-    const output =
-      "url = workos_client.sso.get_authorization_url(redirect_uri=uri)";
-    expect(
-      methodRatioFound(["workos_client.sso.get_authorization_url"], output),
-    ).toBe(1);
+  it('handles Python snake_case methods', () => {
+    const output = 'url = workos_client.sso.get_authorization_url(redirect_uri=uri)';
+    expect(methodRatioFound(['workos_client.sso.get_authorization_url'], output)).toBe(1);
   });
 });
 
-describe("scoreFlowOrder", () => {
+describe('scoreFlowOrder', () => {
   const output = `
 First, generate the authorization URL.
 Then redirect the user to the IdP.
@@ -157,55 +125,42 @@ After the user authenticates, handle the callback.
 Finally, exchange the code for a profile.
   `;
 
-  it("returns 1.0 for all steps in correct order", () => {
+  it('returns 1.0 for all steps in correct order', () => {
     expect(
       scoreFlowOrder(
-        [
-          "generate authorization URL",
-          "redirect user",
-          "handle callback",
-          "exchange code for profile",
-        ],
+        ['generate authorization URL', 'redirect user', 'handle callback', 'exchange code for profile'],
         output,
       ),
     ).toBe(1);
   });
 
-  it("returns 0 for no steps found", () => {
-    expect(scoreFlowOrder(["step not present", "also missing"], output)).toBe(
-      0,
-    );
+  it('returns 0 for no steps found', () => {
+    expect(scoreFlowOrder(['step not present', 'also missing'], output)).toBe(0);
   });
 
-  it("gives partial credit for present but unordered steps", () => {
+  it('gives partial credit for present but unordered steps', () => {
     const reversed = `
 Finally, exchange the code for a profile.
 First, generate the authorization URL.
     `;
-    const score = scoreFlowOrder(
-      ["generate authorization URL", "exchange code for profile"],
-      reversed,
-    );
+    const score = scoreFlowOrder(['generate authorization URL', 'exchange code for profile'], reversed);
     // Both present (0.6 * 1.0) but wrong order (0.4 * 0)
     expect(score).toBeCloseTo(0.6, 1);
   });
 
-  it("returns 1.0 for empty steps", () => {
+  it('returns 1.0 for empty steps', () => {
     expect(scoreFlowOrder([], output)).toBe(1);
   });
 
-  it("handles partial presence", () => {
-    const score = scoreFlowOrder(
-      ["generate authorization URL", "step not present"],
-      output,
-    );
+  it('handles partial presence', () => {
+    const score = scoreFlowOrder(['generate authorization URL', 'step not present'], output);
     // 1/2 present = 0.5, presence component: 0.6 * 0.5 = 0.3
     // ordering: 1/1 in order (only 1 found) = 1.0, order component: 0.4 * 1.0 = 0.4
     // total = 0.7
     expect(score).toBeCloseTo(0.7, 1);
   });
 
-  it("uses proximity matching to avoid keyword collisions", () => {
+  it('uses proximity matching to avoid keyword collisions', () => {
     // "check" appears early in Verification section, but "check state parameter"
     // is the actual step logic located later. Old indexOf would pick the wrong pos.
     const multiSectionOutput = `
@@ -218,12 +173,7 @@ Step 4: Exchange code for profile token.
 Check that your integration works by testing the login flow.
     `;
     const score = scoreFlowOrder(
-      [
-        "generate authorization URL",
-        "redirect user",
-        "check state parameter",
-        "exchange code for profile",
-      ],
+      ['generate authorization URL', 'redirect user', 'check state parameter', 'exchange code for profile'],
       multiSectionOutput,
     );
     // All 4 steps present and in order — should be 1.0 (or very close)
@@ -233,26 +183,24 @@ Check that your integration works by testing the login flow.
   });
 });
 
-describe("countFound", () => {
+describe('countFound', () => {
   const output = `workos.sso.authenticate and workos.sso.login`;
 
-  it("counts matches", () => {
-    expect(
-      countFound(["workos.sso.authenticate", "workos.sso.login"], output),
-    ).toBe(2);
+  it('counts matches', () => {
+    expect(countFound(['workos.sso.authenticate', 'workos.sso.login'], output)).toBe(2);
   });
 
-  it("returns 0 for no matches", () => {
-    expect(countFound(["not.here"], output)).toBe(0);
+  it('returns 0 for no matches', () => {
+    expect(countFound(['not.here'], output)).toBe(0);
   });
 
-  it("returns 0 for empty list", () => {
+  it('returns 0 for empty list', () => {
     expect(countFound([], output)).toBe(0);
   });
 });
 
-describe("weightedScore", () => {
-  it("returns 100 for perfect scores with no hallucinations", () => {
+describe('weightedScore', () => {
+  it('returns 100 for perfect scores with no hallucinations', () => {
     expect(
       weightedScore({
         methodAccuracy: 1,
@@ -266,7 +214,7 @@ describe("weightedScore", () => {
     ).toBe(100);
   });
 
-  it("returns 0 for all-zero scores", () => {
+  it('returns 0 for all-zero scores', () => {
     expect(
       weightedScore({
         methodAccuracy: 0,
@@ -280,7 +228,7 @@ describe("weightedScore", () => {
     ).toBe(5); // clean bonus only (no hallucinations even with zero scores)
   });
 
-  it("applies hallucination penalty capped at 25", () => {
+  it('applies hallucination penalty capped at 25', () => {
     const perfect = weightedScore({
       methodAccuracy: 1,
       paramAccuracy: 1,
@@ -315,7 +263,7 @@ describe("weightedScore", () => {
     expect(perfect - maxPenalty).toBe(30); // 25 penalty + 5 lost clean bonus
   });
 
-  it("never goes below 0", () => {
+  it('never goes below 0', () => {
     expect(
       weightedScore({
         methodAccuracy: 0,
@@ -329,7 +277,7 @@ describe("weightedScore", () => {
     ).toBe(0);
   });
 
-  it("deducts 10 points for zero import accuracy", () => {
+  it('deducts 10 points for zero import accuracy', () => {
     const withImports = weightedScore({
       methodAccuracy: 1,
       paramAccuracy: 1,
@@ -352,117 +300,109 @@ describe("weightedScore", () => {
   });
 });
 
-describe("isNegated", () => {
+describe('isNegated', () => {
   it("detects don't before match", () => {
     const text = "don't reject requests without state";
-    const idx = text.indexOf("reject");
+    const idx = text.indexOf('reject');
     expect(isNegated(text, idx)).toBe(true);
   });
 
-  it("detects do not before match", () => {
-    const text = "do not use hardcoded keys";
-    const idx = text.indexOf("use hardcoded");
+  it('detects do not before match', () => {
+    const text = 'do not use hardcoded keys';
+    const idx = text.indexOf('use hardcoded');
     expect(isNegated(text, idx)).toBe(true);
   });
 
-  it("detects never before match", () => {
-    const text = "never hardcode API keys";
-    const idx = text.indexOf("hardcode");
+  it('detects never before match', () => {
+    const text = 'never hardcode API keys';
+    const idx = text.indexOf('hardcode');
     expect(isNegated(text, idx)).toBe(true);
   });
 
-  it("detects avoid before match", () => {
-    const text = "avoid hardcoded API key patterns";
-    const idx = text.indexOf("hardcoded");
+  it('detects avoid before match', () => {
+    const text = 'avoid hardcoded API key patterns';
+    const idx = text.indexOf('hardcoded');
     expect(isNegated(text, idx)).toBe(true);
   });
 
-  it("returns false for non-negated match", () => {
-    const text = "uses hardcoded key sk_live_xxx";
-    const idx = text.indexOf("hardcoded");
+  it('returns false for non-negated match', () => {
+    const text = 'uses hardcoded key sk_live_xxx';
+    const idx = text.indexOf('hardcoded');
     expect(isNegated(text, idx)).toBe(false);
   });
 
-  it("returns false at start of text", () => {
-    const text = "hardcoded API key found";
+  it('returns false at start of text', () => {
+    const text = 'hardcoded API key found';
     expect(isNegated(text, 0)).toBe(false);
   });
 });
 
-describe("isInEnvBlock", () => {
-  it("detects .env file header in preceding context", () => {
-    const output =
-      "Create a `.env` file:\n\nWORKOS_API_KEY=sk_test_your_api_key_here";
-    const idx = output.indexOf("sk_test");
+describe('isInEnvBlock', () => {
+  it('detects .env file header in preceding context', () => {
+    const output = 'Create a `.env` file:\n\nWORKOS_API_KEY=sk_test_your_api_key_here';
+    const idx = output.indexOf('sk_test');
     expect(isInEnvBlock(output, idx)).toBe(true);
   });
 
-  it("detects KEY=value env file format", () => {
-    const output = "WORKOS_API_KEY=sk_test_your_api_key_here";
-    const idx = output.indexOf("sk_test");
+  it('detects KEY=value env file format', () => {
+    const output = 'WORKOS_API_KEY=sk_test_your_api_key_here';
+    const idx = output.indexOf('sk_test');
     expect(isInEnvBlock(output, idx)).toBe(true);
   });
 
-  it("detects # .env comment block", () => {
-    const output = "# .env\nWORKOS_API_KEY=sk_test_xxx";
-    const idx = output.indexOf("sk_test");
+  it('detects # .env comment block', () => {
+    const output = '# .env\nWORKOS_API_KEY=sk_test_xxx';
+    const idx = output.indexOf('sk_test');
     expect(isInEnvBlock(output, idx)).toBe(true);
   });
 
   it("detects 'env vars' context", () => {
-    const output = "Set up your env vars:\nsk_test_your_key";
-    const idx = output.indexOf("sk_test");
+    const output = 'Set up your env vars:\nsk_test_your_key';
+    const idx = output.indexOf('sk_test');
     expect(isInEnvBlock(output, idx)).toBe(true);
   });
 
-  it("detects placeholder indicators on the line", () => {
-    const output =
-      'const key = "sk_live_your_key_here"; // replace with your key';
-    const idx = output.indexOf("sk_live");
+  it('detects placeholder indicators on the line', () => {
+    const output = 'const key = "sk_live_your_key_here"; // replace with your key';
+    const idx = output.indexOf('sk_live');
     expect(isInEnvBlock(output, idx)).toBe(true);
   });
 
-  it("returns false for actual hardcoded key in code", () => {
+  it('returns false for actual hardcoded key in code', () => {
     const output = 'const workos = new WorkOS("sk_live_abc123def456");';
-    const idx = output.indexOf("sk_live");
+    const idx = output.indexOf('sk_live');
     expect(isInEnvBlock(output, idx)).toBe(false);
   });
 
-  it("returns false for key in non-env context", () => {
-    const output = "The API key sk_test_real is used in production.";
-    const idx = output.indexOf("sk_test");
+  it('returns false for key in non-env context', () => {
+    const output = 'The API key sk_test_real is used in production.';
+    const idx = output.indexOf('sk_test');
     expect(isInEnvBlock(output, idx)).toBe(false);
   });
 });
 
-describe("negationAwareRatioFound", () => {
-  it("returns 0 when anti-pattern is negated", () => {
+describe('negationAwareRatioFound', () => {
+  it('returns 0 when anti-pattern is negated', () => {
     const output = "Don't reject requests without state parameter";
-    expect(
-      negationAwareRatioFound(["reject requests without state"], output),
-    ).toBe(0);
+    expect(negationAwareRatioFound(['reject requests without state'], output)).toBe(0);
   });
 
-  it("returns 1 when anti-pattern is present without negation", () => {
-    const output = "You should reject requests without state";
-    expect(
-      negationAwareRatioFound(["reject requests without state"], output),
-    ).toBe(1);
+  it('returns 1 when anti-pattern is present without negation', () => {
+    const output = 'You should reject requests without state';
+    expect(negationAwareRatioFound(['reject requests without state'], output)).toBe(1);
   });
 
-  it("returns 0 for empty expected array", () => {
-    expect(negationAwareRatioFound([], "any output")).toBe(0);
+  it('returns 0 for empty expected array', () => {
+    expect(negationAwareRatioFound([], 'any output')).toBe(0);
   });
 
-  it("handles mix of negated and non-negated", () => {
+  it('handles mix of negated and non-negated', () => {
     const output = "Don't use hardcoded API key but sk_live_123 is fine";
     // "hardcoded API key" is negated, "sk_live" is not
-    expect(
-      negationAwareRatioFound(["hardcoded API key", "sk_live"], output),
-    ).toBe(0.5);
+    expect(negationAwareRatioFound(['hardcoded API key', 'sk_live'], output)).toBe(0.5);
   });
 
-  it("skips anti-pattern in .env block context", () => {
+  it('skips anti-pattern in .env block context', () => {
     const output = `
 Create a \`.env\` file with:
 
@@ -470,32 +410,24 @@ WORKOS_API_KEY=sk_test_your_api_key_here
 WORKOS_CLIENT_ID=client_xxx
     `;
     // sk_test is in an env block — should not count as a real hardcoded key
-    expect(negationAwareRatioFound(["sk_test"], output)).toBe(0);
+    expect(negationAwareRatioFound(['sk_test'], output)).toBe(0);
   });
 
-  it("still catches real hardcoded key outside env block", () => {
+  it('still catches real hardcoded key outside env block', () => {
     const output = 'const workos = new WorkOS("sk_live_abc123def456");';
-    expect(negationAwareRatioFound(["sk_live"], output)).toBe(1);
+    expect(negationAwareRatioFound(['sk_live'], output)).toBe(1);
   });
 });
 
-describe("scoreOutput", () => {
+describe('scoreOutput', () => {
   const expected: ExpectedSignals = {
-    methods: [
-      "workos.sso.getAuthorizationUrl",
-      "workos.sso.getProfileAndToken",
-    ],
-    envVars: ["WORKOS_API_KEY", "WORKOS_CLIENT_ID"],
-    imports: ["@workos-inc/node"],
-    params: ["clientId", "redirectUri", "code"],
-    flowSteps: [
-      "generate authorization URL",
-      "redirect user",
-      "handle callback",
-      "exchange code for profile",
-    ],
-    antiPatterns: ["hardcoded API key"],
-    hallucinations: ["workos.sso.authenticate", "@workos/node"],
+    methods: ['workos.sso.getAuthorizationUrl', 'workos.sso.getProfileAndToken'],
+    envVars: ['WORKOS_API_KEY', 'WORKOS_CLIENT_ID'],
+    imports: ['@workos-inc/node'],
+    params: ['clientId', 'redirectUri', 'code'],
+    flowSteps: ['generate authorization URL', 'redirect user', 'handle callback', 'exchange code for profile'],
+    antiPatterns: ['hardcoded API key'],
+    hallucinations: ['workos.sso.authenticate', '@workos/node'],
   };
 
   const perfectOutput = `
@@ -521,13 +453,13 @@ app.get("/callback", async (req, res) => {
 });
   `;
 
-  it("scores a perfect output near 100", () => {
+  it('scores a perfect output near 100', () => {
     const scores = scoreOutput(perfectOutput, expected);
     expect(scores.composite).toBeGreaterThanOrEqual(90);
     expect(scores.hallucinationCount).toBe(0);
   });
 
-  it("scores importAccuracy from expected.imports", () => {
+  it('scores importAccuracy from expected.imports', () => {
     const scores = scoreOutput(perfectOutput, expected);
     expect(scores.importAccuracy).toBe(1);
 
@@ -546,16 +478,16 @@ app.get("/callback", async (req, res) => {
     expect(wrongScores.importAccuracy).toBe(0);
   });
 
-  it("gives importAccuracy 1 when expected.imports is empty", () => {
+  it('gives importAccuracy 1 when expected.imports is empty', () => {
     const noImportsExpected: ExpectedSignals = {
       ...expected,
       imports: [],
     };
-    const scores = scoreOutput("any output", noImportsExpected);
+    const scores = scoreOutput('any output', noImportsExpected);
     expect(scores.importAccuracy).toBe(1);
   });
 
-  it("scores a terrible output below 30", () => {
+  it('scores a terrible output below 30', () => {
     const terribleOutput = `
 import { WorkOS } from "@workos/node";
 const workos = new WorkOS("sk_live_hardcoded_key_here");
@@ -568,30 +500,30 @@ workos.sso.login({ password: "123" });
   });
 });
 
-describe("categorizeErrors", () => {
+describe('categorizeErrors', () => {
   const expected: ExpectedSignals = {
-    methods: ["workos.sso.getAuthorizationUrl"],
-    envVars: ["WORKOS_API_KEY"],
-    imports: ["@workos-inc/node"],
-    params: ["clientId"],
-    flowSteps: ["generate authorization URL"],
+    methods: ['workos.sso.getAuthorizationUrl'],
+    envVars: ['WORKOS_API_KEY'],
+    imports: ['@workos-inc/node'],
+    params: ['clientId'],
+    flowSteps: ['generate authorization URL'],
     antiPatterns: [],
-    hallucinations: ["workos.sso.authenticate"],
+    hallucinations: ['workos.sso.authenticate'],
   };
 
-  it("detects hallucinated methods", () => {
-    const output = "workos.sso.authenticate()";
+  it('detects hallucinated methods', () => {
+    const output = 'workos.sso.authenticate()';
     const errors = categorizeErrors(output, expected);
-    expect(errors).toContain("hallucinated_method");
+    expect(errors).toContain('hallucinated_method');
   });
 
-  it("detects missing expected methods as missing_method", () => {
-    const output = "some code without the expected method";
+  it('detects missing expected methods as missing_method', () => {
+    const output = 'some code without the expected method';
     const errors = categorizeErrors(output, expected);
-    expect(errors).toContain("missing_method");
+    expect(errors).toContain('missing_method');
   });
 
-  it("detects missing params as wrong_params (not methods)", () => {
+  it('detects missing params as wrong_params (not methods)', () => {
     // Output has the correct method but missing the param "clientId"
     const output = `
 import { WorkOS } from "@workos-inc/node";
@@ -600,23 +532,23 @@ const url = workos.sso.getAuthorizationUrl({ redirectUri: "/" });
 // Generate authorization URL
     `;
     const errors = categorizeErrors(output, expected);
-    expect(errors).toContain("wrong_params");
-    expect(errors).not.toContain("missing_method");
+    expect(errors).toContain('wrong_params');
+    expect(errors).not.toContain('missing_method');
   });
 
-  it("detects missing env vars", () => {
-    const output = "some code without env vars";
+  it('detects missing env vars', () => {
+    const output = 'some code without env vars';
     const errors = categorizeErrors(output, expected);
-    expect(errors).toContain("missing_env_var");
+    expect(errors).toContain('missing_env_var');
   });
 
-  it("detects wrong imports", () => {
-    const output = "some code without correct import";
+  it('detects wrong imports', () => {
+    const output = 'some code without correct import';
     const errors = categorizeErrors(output, expected);
-    expect(errors).toContain("wrong_import");
+    expect(errors).toContain('wrong_import');
   });
 
-  it("returns empty for perfect output", () => {
+  it('returns empty for perfect output', () => {
     const output = `
 import { WorkOS } from "@workos-inc/node";
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
@@ -625,8 +557,8 @@ const url = workos.sso.getAuthorizationUrl({ clientId });
 // Generate authorization URL
     `;
     const errors = categorizeErrors(output, expected);
-    expect(errors).not.toContain("hallucinated_method");
-    expect(errors).not.toContain("missing_method");
-    expect(errors).not.toContain("missing_env_var");
+    expect(errors).not.toContain('hallucinated_method');
+    expect(errors).not.toContain('missing_method');
+    expect(errors).not.toContain('missing_env_var');
   });
 });

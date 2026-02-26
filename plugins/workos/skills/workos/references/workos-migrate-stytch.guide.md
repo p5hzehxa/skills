@@ -87,7 +87,7 @@ const workosOrg = await workos.organizations.createOrganization({
   name: stytchOrg.organization_name,
   domainData: stytchOrg.email_allowed_domains?.map((domain) => ({
     domain,
-    state: "verified", // or 'pending' based on verification status
+    state: 'verified', // or 'pending' based on verification status
   })),
 });
 ```
@@ -101,8 +101,8 @@ Create users with organization membership:
 ```javascript
 const user = await workos.userManagement.createUser({
   email: stytchMember.email_address,
-  firstName: stytchMember.name?.split(" ")[0],
-  lastName: stytchMember.name?.split(" ").slice(1).join(" "),
+  firstName: stytchMember.name?.split(' ')[0],
+  lastName: stytchMember.name?.split(' ').slice(1).join(' '),
   // Use mapped org ID from Step 4
   organizationId: orgIdMap[stytchMember.organization_id],
 });

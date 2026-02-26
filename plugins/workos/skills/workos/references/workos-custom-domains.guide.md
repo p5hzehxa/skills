@@ -68,13 +68,13 @@ If configuring an AuthKit custom domain, update these in production code:
 ```javascript
 // Before: WorkOS-hosted domain
 const authUrl = workos.userManagement.getAuthorizationUrl({
-  redirectUri: "https://id.workos.com/auth/callback",
+  redirectUri: 'https://id.workos.com/auth/callback',
   // ...
 });
 
 // After: Custom domain
 const authUrl = workos.userManagement.getAuthorizationUrl({
-  redirectUri: "https://auth.yourapp.com/auth/callback",
+  redirectUri: 'https://auth.yourapp.com/auth/callback',
   // ...
 });
 ```

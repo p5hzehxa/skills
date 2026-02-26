@@ -1,5 +1,5 @@
-import type { Section, ValidationResult } from "./types.ts";
-import { KNOWN_ANCHORS, VALIDATION } from "./config.ts";
+import type { Section, ValidationResult } from './types.ts';
+import { KNOWN_ANCHORS, VALIDATION } from './config.ts';
 
 /**
  * Validate parsed sections against expected structure.
@@ -17,25 +17,21 @@ export function validateSections(sections: Section[]): ValidationResult {
       `Expected ~${VALIDATION.expectedSectionCount} sections (±${VALIDATION.sectionCountTolerance}), got ${sections.length}`,
     );
   } else if (sections.length !== VALIDATION.expectedSectionCount) {
-    warnings.push(
-      `Section count changed: expected ${VALIDATION.expectedSectionCount}, got ${sections.length}`,
-    );
+    warnings.push(`Section count changed: expected ${VALIDATION.expectedSectionCount}, got ${sections.length}`);
   }
 
   // Known anchors present
   const foundAnchors = new Set(sections.map((s) => s.anchor));
   const missingAnchors = KNOWN_ANCHORS.filter((a) => !foundAnchors.has(a));
   if (missingAnchors.length > 0) {
-    errors.push(`Missing expected sections: ${missingAnchors.join(", ")}`);
+    errors.push(`Missing expected sections: ${missingAnchors.join(', ')}`);
   }
 
   // Unexpected anchors
   const knownSet = new Set<string>(KNOWN_ANCHORS);
-  const unexpectedAnchors = sections
-    .map((s) => s.anchor)
-    .filter((a) => !knownSet.has(a));
+  const unexpectedAnchors = sections.map((s) => s.anchor).filter((a) => !knownSet.has(a));
   if (unexpectedAnchors.length > 0) {
-    warnings.push(`Unexpected new sections: ${unexpectedAnchors.join(", ")}`);
+    warnings.push(`Unexpected new sections: ${unexpectedAnchors.join(', ')}`);
   }
 
   // Empty sections

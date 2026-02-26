@@ -49,17 +49,17 @@ export interface GeneratedSkill {
   /** SHA-256 hash of source doc content (for content-addressed locking) */
   sourceHash?: string;
   /** 'summary' for the lightweight overview, 'guide' for full implementation */
-  type?: "summary" | "guide";
+  type?: 'summary' | 'guide';
 }
 
 // --- Split strategies ---
 
 export type SplitStrategy =
-  | { strategy: "single" }
-  | { strategy: "per-subsection"; groupChildren?: boolean }
-  | { strategy: "per-feature"; features: string[] }
-  | { strategy: "per-api-domain" }
-  | { strategy: "skip" };
+  | { strategy: 'single' }
+  | { strategy: 'per-subsection'; groupChildren?: boolean }
+  | { strategy: 'per-feature'; features: string[] }
+  | { strategy: 'per-api-domain' }
+  | { strategy: 'skip' };
 
 export interface SectionConfig {
   split: SplitStrategy;
@@ -71,7 +71,7 @@ export interface SectionConfig {
 
 export interface FetchResult {
   content: string;
-  source: "cache" | "network";
+  source: 'cache' | 'network';
   fetchedAt: Date;
 }
 

@@ -1,12 +1,9 @@
-import { describe, expect, it } from "vitest";
-import {
-  parseApiReferenceUrls,
-  splitApiReference,
-} from "../lib/api-ref-splitter.ts";
-import type { Section } from "../lib/types.ts";
+import { describe, expect, it } from 'vitest';
+import { parseApiReferenceUrls, splitApiReference } from '../lib/api-ref-splitter.ts';
+import type { Section } from '../lib/types.ts';
 
-describe("parseApiReferenceUrls", () => {
-  it("extracts endpoints grouped by domain", () => {
+describe('parseApiReferenceUrls', () => {
+  it('extracts endpoints grouped by domain', () => {
     const llmsTxt = `## API Reference
 
 - [API Reference](https://workos.com/docs/reference)
@@ -21,13 +18,13 @@ describe("parseApiReferenceUrls", () => {
 ## Next Section
 `;
     const domains = parseApiReferenceUrls(llmsTxt);
-    expect(domains.has("sso")).toBe(true);
-    expect(domains.has("audit-logs")).toBe(true);
-    expect(domains.get("sso")!.length).toBeGreaterThanOrEqual(3);
-    expect(domains.get("audit-logs")!.length).toBeGreaterThanOrEqual(2);
+    expect(domains.has('sso')).toBe(true);
+    expect(domains.has('audit-logs')).toBe(true);
+    expect(domains.get('sso')!.length).toBeGreaterThanOrEqual(3);
+    expect(domains.get('audit-logs')!.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("skips meta domains like testing, rate-limits, errors", () => {
+  it('skips meta domains like testing, rate-limits, errors', () => {
     const llmsTxt = `## API Reference
 
 - [testing](https://workos.com/docs/reference/testing)
@@ -38,18 +35,18 @@ describe("parseApiReferenceUrls", () => {
 ## Next
 `;
     const domains = parseApiReferenceUrls(llmsTxt);
-    expect(domains.has("testing")).toBe(false);
-    expect(domains.has("rate-limits")).toBe(false);
-    expect(domains.has("errors")).toBe(false);
-    expect(domains.has("sso")).toBe(true);
+    expect(domains.has('testing')).toBe(false);
+    expect(domains.has('rate-limits')).toBe(false);
+    expect(domains.has('errors')).toBe(false);
+    expect(domains.has('sso')).toBe(true);
   });
 
-  it("returns empty map for empty input", () => {
-    const domains = parseApiReferenceUrls("");
+  it('returns empty map for empty input', () => {
+    const domains = parseApiReferenceUrls('');
     expect(domains.size).toBe(0);
   });
 
-  it("captures descriptions from URLs", () => {
+  it('captures descriptions from URLs', () => {
     const llmsTxt = `## API Reference
 
 - [vault - object - create](https://workos.com/docs/reference/vault/object/create): Create an encrypted vault object.
@@ -57,61 +54,59 @@ describe("parseApiReferenceUrls", () => {
 ## Next
 `;
     const domains = parseApiReferenceUrls(llmsTxt);
-    expect(domains.get("vault")![0].description).toBe(
-      "Create an encrypted vault object.",
-    );
+    expect(domains.get('vault')![0].description).toBe('Create an encrypted vault object.');
   });
 });
 
-describe("splitApiReference", () => {
+describe('splitApiReference', () => {
   const refSection: Section = {
-    name: "API Reference",
-    anchor: "reference",
-    content: "### Single Sign-On\n\nSSO API content here.",
+    name: 'API Reference',
+    anchor: 'reference',
+    content: '### Single Sign-On\n\nSSO API content here.',
     sizeBytes: 40,
     lineCount: 3,
     subsections: [
       {
-        title: "Single Sign-On",
+        title: 'Single Sign-On',
         level: 3,
-        content: "SSO API content here.",
+        content: 'SSO API content here.',
         sizeBytes: 21,
       },
     ],
   };
 
-  it("produces SkillSpecs for configured domains", () => {
+  it('produces SkillSpecs for configured domains', () => {
     const urls = new Map([
       [
-        "sso",
+        'sso',
         [
           {
-            domain: "sso",
-            path: "/connection/get",
-            description: "Get SSO connection",
-            url: "https://workos.com/docs/reference/sso/connection/get",
+            domain: 'sso',
+            path: '/connection/get',
+            description: 'Get SSO connection',
+            url: 'https://workos.com/docs/reference/sso/connection/get',
           },
         ],
       ],
     ]);
     const specs = splitApiReference(refSection, urls);
     expect(specs.length).toBeGreaterThanOrEqual(1);
-    const ssoSpec = specs.find((s) => s.name === "workos-api-sso");
+    const ssoSpec = specs.find((s) => s.name === 'workos-api-sso');
     expect(ssoSpec).toBeDefined();
     expect(ssoSpec!.generated).toBe(true);
-    expect(ssoSpec!.anchor).toBe("reference");
+    expect(ssoSpec!.anchor).toBe('reference');
   });
 
-  it("skips domains not in config", () => {
+  it('skips domains not in config', () => {
     const urls = new Map([
       [
-        "unknown-domain",
+        'unknown-domain',
         [
           {
-            domain: "unknown-domain",
-            path: "/foo",
-            description: "foo",
-            url: "https://workos.com/docs/reference/unknown-domain/foo",
+            domain: 'unknown-domain',
+            path: '/foo',
+            description: 'foo',
+            url: 'https://workos.com/docs/reference/unknown-domain/foo',
           },
         ],
       ],
@@ -120,44 +115,44 @@ describe("splitApiReference", () => {
     expect(specs).toHaveLength(0);
   });
 
-  it("includes endpoint table in content", () => {
+  it('includes endpoint table in content', () => {
     const urls = new Map([
       [
-        "vault",
+        'vault',
         [
           {
-            domain: "vault",
-            path: "/object/create",
-            description: "Create object",
-            url: "https://workos.com/docs/reference/vault/object/create",
+            domain: 'vault',
+            path: '/object/create',
+            description: 'Create object',
+            url: 'https://workos.com/docs/reference/vault/object/create',
           },
           {
-            domain: "vault",
-            path: "/object/get",
-            description: "Get object",
-            url: "https://workos.com/docs/reference/vault/object/get",
+            domain: 'vault',
+            path: '/object/get',
+            description: 'Get object',
+            url: 'https://workos.com/docs/reference/vault/object/get',
           },
         ],
       ],
     ]);
     const specs = splitApiReference(refSection, urls);
-    const vault = specs.find((s) => s.name === "workos-api-vault");
+    const vault = specs.find((s) => s.name === 'workos-api-vault');
     expect(vault).toBeDefined();
-    expect(vault!.content).toContain("/object/create");
-    expect(vault!.content).toContain("/object/get");
-    expect(vault!.content).toContain("| Endpoint");
+    expect(vault!.content).toContain('/object/create');
+    expect(vault!.content).toContain('/object/get');
+    expect(vault!.content).toContain('| Endpoint');
   });
 
-  it("caps doc URLs at 10", () => {
+  it('caps doc URLs at 10', () => {
     const endpoints = Array.from({ length: 15 }, (_, i) => ({
-      domain: "authkit",
+      domain: 'authkit',
       path: `/endpoint-${i}`,
       description: `Endpoint ${i}`,
       url: `https://workos.com/docs/reference/authkit/endpoint-${i}`,
     }));
-    const urls = new Map([["authkit", endpoints]]);
+    const urls = new Map([['authkit', endpoints]]);
     const specs = splitApiReference(refSection, urls);
-    const authkit = specs.find((s) => s.name === "workos-api-authkit");
+    const authkit = specs.find((s) => s.name === 'workos-api-authkit');
     expect(authkit!.docUrls.length).toBeLessThanOrEqual(10);
   });
 });

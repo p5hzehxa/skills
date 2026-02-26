@@ -1,18 +1,18 @@
-import { join } from "path";
-import { mkdir, writeFile } from "fs/promises";
-import type { EvalReport, ErrorCategory } from "./types.ts";
+import { join } from 'path';
+import { mkdir, writeFile } from 'fs/promises';
+import type { EvalReport, ErrorCategory } from './types.ts';
 
-const OUTPUT_DIR = join(process.cwd(), "scripts", "output");
+const OUTPUT_DIR = join(process.cwd(), 'scripts', 'output');
 
 // ANSI color codes
-const GREEN = "\x1b[32m";
-const YELLOW = "\x1b[33m";
-const RED = "\x1b[31m";
-const DIM = "\x1b[2m";
-const RESET = "\x1b[0m";
+const GREEN = '\x1b[32m';
+const YELLOW = '\x1b[33m';
+const RED = '\x1b[31m';
+const DIM = '\x1b[2m';
+const RESET = '\x1b[0m';
 
 function colorDelta(delta: number): string {
-  const prefix = delta > 0 ? "+" : "";
+  const prefix = delta > 0 ? '+' : '';
   const str = `${prefix}${delta}%`;
   if (delta >= 20) return `${GREEN}${str}${RESET}`;
   if (delta >= 10) return `${YELLOW}${str}${RESET}`;
@@ -20,7 +20,7 @@ function colorDelta(delta: number): string {
 }
 
 function sign(n: number): string {
-  return n > 0 ? "+" : "";
+  return n > 0 ? '+' : '';
 }
 
 /** Return the median of a numeric array. Returns 0 for empty input. */
@@ -42,41 +42,39 @@ export function percentile(values: number[], p: number): number {
 /** Print the eval results as a console table */
 export function printTable(report: EvalReport): void {
   if (report.summary.length === 0) {
-    console.log("\nNo results to display.\n");
+    console.log('\nNo results to display.\n');
     return;
   }
 
-  console.log(`\n${"─".repeat(90)}`);
+  console.log(`\n${'─'.repeat(90)}`);
   console.log(`WorkOS Skill Eval Report`);
-  console.log(
-    `Model: ${report.model} | Cases: ${report.totalCases} | Date: ${report.runId.split("T")[0]}`,
-  );
-  console.log(`${"─".repeat(90)}\n`);
+  console.log(`Model: ${report.model} | Cases: ${report.totalCases} | Date: ${report.runId.split('T')[0]}`);
+  console.log(`${'─'.repeat(90)}\n`);
 
   // Header
   const h = [
-    "Product".padEnd(18),
-    "Cases".padStart(5),
-    "With Skill".padStart(11),
-    "Without".padStart(8),
-    "Delta".padStart(8),
-    "Top Errors",
+    'Product'.padEnd(18),
+    'Cases'.padStart(5),
+    'With Skill'.padStart(11),
+    'Without'.padStart(8),
+    'Delta'.padStart(8),
+    'Top Errors',
   ];
-  console.log(h.join("  "));
-  console.log(`${"─".repeat(90)}`);
+  console.log(h.join('  '));
+  console.log(`${'─'.repeat(90)}`);
 
   // Rows
   for (const s of report.summary) {
-    const suffix = s.skillType === "hand-crafted" ? " *" : "";
+    const suffix = s.skillType === 'hand-crafted' ? ' *' : '';
     const row = [
       `${s.product}${suffix}`.padEnd(18),
       String(s.caseCount).padStart(5),
       `${s.avgWithSkill}%`.padStart(11),
       `${s.avgWithoutSkill}%`.padStart(8),
       colorDelta(s.avgDelta).padStart(8 + 9), // ANSI codes add ~9 chars
-      s.topErrors.join(", ") || DIM + "none" + RESET,
+      s.topErrors.join(', ') || DIM + 'none' + RESET,
     ];
-    console.log(row.join("  "));
+    console.log(row.join('  '));
   }
 
   console.log(`\n${DIM}* = hand-crafted skill${RESET}\n`);
@@ -86,38 +84,24 @@ export function printTable(report: EvalReport): void {
 export function printSummary(report: EvalReport): void {
   if (report.results.length === 0) return;
 
-  const generated = report.summary.filter((s) => s.skillType === "generated");
-  const handCrafted = report.summary.filter(
-    (s) => s.skillType === "hand-crafted",
-  );
+  const generated = report.summary.filter((s) => s.skillType === 'generated');
+  const handCrafted = report.summary.filter((s) => s.skillType === 'hand-crafted');
 
   if (generated.length > 0) {
-    const avgGenWith = Math.round(
-      generated.reduce((s, g) => s + g.avgWithSkill, 0) / generated.length,
-    );
-    const avgGenDelta = Math.round(
-      generated.reduce((s, g) => s + g.avgDelta, 0) / generated.length,
-    );
-    console.log(
-      `Generated avg:     ${avgGenWith}%  (delta: ${colorDelta(avgGenDelta)})`,
-    );
+    const avgGenWith = Math.round(generated.reduce((s, g) => s + g.avgWithSkill, 0) / generated.length);
+    const avgGenDelta = Math.round(generated.reduce((s, g) => s + g.avgDelta, 0) / generated.length);
+    console.log(`Generated avg:     ${avgGenWith}%  (delta: ${colorDelta(avgGenDelta)})`);
   }
 
   if (handCrafted.length > 0) {
-    const avgHcWith = Math.round(
-      handCrafted.reduce((s, h) => s + h.avgWithSkill, 0) / handCrafted.length,
-    );
-    const avgHcDelta = Math.round(
-      handCrafted.reduce((s, h) => s + h.avgDelta, 0) / handCrafted.length,
-    );
-    console.log(
-      `Hand-crafted avg:  ${avgHcWith}%  (delta: ${colorDelta(avgHcDelta)})`,
-    );
+    const avgHcWith = Math.round(handCrafted.reduce((s, h) => s + h.avgWithSkill, 0) / handCrafted.length);
+    const avgHcDelta = Math.round(handCrafted.reduce((s, h) => s + h.avgDelta, 0) / handCrafted.length);
+    console.log(`Hand-crafted avg:  ${avgHcWith}%  (delta: ${colorDelta(avgHcDelta)})`);
   }
 
   // Distribution stats
   if (report.summary.length > 0) {
-    console.log("\n  Distribution:");
+    console.log('\n  Distribution:');
     for (const s of report.summary) {
       console.log(
         `    ${s.product.padEnd(18)} median: ${sign(s.medianDelta)}${s.medianDelta}%  p80: ${sign(s.p80Delta)}${s.p80Delta}%  range: [${s.minDelta}%, ${s.maxDelta}%]`,
@@ -158,7 +142,7 @@ export async function writeJsonReport(report: EvalReport): Promise<string> {
   }));
 
   const slimReport = { ...report, results: slimResults };
-  const filename = `eval-report-${report.runId.replace(/[:.]/g, "-")}.json`;
+  const filename = `eval-report-${report.runId.replace(/[:.]/g, '-')}.json`;
   const filepath = join(OUTPUT_DIR, filename);
 
   await writeFile(filepath, JSON.stringify(slimReport, null, 2));
@@ -168,13 +152,9 @@ export async function writeJsonReport(report: EvalReport): Promise<string> {
 
 /** Print per-language stats. Skipped when ≤1 language. */
 export function printLanguageBreakdown(report: EvalReport): void {
-  if (
-    !report.languageBreakdown ||
-    Object.keys(report.languageBreakdown).length <= 1
-  )
-    return;
+  if (!report.languageBreakdown || Object.keys(report.languageBreakdown).length <= 1) return;
 
-  console.log("\n  Language Breakdown:");
+  console.log('\n  Language Breakdown:');
   for (const [lang, stats] of Object.entries(report.languageBreakdown)) {
     console.log(
       `    ${lang.padEnd(10)} ${String(stats.caseCount).padStart(3)} cases  avg with: ${stats.avgWithSkill}%  avg without: ${stats.avgWithoutSkill}%  delta: ${colorDelta(stats.avgDelta)}`,
@@ -188,36 +168,27 @@ export function printErrorReductions(report: EvalReport): void {
   const withCounts = new Map<ErrorCategory, number>();
 
   for (const r of report.results) {
-    for (const e of (r.withoutSkillErrors ?? r.topErrors)) {
+    for (const e of r.withoutSkillErrors ?? r.topErrors) {
       withoutCounts.set(e, (withoutCounts.get(e) ?? 0) + 1);
     }
-    for (const e of (r.withSkillErrors ?? [])) {
+    for (const e of r.withSkillErrors ?? []) {
       withCounts.set(e, (withCounts.get(e) ?? 0) + 1);
     }
   }
 
-  const allCategories = new Set([
-    ...withoutCounts.keys(),
-    ...withCounts.keys(),
-  ]);
+  const allCategories = new Set([...withoutCounts.keys(), ...withCounts.keys()]);
   if (allCategories.size === 0) return;
 
-  console.log("\n  Error Reductions:");
-  console.log(
-    `    ${"Category".padEnd(25)} Without  With  Reduction`,
-  );
-  console.log(`    ${"─".repeat(55)}`);
+  console.log('\n  Error Reductions:');
+  console.log(`    ${'Category'.padEnd(25)} Without  With  Reduction`);
+  console.log(`    ${'─'.repeat(55)}`);
 
   for (const cat of [...allCategories].sort()) {
     const without = withoutCounts.get(cat) ?? 0;
     const withCount = withCounts.get(cat) ?? 0;
     const reduction = without - withCount;
     const reductionStr =
-      reduction > 0
-        ? `${GREEN}-${reduction}${RESET}`
-        : reduction < 0
-          ? `${RED}+${Math.abs(reduction)}${RESET}`
-          : "0";
+      reduction > 0 ? `${GREEN}-${reduction}${RESET}` : reduction < 0 ? `${RED}+${Math.abs(reduction)}${RESET}` : '0';
     console.log(
       `    ${cat.padEnd(25)} ${String(without).padStart(7)}  ${String(withCount).padStart(4)}  ${reductionStr}`,
     );
@@ -246,8 +217,7 @@ export function checkGates(report: EvalReport): {
     withoutHallucinations += r.withoutSkill.scores.hallucinationCount;
   }
   if (withoutHallucinations > 0) {
-    const reduction =
-      (withoutHallucinations - withHallucinations) / withoutHallucinations;
+    const reduction = (withoutHallucinations - withHallucinations) / withoutHallucinations;
     if (reduction < 0.5) {
       failures.push(
         `Hallucination reduction ${(reduction * 100).toFixed(0)}% < 50% threshold ` +

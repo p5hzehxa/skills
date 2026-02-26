@@ -1,32 +1,20 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
-import { fetchLlmsFullTxt, fetchLlmsTxt } from "./lib/fetcher.ts";
-import { parseSections } from "./lib/parser.ts";
-import { validateSections } from "./lib/validator.ts";
-import { parseLlmsTxtUrls, splitSections } from "./lib/splitter.ts";
-import {
-  parseApiReferenceUrls,
-  splitApiReference,
-} from "./lib/api-ref-splitter.ts";
-import {
-  generateSkill,
-  generateRouter,
-  generateIntegrationRouter,
-} from "./lib/generator.ts";
-import { refineSkill } from "./lib/refiner.ts";
-import { runQualityGate } from "./lib/quality-gate.ts";
-import { shouldRegenerate } from "./lib/hasher.ts";
-import {
-  HAND_CRAFTED_SKILLS,
-  HAND_CRAFTED_GUIDES,
-  VALIDATION,
-  SUMMARY_VALIDATION,
-} from "./lib/config.ts";
-import type { GeneratedSkill } from "./lib/types.ts";
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { fetchLlmsFullTxt, fetchLlmsTxt } from './lib/fetcher.ts';
+import { parseSections } from './lib/parser.ts';
+import { validateSections } from './lib/validator.ts';
+import { parseLlmsTxtUrls, splitSections } from './lib/splitter.ts';
+import { parseApiReferenceUrls, splitApiReference } from './lib/api-ref-splitter.ts';
+import { generateSkill, generateRouter, generateIntegrationRouter } from './lib/generator.ts';
+import { refineSkill } from './lib/refiner.ts';
+import { runQualityGate } from './lib/quality-gate.ts';
+import { shouldRegenerate } from './lib/hasher.ts';
+import { HAND_CRAFTED_SKILLS, HAND_CRAFTED_GUIDES, VALIDATION, SUMMARY_VALIDATION } from './lib/config.ts';
+import type { GeneratedSkill } from './lib/types.ts';
 
 /** Skills that should NOT be refined (already well-structured or endpoint tables) */
 const SKIP_REFINE = new Set([
-  "workos-integrations",
+  'workos-integrations',
   // API ref skills get their own refine prompt — don't skip them
 ]);
 
@@ -38,11 +26,10 @@ function parseArgs(): {
 } {
   const args = process.argv.slice(2);
   return {
-    refine: args.includes("--refine"),
-    refineOnly:
-      args.find((a) => a.startsWith("--refine-only="))?.split("=")[1] ?? null,
-    model: args.find((a) => a.startsWith("--model="))?.split("=")[1] ?? null,
-    force: args.includes("--force"),
+    refine: args.includes('--refine'),
+    refineOnly: args.find((a) => a.startsWith('--refine-only='))?.split('=')[1] ?? null,
+    model: args.find((a) => a.startsWith('--model='))?.split('=')[1] ?? null,
+    force: args.includes('--force'),
   };
 }
 
@@ -51,25 +38,18 @@ async function main() {
   const shouldRefine = flags.refine || flags.refineOnly !== null;
 
   if (shouldRefine && !process.env.ANTHROPIC_API_KEY) {
-    console.error("Error: ANTHROPIC_API_KEY env var required for --refine");
+    console.error('Error: ANTHROPIC_API_KEY env var required for --refine');
     process.exit(1);
   }
 
   // --- Phase 1: Fetch & Parse ---
 
-  console.log("Fetching docs...");
-  const [fullTxtResult, llmsTxtResult] = await Promise.all([
-    fetchLlmsFullTxt(),
-    fetchLlmsTxt(),
-  ]);
-  console.log(
-    `  llms-full.txt: ${fullTxtResult.source}, ${(fullTxtResult.content.length / 1024).toFixed(0)}KB`,
-  );
-  console.log(
-    `  llms.txt: ${llmsTxtResult.source}, ${(llmsTxtResult.content.length / 1024).toFixed(0)}KB`,
-  );
+  console.log('Fetching docs...');
+  const [fullTxtResult, llmsTxtResult] = await Promise.all([fetchLlmsFullTxt(), fetchLlmsTxt()]);
+  console.log(`  llms-full.txt: ${fullTxtResult.source}, ${(fullTxtResult.content.length / 1024).toFixed(0)}KB`);
+  console.log(`  llms.txt: ${llmsTxtResult.source}, ${(llmsTxtResult.content.length / 1024).toFixed(0)}KB`);
 
-  console.log("\nParsing sections...");
+  console.log('\nParsing sections...');
   const sections = parseSections(fullTxtResult.content);
   console.log(`  Found ${sections.length} sections`);
 
@@ -80,18 +60,18 @@ async function main() {
     );
   }
 
-  console.log("\nValidating...");
+  console.log('\nValidating...');
   const result = validateSections(sections);
 
   if (result.warnings.length > 0) {
-    console.log("\nWarnings:");
+    console.log('\nWarnings:');
     for (const w of result.warnings) {
       console.log(`  ⚠ ${w}`);
     }
   }
 
   if (!result.valid) {
-    console.error("\nValidation FAILED:");
+    console.error('\nValidation FAILED:');
     for (const e of result.errors) {
       console.error(`  ✗ ${e}`);
     }
@@ -104,21 +84,21 @@ async function main() {
 
   // --- Phase 2: Split & Generate ---
 
-  console.log("\nParsing llms.txt URL index...");
+  console.log('\nParsing llms.txt URL index...');
   const llmsTxtUrls = parseLlmsTxtUrls(llmsTxtResult.content);
   console.log(`  ${llmsTxtUrls.size} section URL groups`);
 
-  console.log("\nSplitting sections into skill specs...");
+  console.log('\nSplitting sections into skill specs...');
   const specs = splitSections(sections, llmsTxtUrls);
   console.log(`  ${specs.length} skill specs produced`);
 
-  console.log("\nGenerating skills...");
+  console.log('\nGenerating skills...');
   const generatedSkills: GeneratedSkill[] = [];
 
   // Generate feature skills (summary + guide pairs)
   for (const spec of specs) {
     // Integration router is generated separately
-    if (spec.name === "workos-integrations") continue;
+    if (spec.name === 'workos-integrations') continue;
 
     const [summary, guide] = generateSkill(spec);
     generatedSkills.push(summary, guide);
@@ -128,12 +108,9 @@ async function main() {
   }
 
   // Generate integration router
-  const integrationsSection = sections.find((s) => s.anchor === "integrations");
+  const integrationsSection = sections.find((s) => s.anchor === 'integrations');
   if (integrationsSection) {
-    const integrationRouter = generateIntegrationRouter(
-      integrationsSection,
-      llmsTxtUrls,
-    );
+    const integrationRouter = generateIntegrationRouter(integrationsSection, llmsTxtUrls);
     generatedSkills.push(integrationRouter);
     console.log(
       `  ${integrationRouter.name.padEnd(35)} ${(integrationRouter.sizeBytes / 1024).toFixed(1).padStart(5)}KB  (integration router)`,
@@ -141,9 +118,9 @@ async function main() {
   }
 
   // Generate API reference skills
-  const referenceSection = sections.find((s) => s.anchor === "reference");
+  const referenceSection = sections.find((s) => s.anchor === 'reference');
   if (referenceSection) {
-    console.log("\nGenerating API reference skills...");
+    console.log('\nGenerating API reference skills...');
     const apiRefUrls = parseApiReferenceUrls(llmsTxtResult.content);
     const apiRefSpecs = splitApiReference(referenceSection, apiRefUrls);
     console.log(`  ${apiRefSpecs.length} API reference specs produced`);
@@ -161,23 +138,16 @@ async function main() {
   // Generate master router (after all specs are collected)
   const router = generateRouter(specs, llmsTxtResult.content);
   generatedSkills.push(router);
-  console.log(
-    `  ${router.name.padEnd(35)} ${(router.sizeBytes / 1024).toFixed(1).padStart(5)}KB  (router)`,
-  );
+  console.log(`  ${router.name.padEnd(35)} ${(router.sizeBytes / 1024).toFixed(1).padStart(5)}KB  (router)`);
 
   // --- Phase 2.5: Refine (optional) ---
 
   if (shouldRefine) {
-    console.log("\n--- Refinement Pass ---");
+    console.log('\n--- Refinement Pass ---');
 
-    const goldStandardPath = join(
-      process.cwd(),
-      "plugins/workos/skills/workos-authkit-nextjs/SKILL.md",
-    );
-    const goldStandard = await readFile(goldStandardPath, "utf8");
-    console.log(
-      `  Gold standard: ${goldStandardPath} (${(goldStandard.length / 1024).toFixed(1)}KB)`,
-    );
+    const goldStandardPath = join(process.cwd(), 'plugins/workos/skills/workos-authkit-nextjs/SKILL.md');
+    const goldStandard = await readFile(goldStandardPath, 'utf8');
+    console.log(`  Gold standard: ${goldStandardPath} (${(goldStandard.length / 1024).toFixed(1)}KB)`);
 
     const apiKey = process.env.ANTHROPIC_API_KEY!;
     const refineOptions = {
@@ -191,53 +161,48 @@ async function main() {
       : generatedSkills.filter((s) => {
           if (SKIP_REFINE.has(s.name)) return false;
           // API ref guides are deterministic stubs — no refinement needed
-          if (s.name.startsWith("workos-api-") && s.type === "guide")
-            return false;
+          if (s.name.startsWith('workos-api-') && s.type === 'guide') return false;
           return true;
         });
 
     if (toRefine.length === 0) {
-      console.warn("  No skills matched for refinement");
+      console.warn('  No skills matched for refinement');
     }
 
     const concurrency = 5;
-    console.log(
-      `  Refining ${toRefine.length} skills (concurrency: ${concurrency})...\n`,
-    );
+    console.log(`  Refining ${toRefine.length} skills (concurrency: ${concurrency})...\n`);
 
     let completed = 0;
-    const refineOne = async (skill: GeneratedSkill, i: number) => {
+    const refineOne = async (skill: GeneratedSkill) => {
       const idx = generatedSkills.indexOf(skill);
       try {
         const refined = await refineSkill(skill, refineOptions);
         generatedSkills[idx] = refined;
         completed++;
-        const tag = skill.type ? ` (${skill.type})` : "";
+        const tag = skill.type ? ` (${skill.type})` : '';
         console.log(
           `  [${completed}/${toRefine.length}] ✓ ${skill.name}${tag} ${(skill.sizeBytes / 1024).toFixed(1)}KB → ${(refined.sizeBytes / 1024).toFixed(1)}KB`,
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         completed++;
-        const tag = skill.type ? ` (${skill.type})` : "";
-        console.error(
-          `  [${completed}/${toRefine.length}] ✗ ${skill.name}${tag}: ${msg}`,
-        );
+        const tag = skill.type ? ` (${skill.type})` : '';
+        console.error(`  [${completed}/${toRefine.length}] ✗ ${skill.name}${tag}: ${msg}`);
       }
     };
 
     // Process in batches of `concurrency`
     for (let i = 0; i < toRefine.length; i += concurrency) {
       const batch = toRefine.slice(i, i + concurrency);
-      await Promise.all(batch.map((skill, j) => refineOne(skill, i + j)));
+      await Promise.all(batch.map((skill) => refineOne(skill)));
     }
 
-    console.log("\n  Refinement complete.");
+    console.log('\n  Refinement complete.');
   }
 
   // --- Phase 3: Validate & Write ---
 
-  console.log("\nValidating generated skills...");
+  console.log('\nValidating generated skills...');
   const handCraftedSet = new Set<string>(HAND_CRAFTED_SKILLS);
   let hasErrors = false;
 
@@ -248,7 +213,7 @@ async function main() {
       continue;
     }
     const limits =
-      skill.type === "summary"
+      skill.type === 'summary'
         ? { min: SUMMARY_VALIDATION.minSize, max: SUMMARY_VALIDATION.maxSize }
         : { min: VALIDATION.minSkillSize, max: VALIDATION.maxSkillSize };
     if (skill.sizeBytes > limits.max) {
@@ -257,18 +222,16 @@ async function main() {
       );
     }
     if (skill.sizeBytes < limits.min) {
-      console.warn(
-        `  ⚠ ${skill.path} is only ${skill.sizeBytes}B — below ${limits.min}B minimum`,
-      );
+      console.warn(`  ⚠ ${skill.path} is only ${skill.sizeBytes}B — below ${limits.min}B minimum`);
     }
   }
 
   if (hasErrors) {
-    console.error("\nGeneration FAILED: hand-crafted skill conflicts detected");
+    console.error('\nGeneration FAILED: hand-crafted skill conflicts detected');
     process.exit(1);
   }
 
-  console.log("\nWriting skills to disk...");
+  console.log('\nWriting skills to disk...');
   const handCraftedGuideSet = new Set<string>(HAND_CRAFTED_GUIDES);
   let written = 0;
   let skipped = 0;
@@ -280,7 +243,7 @@ async function main() {
     }
 
     // Skip hand-crafted guide files (summaries are still generated)
-    if (skill.type === "guide" && handCraftedGuideSet.has(skill.name)) {
+    if (skill.type === 'guide' && handCraftedGuideSet.has(skill.name)) {
       console.log(`  ⊘ ${skill.path}  (hand-crafted guide, protected)`);
       skipped++;
       continue;
@@ -292,7 +255,7 @@ async function main() {
     // Content-addressed locking: skip if source hash unchanged
     if (skill.sourceHash) {
       try {
-        const existing = await readFile(fullPath, "utf8");
+        const existing = await readFile(fullPath, 'utf8');
         const check = shouldRegenerate(existing, skill.sourceHash, flags.force);
         if (check.skip) {
           console.log(`  ⊘ ${skill.path}  (${check.reason})`);
@@ -309,16 +272,12 @@ async function main() {
     written++;
   }
 
-  console.log(
-    `\n✓ ${written} written, ${skipped} skipped. Hand-crafted untouched: ${HAND_CRAFTED_SKILLS.length}`,
-  );
+  console.log(`\n✓ ${written} written, ${skipped} skipped. Hand-crafted untouched: ${HAND_CRAFTED_SKILLS.length}`);
 
   // --- Phase 4: Quality Gate ---
 
-  console.log("\n--- Quality Gate ---");
-  const skillsToGate = flags.refineOnly
-    ? generatedSkills.filter((s) => s.name === flags.refineOnly)
-    : generatedSkills;
+  console.log('\n--- Quality Gate ---');
+  const skillsToGate = flags.refineOnly ? generatedSkills.filter((s) => s.name === flags.refineOnly) : generatedSkills;
   const qualityReport = await runQualityGate(skillsToGate, {
     refineMode: shouldRefine,
     apiKey: process.env.ANTHROPIC_API_KEY,
@@ -326,11 +285,9 @@ async function main() {
   });
 
   for (const r of qualityReport.results) {
-    const status = r.pass ? "✓" : "✗";
-    const issueStr = r.issues.length > 0 ? ` — ${r.issues[0]}` : "";
-    console.log(
-      `  ${status} ${r.skillName.padEnd(40)} ${r.score}/100${issueStr}`,
-    );
+    const status = r.pass ? '✓' : '✗';
+    const issueStr = r.issues.length > 0 ? ` — ${r.issues[0]}` : '';
+    console.log(`  ${status} ${r.skillName.padEnd(40)} ${r.score}/100${issueStr}`);
     // Log semantic check violations beneath the skill line
     if (r.semanticCheck && !r.semanticCheck.pass) {
       for (const v of r.semanticCheck.violations) {
@@ -340,13 +297,11 @@ async function main() {
   }
 
   // Write quality report
-  const reportPath = join(process.cwd(), "scripts/output/quality-report.json");
+  const reportPath = join(process.cwd(), 'scripts/output/quality-report.json');
   await mkdir(dirname(reportPath), { recursive: true });
   await writeFile(reportPath, JSON.stringify(qualityReport, null, 2));
   console.log(`\n  Report: ${reportPath}`);
-  console.log(
-    `  ${qualityReport.passed} passed, ${qualityReport.failed} failed out of ${qualityReport.total}`,
-  );
+  console.log(`  ${qualityReport.passed} passed, ${qualityReport.failed} failed out of ${qualityReport.total}`);
 
   if (qualityReport.failed > 0) {
     console.warn(
@@ -356,6 +311,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Fatal:", err.message);
+  console.error('Fatal:', err.message);
   process.exit(1);
 });

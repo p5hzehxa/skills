@@ -1,45 +1,36 @@
-import type { Section, SkillSpec, GeneratedSkill } from "./types.ts";
-import { HAND_CRAFTED_SKILLS } from "./config.ts";
-import {
-  renderSummary,
-  renderGuide,
-  renderApiRefStub,
-} from "./skill-template.ts";
-import { computeSourceHash } from "./hasher.ts";
+import type { Section, SkillSpec, GeneratedSkill } from './types.ts';
+import { renderSummary, renderGuide, renderApiRefStub } from './skill-template.ts';
+import { computeSourceHash } from './hasher.ts';
 
 /**
  * Generate a summary + guide pair for a single feature SkillSpec.
  * Returns [summary, guide] — both share the same sourceHash.
  */
-export function generateSkill(
-  spec: SkillSpec,
-): [GeneratedSkill, GeneratedSkill] {
+export function generateSkill(spec: SkillSpec): [GeneratedSkill, GeneratedSkill] {
   const sourceHash = computeSourceHash(spec.content);
 
   const summaryContent = renderSummary(spec, sourceHash);
-  const isApiRef = spec.name.startsWith("workos-api-");
-  const guideContent = isApiRef
-    ? renderApiRefStub(spec, sourceHash)
-    : renderGuide(spec, sourceHash);
+  const isApiRef = spec.name.startsWith('workos-api-');
+  const guideContent = isApiRef ? renderApiRefStub(spec, sourceHash) : renderGuide(spec, sourceHash);
 
   const summary: GeneratedSkill = {
     name: spec.name,
     path: `plugins/workos/skills/workos/references/${spec.name}.md`,
     content: summaryContent,
-    sizeBytes: Buffer.byteLength(summaryContent, "utf8"),
+    sizeBytes: Buffer.byteLength(summaryContent, 'utf8'),
     generated: true,
     sourceHash,
-    type: "summary",
+    type: 'summary',
   };
 
   const guide: GeneratedSkill = {
     name: spec.name,
     path: `plugins/workos/skills/workos/references/${spec.name}.guide.md`,
     content: guideContent,
-    sizeBytes: Buffer.byteLength(guideContent, "utf8"),
+    sizeBytes: Buffer.byteLength(guideContent, 'utf8'),
     generated: true,
     sourceHash,
-    type: "guide",
+    type: 'guide',
   };
 
   return [summary, guide];
@@ -49,32 +40,27 @@ export function generateSkill(
  * Generate the master router skill.
  * Maps all available skills (generated + hand-crafted) to their topics.
  */
-export function generateRouter(
-  specs: SkillSpec[],
-  llmsTxtContent: string,
-): GeneratedSkill {
+export function generateRouter(specs: SkillSpec[], llmsTxtContent: string): GeneratedSkill {
   // AuthKit skills — loaded via Skill tool (registered plugins)
   const authkitSkills = [
-    { intent: "Install AuthKit in Next.js", name: "workos-authkit-nextjs" },
-    { intent: "Install AuthKit in React SPA", name: "workos-authkit-react" },
+    { intent: 'Install AuthKit in Next.js', name: 'workos-authkit-nextjs' },
+    { intent: 'Install AuthKit in React SPA', name: 'workos-authkit-react' },
     {
-      intent: "Install AuthKit with React Router",
-      name: "workos-authkit-react-router",
+      intent: 'Install AuthKit with React Router',
+      name: 'workos-authkit-react-router',
     },
     {
-      intent: "Install AuthKit with TanStack Start",
-      name: "workos-authkit-tanstack-start",
+      intent: 'Install AuthKit with TanStack Start',
+      name: 'workos-authkit-tanstack-start',
     },
     {
-      intent: "Install AuthKit in vanilla JS",
-      name: "workos-authkit-vanilla-js",
+      intent: 'Install AuthKit in vanilla JS',
+      name: 'workos-authkit-vanilla-js',
     },
-    { intent: "AuthKit architecture reference", name: "workos-authkit-base" },
+    { intent: 'AuthKit architecture reference', name: 'workos-authkit-base' },
   ];
 
-  const authkitRows = authkitSkills
-    .map((s) => `| ${s.intent.padEnd(45)} | ${s.name.padEnd(35)} |`)
-    .join("\n");
+  const authkitRows = authkitSkills.map((s) => `| ${s.intent.padEnd(45)} | ${s.name.padEnd(35)} |`).join('\n');
 
   // Feature skills — loaded via Read (bundled files)
   const featureRows: string[] = [];
@@ -82,32 +68,21 @@ export function generateRouter(
   const migrateRows: string[] = [];
 
   for (const spec of specs) {
-    if (spec.anchor === "migrate") {
-      const provider = spec.title.replace("WorkOS Migration: ", "");
-      migrateRows.push(
-        `| Migrate from ${provider.padEnd(31)} | \`references/${spec.name}.md\` |`,
-      );
-    } else if (spec.name.startsWith("workos-api-")) {
-      const domain = spec.name.replace("workos-api-", "").replace(/-/g, " ");
-      const label =
-        domain.charAt(0).toUpperCase() + domain.slice(1) + " API Reference";
-      apiRefRows.push(
-        `| ${label.padEnd(45)} | \`references/${spec.name}.md\` |`,
-      );
+    if (spec.anchor === 'migrate') {
+      const provider = spec.title.replace('WorkOS Migration: ', '');
+      migrateRows.push(`| Migrate from ${provider.padEnd(31)} | \`references/${spec.name}.md\` |`);
+    } else if (spec.name.startsWith('workos-api-')) {
+      const domain = spec.name.replace('workos-api-', '').replace(/-/g, ' ');
+      const label = domain.charAt(0).toUpperCase() + domain.slice(1) + ' API Reference';
+      apiRefRows.push(`| ${label.padEnd(45)} | \`references/${spec.name}.md\` |`);
     } else {
       const intent = intentFromSpec(spec);
-      featureRows.push(
-        `| ${intent.padEnd(45)} | \`references/${spec.name}.md\` |`,
-      );
+      featureRows.push(`| ${intent.padEnd(45)} | \`references/${spec.name}.md\` |`);
     }
   }
 
   const sourceContent =
-    authkitRows +
-    featureRows.join("\n") +
-    apiRefRows.join("\n") +
-    migrateRows.join("\n") +
-    llmsTxtContent;
+    authkitRows + featureRows.join('\n') + apiRefRows.join('\n') + migrateRows.join('\n') + llmsTxtContent;
   const sourceHash = computeSourceHash(sourceContent);
 
   const content = `---
@@ -147,19 +122,19 @@ ${authkitRows}
 
 | User wants to...                              | Read file                                       |
 | --------------------------------------------- | ----------------------------------------------- |
-${featureRows.join("\n")}
+${featureRows.join('\n')}
 
 ### API References (Read \`references/{name}.md\`)
 
 | User wants to...                              | Read file                                       |
 | --------------------------------------------- | ----------------------------------------------- |
-${apiRefRows.join("\n")}
+${apiRefRows.join('\n')}
 
 ### Migrations (Read \`references/{name}.md\`)
 
 | User wants to...                              | Read file                                       |
 | --------------------------------------------- | ----------------------------------------------- |
-${migrateRows.join("\n")}
+${migrateRows.join('\n')}
 
 ## AuthKit Installation Detection
 
@@ -200,10 +175,10 @@ Then WebFetch the specific section URL for the user's topic.
 `;
 
   return {
-    name: "workos",
-    path: "plugins/workos/skills/workos/SKILL.md",
+    name: 'workos',
+    path: 'plugins/workos/skills/workos/SKILL.md',
     content,
-    sizeBytes: Buffer.byteLength(content, "utf8"),
+    sizeBytes: Buffer.byteLength(content, 'utf8'),
     generated: true,
     sourceHash,
   };
@@ -216,7 +191,7 @@ export function generateIntegrationRouter(
   integrationsSection: Section,
   llmsTxtUrls: Map<string, string[]>,
 ): GeneratedSkill {
-  const integrationUrls = llmsTxtUrls.get("integrations") ?? [];
+  const integrationUrls = llmsTxtUrls.get('integrations') ?? [];
 
   // Parse provider entries from URLs
   interface ProviderEntry {
@@ -228,23 +203,19 @@ export function generateIntegrationRouter(
   const providers: ProviderEntry[] = [];
 
   for (const url of integrationUrls) {
-    const slug = url.split("/").pop() ?? "";
+    const slug = url.split('/').pop() ?? '';
     if (!slug) continue;
 
     const { name, type } = parseProviderSlug(slug);
-    providers.push({ name, type, url: url.replace("https://", "") });
+    providers.push({ name, type, url: url.replace('https://', '') });
   }
 
   // Sort by provider name
   providers.sort((a, b) => a.name.localeCompare(b.name));
 
-  const providerRows = providers
-    .map((p) => `| ${p.name.padEnd(30)} | ${p.type.padEnd(12)} | ${p.url} |`)
-    .join("\n");
+  const providerRows = providers.map((p) => `| ${p.name.padEnd(30)} | ${p.type.padEnd(12)} | ${p.url} |`).join('\n');
 
-  const sourceHash = computeSourceHash(
-    integrationsSection.content + providerRows,
-  );
+  const sourceHash = computeSourceHash(integrationsSection.content + providerRows);
 
   const content = `---
 name: workos-integrations
@@ -314,15 +285,15 @@ ${providerRows}
 
 \`\`\`bash
 # Check connection status via WorkOS API
-curl -s -H "Authorization: Bearer \$WORKOS_API_KEY" \\
+curl -s -H "Authorization: Bearer $WORKOS_API_KEY" \\
   https://api.workos.com/connections | jq '.data[] | {id, name, state}'
 
 # Verify SSO connection is active
-curl -s -H "Authorization: Bearer \$WORKOS_API_KEY" \\
+curl -s -H "Authorization: Bearer $WORKOS_API_KEY" \\
   https://api.workos.com/connections | jq '.data[] | select(.state == "active") | .name'
 
 # Check directory sync connections
-curl -s -H "Authorization: Bearer \$WORKOS_API_KEY" \\
+curl -s -H "Authorization: Bearer $WORKOS_API_KEY" \\
   https://api.workos.com/directories | jq '.data[] | {id, name, state}'
 \`\`\`
 
@@ -431,10 +402,10 @@ Connection not working?
 `;
 
   return {
-    name: "workos-integrations",
-    path: "plugins/workos/skills/workos/references/workos-integrations.md",
+    name: 'workos-integrations',
+    path: 'plugins/workos/skills/workos/references/workos-integrations.md',
     content,
-    sizeBytes: Buffer.byteLength(content, "utf8"),
+    sizeBytes: Buffer.byteLength(content, 'utf8'),
     generated: true,
     sourceHash,
   };
@@ -445,36 +416,36 @@ Connection not working?
 /** Derive a user intent phrase from a SkillSpec */
 function intentFromSpec(spec: SkillSpec): string {
   const intents: Record<string, string> = {
-    "workos-sso": "Configure Single Sign-On",
-    "workos-directory-sync": "Set up Directory Sync",
-    "workos-rbac": "Implement RBAC / roles",
-    "workos-fga": "Set up Fine-Grained Authorization",
-    "workos-vault": "Encrypt data with Vault",
-    "workos-widgets": "Add WorkOS Widgets",
-    "workos-events": "Handle WorkOS Events / webhooks",
-    "workos-audit-logs": "Set up Audit Logs",
-    "workos-admin-portal": "Enable Admin Portal",
-    "workos-mfa": "Add Multi-Factor Auth",
-    "workos-magic-link": "Implement Magic Link auth",
-    "workos-feature-flags": "Configure Feature Flags",
-    "workos-domain-verification": "Verify a domain",
-    "workos-custom-domains": "Set up Custom Domains",
-    "workos-email": "Configure email delivery",
-    "workos-pipes": "Set up Pipes connections",
-    "workos-integrations": "Set up IdP integration",
+    'workos-sso': 'Configure Single Sign-On',
+    'workos-directory-sync': 'Set up Directory Sync',
+    'workos-rbac': 'Implement RBAC / roles',
+    'workos-fga': 'Set up Fine-Grained Authorization',
+    'workos-vault': 'Encrypt data with Vault',
+    'workos-widgets': 'Add WorkOS Widgets',
+    'workos-events': 'Handle WorkOS Events / webhooks',
+    'workos-audit-logs': 'Set up Audit Logs',
+    'workos-admin-portal': 'Enable Admin Portal',
+    'workos-mfa': 'Add Multi-Factor Auth',
+    'workos-magic-link': 'Implement Magic Link auth',
+    'workos-feature-flags': 'Configure Feature Flags',
+    'workos-domain-verification': 'Verify a domain',
+    'workos-custom-domains': 'Set up Custom Domains',
+    'workos-email': 'Configure email delivery',
+    'workos-pipes': 'Set up Pipes connections',
+    'workos-integrations': 'Set up IdP integration',
   };
-  return intents[spec.name] ?? `Implement ${spec.title.replace("WorkOS ", "")}`;
+  return intents[spec.name] ?? `Implement ${spec.title.replace('WorkOS ', '')}`;
 }
 
 /** Parse a provider slug like "okta-saml" into { name: "Okta", type: "SAML" } */
 function parseProviderSlug(slug: string): { name: string; type: string } {
   const typePatterns: Array<{ suffix: string; type: string }> = [
-    { suffix: "-saml", type: "SAML" },
-    { suffix: "-scim", type: "SCIM" },
-    { suffix: "-oidc", type: "OIDC" },
-    { suffix: "-oauth", type: "OAuth" },
-    { suffix: "-directory-sync", type: "Directory" },
-    { suffix: "-enterprise-connection", type: "Enterprise" },
+    { suffix: '-saml', type: 'SAML' },
+    { suffix: '-scim', type: 'SCIM' },
+    { suffix: '-oidc', type: 'OIDC' },
+    { suffix: '-oauth', type: 'OAuth' },
+    { suffix: '-directory-sync', type: 'Directory' },
+    { suffix: '-enterprise-connection', type: 'Enterprise' },
   ];
 
   for (const { suffix, type } of typePatterns) {
@@ -485,37 +456,37 @@ function parseProviderSlug(slug: string): { name: string; type: string } {
   }
 
   // No type suffix — general integration
-  return { name: formatProviderName(slug), type: "General" };
+  return { name: formatProviderName(slug), type: 'General' };
 }
 
 /** Format a slug into a readable provider name */
 function formatProviderName(slug: string): string {
   const nameMap: Record<string, string> = {
-    "entra-id": "Entra ID (Azure AD)",
-    google: "Google Workspace",
-    "microsoft-ad-fs": "Microsoft AD FS",
-    auth0: "Auth0",
-    "aws-cognito": "AWS Cognito",
-    "login-gov": "Login.gov",
-    "simple-saml-php": "SimpleSAMLphp",
-    "net-iq": "NetIQ",
-    "shibboleth-generic": "Shibboleth Generic",
-    "shibboleth-unsolicited": "Shibboleth Unsolicited",
-    "access-people-hr": "Access People HR",
-    "breathe-hr": "Breathe HR",
-    cezanne: "Cezanne HR",
-    "react-native-expo": "React Native Expo",
-    "next-auth": "NextAuth.js",
-    "supabase-sso": "Supabase + WorkOS SSO",
-    "supabase-authkit": "Supabase + AuthKit",
-    cas: "CAS",
-    adp: "ADP",
+    'entra-id': 'Entra ID (Azure AD)',
+    google: 'Google Workspace',
+    'microsoft-ad-fs': 'Microsoft AD FS',
+    auth0: 'Auth0',
+    'aws-cognito': 'AWS Cognito',
+    'login-gov': 'Login.gov',
+    'simple-saml-php': 'SimpleSAMLphp',
+    'net-iq': 'NetIQ',
+    'shibboleth-generic': 'Shibboleth Generic',
+    'shibboleth-unsolicited': 'Shibboleth Unsolicited',
+    'access-people-hr': 'Access People HR',
+    'breathe-hr': 'Breathe HR',
+    cezanne: 'Cezanne HR',
+    'react-native-expo': 'React Native Expo',
+    'next-auth': 'NextAuth.js',
+    'supabase-sso': 'Supabase + WorkOS SSO',
+    'supabase-authkit': 'Supabase + AuthKit',
+    cas: 'CAS',
+    adp: 'ADP',
   };
 
   if (nameMap[slug]) return nameMap[slug];
 
   return slug
-    .split("-")
+    .split('-')
     .map((w) => w[0].toUpperCase() + w.slice(1))
-    .join(" ");
+    .join(' ');
 }

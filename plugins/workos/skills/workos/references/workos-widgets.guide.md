@@ -54,7 +54,7 @@ Create a dedicated API endpoint:
 const token = await workos.widgets.generateToken({
   userId: currentUser.id,
   organizationId: currentUser.organizationId, // Required for org-scoped widgets
-  scopes: ["widgets:user-profile"], // Widget-specific scopes
+  scopes: ['widgets:user-profile'], // Widget-specific scopes
 });
 return { token };
 ```
@@ -87,14 +87,14 @@ Fetch token from your API endpoint, then mount widget:
 
 ```javascript
 // Fetch token from your server
-const response = await fetch("/api/workos-widget-token");
+const response = await fetch('/api/workos-widget-token');
 const { token } = await response.json();
 
 // Mount widget with token
 workos.widgets.mount({
-  element: "#widget-container", // DOM selector
+  element: '#widget-container', // DOM selector
   token: token,
-  widget: "user-profile", // Widget type
+  widget: 'user-profile', // Widget type
 });
 ```
 
@@ -124,9 +124,9 @@ Define pipe handlers when mounting:
 
 ```javascript
 workos.widgets.mount({
-  element: "#widget-container",
+  element: '#widget-container',
   token: token,
-  widget: "user-profile",
+  widget: 'user-profile',
   pipes: {
     onProfileUpdate: (data) => {
       // Handle profile change in your app

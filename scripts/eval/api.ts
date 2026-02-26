@@ -1,7 +1,7 @@
-import type { TokenUsage } from "./types.ts";
+import type { TokenUsage } from './types.ts';
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
 const EVAL_MAX_TOKENS = 4096;
 const MAX_RETRIES = 3;
 
@@ -17,18 +17,18 @@ export async function generateCode(
   retries = 0,
 ): Promise<GenerateResult> {
   const response = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
-      "x-api-key": options.apiKey,
-      "anthropic-version": "2023-06-01",
+      'Content-Type': 'application/json',
+      'x-api-key': options.apiKey,
+      'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
       model: options.model ?? DEFAULT_MODEL,
       max_tokens: EVAL_MAX_TOKENS,
       temperature: 0,
       system: systemPrompt,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: 'user', content: prompt }],
     }),
   });
 
@@ -52,12 +52,12 @@ export async function generateCode(
   };
 
   const text = data.content
-    .filter((c) => c.type === "text")
+    .filter((c) => c.type === 'text')
     .map((c) => c.text)
-    .join("");
+    .join('');
 
   if (!text.trim()) {
-    throw new Error("Anthropic API returned empty response");
+    throw new Error('Anthropic API returned empty response');
   }
 
   return {

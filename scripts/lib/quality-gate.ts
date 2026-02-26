@@ -1,9 +1,5 @@
-import type {
-  GeneratedSkill,
-  SkillFeedback,
-  SemanticCheckResult,
-} from "./types.ts";
-import { loadFeedback } from "./feedback.ts";
+import type { GeneratedSkill, SkillFeedback, SemanticCheckResult } from './types.ts';
+import { loadFeedback } from './feedback.ts';
 
 export interface QualityResult {
   skillName: string;
@@ -59,29 +55,23 @@ export async function runQualityGate(
   };
 }
 
-async function scoreSkill(
-  skill: GeneratedSkill,
-  options: QualityGateOptions,
-): Promise<QualityResult> {
-  if (skill.type === "summary") {
+async function scoreSkill(skill: GeneratedSkill, options: QualityGateOptions): Promise<QualityResult> {
+  if (skill.type === 'summary') {
     return scoreSummary(skill, options);
   }
-  if (skill.type === "guide") {
+  if (skill.type === 'guide') {
     // API ref guides are lightweight stubs — use relaxed scoring
-    if (skill.name.startsWith("workos-api-")) {
+    if (skill.name.startsWith('workos-api-')) {
       return scoreApiRefStub(skill);
     }
     return scoreGuide(skill, options);
   }
   // Single-file skills (router, integration router) — use legacy scoring with frontmatter
-  return scoreLegacy(skill, options);
+  return scoreLegacy(skill);
 }
 
 /** Score a summary file (100 points) */
-async function scoreSummary(
-  skill: GeneratedSkill,
-  options: QualityGateOptions,
-): Promise<QualityResult> {
+async function scoreSummary(skill: GeneratedSkill, options: QualityGateOptions): Promise<QualityResult> {
   const issues: string[] = [];
   let score = 0;
   const content = skill.content;
@@ -90,18 +80,14 @@ async function scoreSummary(
   if (!content.match(/^---\n([\s\S]*?)\n---/)) {
     score += 20;
   } else {
-    issues.push(
-      "Summary should not have frontmatter (interferes with plugin skill discovery)",
-    );
+    issues.push('Summary should not have frontmatter (interferes with plugin skill discovery)');
   }
 
   // 2. Generated/refined marker (5 pts)
-  if (
-    /<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->/.test(content)
-  ) {
+  if (/<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->/.test(content)) {
     score += 5;
   } else {
-    issues.push("Missing generated/refined marker");
+    issues.push('Missing generated/refined marker');
   }
 
   // 3. When to Use section (15 pts)
@@ -113,29 +99,23 @@ async function scoreSummary(
 
   // 4. Key Vocabulary section with content (20 pts)
   if (/^## Key Vocabulary/m.test(content)) {
-    const conceptsMatch = content.match(
-      /## Key Vocabulary\n([\s\S]*?)(?=\n## |$)/,
-    );
-    const conceptsBody = conceptsMatch?.[1]?.trim() ?? "";
+    const conceptsMatch = content.match(/## Key Vocabulary\n([\s\S]*?)(?=\n## |$)/);
+    const conceptsBody = conceptsMatch?.[1]?.trim() ?? '';
     if (conceptsBody.length > 50) {
       score += 20;
     } else {
       score += 8;
-      issues.push("Key Vocabulary section has minimal content");
+      issues.push('Key Vocabulary section has minimal content');
     }
   } else {
     issues.push("Missing 'Key Vocabulary' section");
   }
 
   // 5. Guide pointer (15 pts)
-  if (
-    /Read\s+`?(?:(?:skills\/workos\/)?references\/)?.*\.guide\.md`?/.test(
-      content,
-    )
-  ) {
+  if (/Read\s+`?(?:(?:skills\/workos\/)?references\/)?.*\.guide\.md`?/.test(content)) {
     score += 15;
   } else {
-    issues.push("Missing guide pointer (Read references/*.guide.md)");
+    issues.push('Missing guide pointer (Read references/*.guide.md)');
   }
 
   // 6. Related Skills section (5 pts)
@@ -149,9 +129,7 @@ async function scoreSummary(
   } else if (skill.sizeBytes <= 2048) {
     score += 15;
   } else {
-    issues.push(
-      `Summary is ${(skill.sizeBytes / 1024).toFixed(1)}KB — should be under 1KB`,
-    );
+    issues.push(`Summary is ${(skill.sizeBytes / 1024).toFixed(1)}KB — should be under 1KB`);
   }
 
   // --- Semantic check (only in refine mode) ---
@@ -188,33 +166,27 @@ async function scoreSummary(
 }
 
 /** Score a guide file (100 points) */
-async function scoreGuide(
-  skill: GeneratedSkill,
-  options: QualityGateOptions,
-): Promise<QualityResult> {
+async function scoreGuide(skill: GeneratedSkill, options: QualityGateOptions): Promise<QualityResult> {
   const issues: string[] = [];
   let score = 0;
   const content = skill.content;
 
   // 1. Has marker (10 pts) — guides don't have frontmatter
-  if (
-    /<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->/.test(content)
-  ) {
+  if (/<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->/.test(content)) {
     score += 10;
   } else {
-    issues.push("Missing generated/refined marker");
+    issues.push('Missing generated/refined marker');
   }
 
   // Bonus: no frontmatter (5 pts) — guides shouldn't have it
   if (!content.match(/^---\n([\s\S]*?)\n---/)) {
     score += 5;
   } else {
-    issues.push("Guide should not have frontmatter");
+    issues.push('Guide should not have frontmatter');
   }
 
   // 2. WebFetch doc references (20 pts, tiered for thin APIs)
-  const docUrlCount = (content.match(/https:\/\/workos\.com\/docs\//g) || [])
-    .length;
+  const docUrlCount = (content.match(/https:\/\/workos\.com\/docs\//g) || []).length;
   if (docUrlCount >= 3) {
     score += 20;
   } else if (docUrlCount >= 2) {
@@ -224,7 +196,7 @@ async function scoreGuide(
     score += 10;
     issues.push(`Only ${docUrlCount} doc URL reference(s), expected 3+`);
   } else {
-    issues.push("No doc URL references found");
+    issues.push('No doc URL references found');
   }
 
   // 4. Structural sections (15 pts)
@@ -246,40 +218,31 @@ async function scoreGuide(
     score += 7;
   } else if (sizeKB > 6 && sizeKB <= 10) {
     score += 3;
-    issues.push(
-      `Guide is ${sizeKB.toFixed(1)}KB — aim for ≤4KB for focused content`,
-    );
+    issues.push(`Guide is ${sizeKB.toFixed(1)}KB — aim for ≤4KB for focused content`);
   } else if (sizeKB > 10) {
-    issues.push(
-      `Guide is ${sizeKB.toFixed(1)}KB — over target, likely restating docs`,
-    );
+    issues.push(`Guide is ${sizeKB.toFixed(1)}KB — over target, likely restating docs`);
   } else {
     issues.push(`Content is only ${skill.sizeBytes}B, below 1KB minimum`);
   }
 
   // 6. Has verification or error recovery (15 pts)
   const hasBashCommands = /```bash/i.test(content);
-  const hasVerification =
-    /verification|checklist/i.test(content) &&
-    (content.includes("- [ ]") || hasBashCommands);
-  const hasErrorRecovery =
-    /error recovery/i.test(content) && /###/.test(content);
+  const hasVerification = /verification|checklist/i.test(content) && (content.includes('- [ ]') || hasBashCommands);
+  const hasErrorRecovery = /error recovery/i.test(content) && /###/.test(content);
 
   if (hasVerification || hasErrorRecovery) {
     score += 10;
     if (hasBashCommands) {
       score += 5;
     } else {
-      issues.push("No runnable bash commands in verification/error recovery");
+      issues.push('No runnable bash commands in verification/error recovery');
     }
   } else {
-    issues.push("Missing verification checklist or error recovery section");
+    issues.push('Missing verification checklist or error recovery section');
   }
 
   // 6b. Bash verification bonus (+5 for 3+ runnable bash one-liners)
-  const bashOneLinerCount = (
-    content.match(/^(echo |grep |curl |test -|ls |env \|)/gm) ?? []
-  ).length;
+  const bashOneLinerCount = (content.match(/^(echo |grep |curl |test -|ls |env \|)/gm) ?? []).length;
   if (bashOneLinerCount >= 3) {
     score += 5;
   }
@@ -288,57 +251,40 @@ async function scoreGuide(
   const codeBlockRegex = /```[\s\S]*?```/g;
   const codeBlocks = content.match(codeBlockRegex) || [];
   const longCodeBlocks = codeBlocks.filter((block) => {
-    const lines = block.split("\n").length - 2;
+    const lines = block.split('\n').length - 2;
     return lines > 40;
   });
   const largeExamples = codeBlocks.filter((block) => block.length > 1024);
 
   const paragraphs = content.split(/\n\n+/);
   const longUnformattedBlocks = paragraphs.filter(
-    (p) =>
-      p.length > 2048 &&
-      !p.includes("#") &&
-      !p.includes("|") &&
-      !p.includes("```") &&
-      !p.includes("- "),
+    (p) => p.length > 2048 && !p.includes('#') && !p.includes('|') && !p.includes('```') && !p.includes('- '),
   );
 
-  if (
-    longCodeBlocks.length === 0 &&
-    largeExamples.length === 0 &&
-    longUnformattedBlocks.length === 0
-  ) {
+  if (longCodeBlocks.length === 0 && largeExamples.length === 0 && longUnformattedBlocks.length === 0) {
     score += 10;
   } else {
     score += 3;
     if (longCodeBlocks.length > 0) {
-      issues.push(
-        `${longCodeBlocks.length} code block(s) >40 lines (prefer pseudocode patterns)`,
-      );
+      issues.push(`${longCodeBlocks.length} code block(s) >40 lines (prefer pseudocode patterns)`);
     }
     if (largeExamples.length > 0) {
-      issues.push(
-        `${largeExamples.length} code example(s) >1KB (defer to docs)`,
-      );
+      issues.push(`${largeExamples.length} code example(s) >1KB (defer to docs)`);
     }
     if (longUnformattedBlocks.length > 0) {
-      issues.push(
-        `${longUnformattedBlocks.length} block(s) of unformatted content >2KB (possible doc dump)`,
-      );
+      issues.push(`${longUnformattedBlocks.length} block(s) of unformatted content >2KB (possible doc dump)`);
     }
   }
 
   // 8. Has at least one code example (5 pts)
   const meaningfulCodeBlocks = codeBlocks.filter((block) => {
-    const lines = block.split("\n").length - 2; // exclude fence lines
+    const lines = block.split('\n').length - 2; // exclude fence lines
     return lines >= 5;
   });
   if (meaningfulCodeBlocks.length > 0) {
     score += 5;
   } else {
-    issues.push(
-      "No code example found (guides should have one 10-25 line SDK pattern)",
-    );
+    issues.push('No code example found (guides should have one 10-25 line SDK pattern)');
   }
 
   // 8b. Implementation decision tree bonus (+5 for code-block decision trees)
@@ -352,7 +298,7 @@ async function scoreGuide(
   if (behavioralClaimPenalty.count > 0) {
     score = Math.max(0, score - 10);
     issues.push(
-      `${behavioralClaimPenalty.count} behavioral assertion(s) without doc deferral nearby: ${behavioralClaimPenalty.examples.slice(0, 3).join("; ")}`,
+      `${behavioralClaimPenalty.count} behavioral assertion(s) without doc deferral nearby: ${behavioralClaimPenalty.examples.slice(0, 3).join('; ')}`,
     );
   }
 
@@ -397,56 +343,45 @@ async function scoreApiRefStub(skill: GeneratedSkill): Promise<QualityResult> {
   const content = skill.content;
 
   // 1. Marker (20 pts)
-  if (
-    /<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->/.test(content)
-  ) {
+  if (/<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->/.test(content)) {
     score += 20;
   } else {
-    issues.push("Missing generated/refined marker");
+    issues.push('Missing generated/refined marker');
   }
 
   // 2. No frontmatter (10 pts)
   if (!content.match(/^---\n([\s\S]*?)\n---/)) {
     score += 10;
   } else {
-    issues.push("Stub should not have frontmatter");
+    issues.push('Stub should not have frontmatter');
   }
 
   // 3. Doc URLs (20 pts)
   if ((content.match(/https:\/\/workos\.com\/docs\//g) || []).length >= 1) {
     score += 20;
   } else {
-    issues.push("No doc URL references found");
+    issues.push('No doc URL references found');
   }
 
   // 4. Endpoint table or structured content (20 pts)
-  if (
-    /\|\s*(?:Endpoint|Method|Path)/i.test(content) ||
-    /\|\s*`?\//.test(content)
-  ) {
+  if (/\|\s*(?:Endpoint|Method|Path)/i.test(content) || /\|\s*`?\//.test(content)) {
     score += 20;
   } else {
-    issues.push("Missing endpoint table");
+    issues.push('Missing endpoint table');
   }
 
   // 5. Feature guide pointer (20 pts)
-  if (
-    /Read\s+`?(?:(?:skills\/workos\/)?references\/)?.*\.guide\.md`?/.test(
-      content,
-    )
-  ) {
+  if (/Read\s+`?(?:(?:skills\/workos\/)?references\/)?.*\.guide\.md`?/.test(content)) {
     score += 20;
   } else {
-    issues.push("Missing feature guide pointer");
+    issues.push('Missing feature guide pointer');
   }
 
   // 6. Size <2KB (10 pts)
   if (skill.sizeBytes <= 2048) {
     score += 10;
   } else {
-    issues.push(
-      `Stub is ${(skill.sizeBytes / 1024).toFixed(1)}KB — should be under 2KB`,
-    );
+    issues.push(`Stub is ${(skill.sizeBytes / 1024).toFixed(1)}KB — should be under 2KB`);
   }
 
   return {
@@ -458,10 +393,7 @@ async function scoreApiRefStub(skill: GeneratedSkill): Promise<QualityResult> {
 }
 
 /** Score a single-file skill (router, integration router) — expects frontmatter */
-async function scoreLegacy(
-  skill: GeneratedSkill,
-  options: QualityGateOptions,
-): Promise<QualityResult> {
+async function scoreLegacy(skill: GeneratedSkill): Promise<QualityResult> {
   const issues: string[] = [];
   let score = 0;
   const content = skill.content;
@@ -470,37 +402,33 @@ async function scoreLegacy(
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
   if (frontmatterMatch) {
     const fm = frontmatterMatch[1];
-    if (fm.includes("name:") && fm.includes("description:")) {
+    if (fm.includes('name:') && fm.includes('description:')) {
       score += 20;
     } else {
       score += 10;
-      if (!fm.includes("name:")) issues.push("Frontmatter missing 'name'");
-      if (!fm.includes("description:"))
-        issues.push("Frontmatter missing 'description'");
+      if (!fm.includes('name:')) issues.push("Frontmatter missing 'name'");
+      if (!fm.includes('description:')) issues.push("Frontmatter missing 'description'");
     }
   } else {
-    issues.push("No valid frontmatter found");
+    issues.push('No valid frontmatter found');
   }
 
   // 2. Generated/refined marker (5 pts)
-  if (
-    /<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->/.test(content)
-  ) {
+  if (/<!--\s*(?:generated|refined)(?::sha256:[a-f0-9]+)?\s*-->/.test(content)) {
     score += 5;
   } else {
-    issues.push("Missing generated/refined marker");
+    issues.push('Missing generated/refined marker');
   }
 
   // 3. Doc URL references (20 pts)
-  const docUrlCount = (content.match(/https:\/\/workos\.com\/docs\//g) || [])
-    .length;
+  const docUrlCount = (content.match(/https:\/\/workos\.com\/docs\//g) || []).length;
   if (docUrlCount >= 3) {
     score += 20;
   } else if (docUrlCount >= 1) {
     score += 10;
     issues.push(`Only ${docUrlCount} doc URL reference(s), expected 3+`);
   } else {
-    issues.push("No doc URL references found");
+    issues.push('No doc URL references found');
   }
 
   // 4. Structural sections (15 pts)
@@ -523,40 +451,30 @@ async function scoreLegacy(
 
   // 6. Has verification or error recovery (15 pts)
   const hasBashCommands = /```bash/i.test(content);
-  const hasVerification =
-    /verification|checklist/i.test(content) &&
-    (content.includes("- [ ]") || hasBashCommands);
-  const hasErrorRecovery =
-    /error recovery/i.test(content) && /###/.test(content);
+  const hasVerification = /verification|checklist/i.test(content) && (content.includes('- [ ]') || hasBashCommands);
+  const hasErrorRecovery = /error recovery/i.test(content) && /###/.test(content);
 
   if (hasVerification || hasErrorRecovery) {
     score += 10;
     if (hasBashCommands) {
       score += 5;
     } else {
-      issues.push("No runnable bash commands in verification/error recovery");
+      issues.push('No runnable bash commands in verification/error recovery');
     }
   } else {
-    issues.push("Missing verification checklist or error recovery section");
+    issues.push('Missing verification checklist or error recovery section');
   }
 
   // 7. No doc dump (15 pts)
   const paragraphs = content.split(/\n\n+/);
   const longUnformattedBlocks = paragraphs.filter(
-    (p) =>
-      p.length > 2048 &&
-      !p.includes("#") &&
-      !p.includes("|") &&
-      !p.includes("```") &&
-      !p.includes("- "),
+    (p) => p.length > 2048 && !p.includes('#') && !p.includes('|') && !p.includes('```') && !p.includes('- '),
   );
   if (longUnformattedBlocks.length === 0) {
     score += 15;
   } else {
     score += 5;
-    issues.push(
-      `${longUnformattedBlocks.length} block(s) of unformatted content >2KB`,
-    );
+    issues.push(`${longUnformattedBlocks.length} block(s) of unformatted content >2KB`);
   }
 
   return {
@@ -582,7 +500,7 @@ function checkBehavioralClaims(content: string): {
     /only\s+supports/gi,
   ];
 
-  const lines = content.split("\n");
+  const lines = content.split('\n');
   const examples: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
@@ -590,9 +508,7 @@ function checkBehavioralClaims(content: string): {
     for (const pattern of behavioralPatterns) {
       pattern.lastIndex = 0;
       if (pattern.test(line)) {
-        const nearby = lines
-          .slice(Math.max(0, i - 3), Math.min(lines.length, i + 4))
-          .join(" ");
+        const nearby = lines.slice(Math.max(0, i - 3), Math.min(lines.length, i + 4)).join(' ');
         if (!/check\s+(fetched\s+)?docs/i.test(nearby)) {
           const snippet = line.trim().slice(0, 80);
           examples.push(snippet);
@@ -604,8 +520,8 @@ function checkBehavioralClaims(content: string): {
   return { count: examples.length, examples };
 }
 
-const SEMANTIC_CHECK_URL = "https://api.anthropic.com/v1/messages";
-const SEMANTIC_CHECK_MODEL = "claude-haiku-4-5-20251001";
+const SEMANTIC_CHECK_URL = 'https://api.anthropic.com/v1/messages';
+const SEMANTIC_CHECK_MODEL = 'claude-haiku-4-5-20251001';
 const SEMANTIC_CHECK_MAX_TOKENS = 1024;
 
 /**
@@ -645,26 +561,26 @@ ${skillContent.slice(0, 6000)}
 ## Domain Expert Feedback
 
 ### Corrections (must be respected)
-${feedback.corrections.map((c) => `- ${c}`).join("\n") || "None"}
+${feedback.corrections.map((c) => `- ${c}`).join('\n') || 'None'}
 
 ### Emphasis (should be highlighted)
-${feedback.emphasis.map((e) => `- ${e}`).join("\n") || "None"}
+${feedback.emphasis.map((e) => `- ${e}`).join('\n') || 'None'}
 
 Analyze and return JSON only.`;
 
   try {
     const response = await fetch(SEMANTIC_CHECK_URL, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "x-api-key": options.apiKey,
-        "anthropic-version": "2023-06-01",
+        'Content-Type': 'application/json',
+        'x-api-key': options.apiKey,
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model: options.model ?? SEMANTIC_CHECK_MODEL,
         max_tokens: SEMANTIC_CHECK_MAX_TOKENS,
         system,
-        messages: [{ role: "user", content: user }],
+        messages: [{ role: 'user', content: user }],
       }),
     });
 
@@ -677,9 +593,9 @@ Analyze and return JSON only.`;
     };
 
     const text = data.content
-      .filter((c) => c.type === "text")
+      .filter((c) => c.type === 'text')
       .map((c) => c.text)
-      .join("");
+      .join('');
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -690,7 +606,7 @@ Analyze and return JSON only.`;
     return {
       pass: Boolean(parsed.pass),
       violations: Array.isArray(parsed.violations) ? parsed.violations : [],
-      score: typeof parsed.score === "number" ? parsed.score : 50,
+      score: typeof parsed.score === 'number' ? parsed.score : 50,
     };
   } catch {
     return { pass: true, violations: [], score: 50 };

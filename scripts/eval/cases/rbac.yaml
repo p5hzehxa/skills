@@ -12,7 +12,7 @@
     envVars:
       - WORKOS_API_KEY
     imports:
-      - "@workos-inc/node"
+      - '@workos-inc/node'
     params:
       - permissions
       - organizationId
@@ -44,7 +44,7 @@
     envVars:
       - WORKOS_API_KEY
     imports:
-      - "@workos-inc/node"
+      - '@workos-inc/node'
     params:
       - roleSlug
       - organizationId
