@@ -224,7 +224,6 @@
       - store state in session before redirect
       - pass state to getAuthorizationUrl
       - verify state matches on callback
-      - skip state verification when state is empty string
     antiPatterns:
       - always require state for all flows
       - skip state verification for all requests
@@ -360,9 +359,9 @@
       - code
     flowSteps:
       - configure WorkOS with API key
-      - generate authorization URL
+      - generate authorization URL (auth URL)
       - store state in session for CSRF
-      - redirect to IdP
+      - redirect user to provider (IdP)
       - handle callback and verify state
       - exchange code for profile and token
     antiPatterns:
@@ -393,10 +392,102 @@
       - redirect_uri
     flowSteps:
       - pass provider GoogleOAuth to get_authorization_url
-      - redirect to authorization URL
-      - exchange code in callback
     antiPatterns:
       - omniauth gem for Google only
     hallucinations:
       - WorkOS::SSO.social_login
       - WorkOS::OAuth.google
+
+- id: sso-ruby-idp-initiated
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: ruby
+  prompt: |
+    My Rails app supports SP-initiated SSO with WorkOS. Now users want to
+    click our app tile in their Okta dashboard (IdP-initiated flow). My
+    callback crashes because state is empty. How do I handle IdP-initiated
+    login without breaking the SP-initiated flow that uses state for CSRF?
+  expected:
+    methods:
+      - WorkOS::SSO.authorization_url
+      - WorkOS::SSO.profile_and_token
+    envVars: []
+    imports:
+      - workos
+    params:
+      - state
+      - code
+    flowSteps:
+      - check if state parameter is present
+      - verify state only when present
+      - state is empty string for IdP-initiated not nil
+      - exchange code for profile
+    antiPatterns:
+      - always require state for all flows
+    hallucinations:
+      - WorkOS::SSO.verify_state
+      - WorkOS::SSO.validate_callback
+
+- id: sso-ruby-error-handling
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: ruby
+  prompt: |
+    Users report two SSO failures in my Rails app: some get "invalid_grant"
+    after waiting too long on the IdP page, and others get stuck after
+    clicking Cancel on the consent screen. How do I handle SSO errors
+    properly in my WorkOS callback?
+  expected:
+    methods:
+      - WorkOS::SSO.profile_and_token
+    envVars: []
+    imports:
+      - workos
+    params:
+      - error
+      - code
+    flowSteps:
+      - check error query parameter first
+      - handle user denial or consent denied
+      - exchange code for profile
+      - handle invalid_grant for expired code
+    antiPatterns:
+      - retry code exchange
+    hallucinations:
+      - WorkOS::SSO.refresh_token
+      - WorkOS::SSO.retry_auth
+
+- id: sso-ruby-domain-routing
+  product: sso
+  skill: workos-sso
+  skillType: generated
+  language: ruby
+  prompt: |
+    My Rails app serves multiple enterprise customers. When a user enters
+    their email on the login page, I need to route them to the correct SSO
+    provider (Okta for acme.com, Azure AD for contoso.com). How do I
+    implement email-domain-based SSO routing with WorkOS in Ruby?
+  expected:
+    methods:
+      - WorkOS::SSO.authorization_url
+    envVars:
+      - WORKOS_API_KEY
+    imports:
+      - workos
+    params:
+      - organization
+      - redirect_uri
+      - state
+    flowSteps:
+      - collect email from user
+      - extract domain from email
+      - map domain to organization ID
+      - pass organization to authorization_url
+      - exactly one connection selector per request
+    antiPatterns:
+      - combine organization and connection params
+    hallucinations:
+      - WorkOS::SSO.get_connection_by_domain
+      - WorkOS::Organizations.find_by_domain
