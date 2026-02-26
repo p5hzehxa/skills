@@ -1,5 +1,5 @@
 import { join } from "path";
-import { mkdir } from "fs/promises";
+import { mkdir, writeFile } from "fs/promises";
 import type { EvalReport, ErrorCategory } from "./types.ts";
 
 const OUTPUT_DIR = join(process.cwd(), "scripts", "output");
@@ -161,7 +161,7 @@ export async function writeJsonReport(report: EvalReport): Promise<string> {
   const filename = `eval-report-${report.runId.replace(/[:.]/g, "-")}.json`;
   const filepath = join(OUTPUT_DIR, filename);
 
-  await Bun.write(filepath, JSON.stringify(slimReport, null, 2));
+  await writeFile(filepath, JSON.stringify(slimReport, null, 2));
   console.log(`\n${DIM}Report written to ${filepath}${RESET}`);
   return filepath;
 }

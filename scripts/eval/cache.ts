@@ -1,4 +1,5 @@
-import { mkdir } from "fs/promises";
+import { createHash } from "crypto";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import type { TokenUsage } from "./types.ts";
 
@@ -16,15 +17,16 @@ export function getCacheKey(
   system: string,
   user: string,
 ): string {
-  const hasher = new Bun.CryptoHasher("sha256");
-  hasher.update(`${model}:0:${system}:${user}`);
-  return hasher.digest("hex").slice(0, 16);
+  return createHash("sha256")
+    .update(`${model}:0:${system}:${user}`)
+    .digest("hex")
+    .slice(0, 16);
 }
 
 export async function readCache(key: string): Promise<CachedResponse | null> {
   try {
-    const file = Bun.file(join(CACHE_DIR, `${key}.json`));
-    return (await file.json()) as CachedResponse;
+    const data = await readFile(join(CACHE_DIR, `${key}.json`), "utf8");
+    return JSON.parse(data) as CachedResponse;
   } catch {
     return null;
   }
@@ -35,7 +37,7 @@ export async function writeCache(
   response: CachedResponse,
 ): Promise<void> {
   await mkdir(CACHE_DIR, { recursive: true });
-  await Bun.write(
+  await writeFile(
     join(CACHE_DIR, `${key}.json`),
     JSON.stringify(response, null, 2),
   );
