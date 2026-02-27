@@ -9,6 +9,8 @@ import {
   checkGates,
 } from './eval/reporter.ts';
 import { rankByRisk, printTriage, writeTriageReport } from './eval/triage.ts';
+import { readLabels } from './eval/labels.ts';
+import { computeCalibration, printCalibration } from './eval/calibrate.ts';
 import type { EvalOptions } from './eval/types.ts';
 
 function parseArgs(): EvalOptions {
@@ -81,6 +83,19 @@ async function main() {
         console.log(`    ✗ ${f}`);
       }
       process.exit(1);
+    }
+
+    // Calibration gate (when labels exist)
+    const labels = await readLabels();
+    if (labels.length > 0) {
+      const cal = computeCalibration(labels, report.results);
+      printCalibration(cal);
+      if (!cal.passed) {
+        console.log(
+          `\n    ✗ Calibration gate failed: ${Math.round(cal.agreement * 100)}% < ${Math.round(cal.threshold * 100)}% threshold`,
+        );
+        process.exit(1);
+      }
     }
   }
 }

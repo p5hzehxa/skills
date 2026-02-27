@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { writeFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { appendLabel, readLabels, labelsForCase, latestLabels, type ReviewLabel } from '../eval/labels.ts';
+import { readLabels, labelsForCase, latestLabels, type ReviewLabel } from '../eval/labels.ts';
 
 const TMP_DIR = join(tmpdir(), 'eval-labels-test');
 
