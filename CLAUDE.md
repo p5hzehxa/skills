@@ -5,13 +5,30 @@ Claude Code plugin providing WorkOS integration skills (AuthKit, SSO, Directory 
 ## Commands
 
 ```bash
-pnpm generate                 # fetch docs, parse, split, generate skills
+# Generation
+pnpm generate                 # fetch docs, parse, split, generate (skips unchanged)
 pnpm generate -- --refine    # + AI refinement pass (requires ANTHROPIC_API_KEY)
 pnpm generate -- --refine --force  # force regenerate + refine all
 pnpm generate -- --refine-only=workos-sso --force  # refine single skill
+
+# Testing & formatting
 pnpm test                     # run tests (vitest)
-pnpm format                   # prettier --write
-pnpm format:check             # prettier --check
+pnpm format                   # oxfmt
+pnpm lint                     # oxlint
+
+# Evals
+pnpm eval -- --dry-run                        # verify cases load (no API key needed)
+pnpm eval -- --no-cache                       # full run, skip cache
+pnpm eval -- --no-cache --product=sso         # run specific product
+pnpm eval -- --no-cache --case=sso-node-basic # run single case
+pnpm eval -- --no-cache --fail-on-regression  # full run with gates
+pnpm eval -- --no-cache --samples=2           # multi-sample for variance measurement
+pnpm eval -- --no-cache --samples=2 --save-all-samples  # + persist all sample outputs
+
+# Eval tooling
+pnpm eval:diff -- --case=sso-node-basic       # side-by-side transcript diff with signal highlighting
+pnpm eval:label -- --case=X --ship=yes --who=nick --reason="..."  # add human judgment
+pnpm eval:calibrate                            # compare scorer vs human labels
 ```
 
 ## Project Structure
@@ -50,7 +67,7 @@ pnpm format:check             # prettier --check
 
 ## Eval Framework
 
-Measures whether skills improve agent-generated WorkOS implementations.
+Measures whether skills improve agent-generated WorkOS implementations. Runs each case with and without the skill, scores both outputs, and reports the delta.
 
 ### Eval Commands
 
@@ -60,8 +77,19 @@ pnpm eval -- --no-cache --product=sso         # run specific product
 pnpm eval -- --no-cache --lang=python         # run specific language
 pnpm eval -- --no-cache --case=sso-node-basic # run single case
 pnpm eval -- --no-cache --fail-on-regression  # full run with gates
+pnpm eval -- --no-cache --samples=2           # run each case 2x, report mean ± stddev
+pnpm eval -- --no-cache --samples=2 --save-all-samples  # + persist all sample outputs
 bash scripts/eval-ci.sh                       # CI wrapper
 bash scripts/eval-ci.sh --dry-run             # CI dry run (no API key needed)
+```
+
+### Eval Tooling
+
+```bash
+pnpm eval:diff -- --case=sso-node-basic       # side-by-side with/without transcript diff
+pnpm eval:diff -- --case=X --run=2026-02-26   # diff a specific run
+pnpm eval:label -- --case=X --ship=yes --who=nick --reason="correct flow"  # add human label
+pnpm eval:calibrate                            # scorer vs human agreement report
 ```
 
 ### Interpreting Results
@@ -74,11 +102,14 @@ bash scripts/eval-ci.sh --dry-run             # CI dry run (no API key needed)
 - YELLOW (≥ +10%): moderate skill value
 - RED (< +10%): low skill value
 
-**Hard gates** (`--fail-on-regression`): no product with negative avg delta, hallucination reduction ≥ 50%.
+**Hard gates** (`--fail-on-regression`): no product with negative avg delta, hallucination reduction ≥ 50%, calibration agreement ≥ 80% (when 10+ labels exist).
+
+**Triage report**: auto-prints top 10 risky cases (negative delta, high σ, hallucination regression) after each run.
 
 ### Troubleshooting
 
 - **Rate limits**: `--concurrency=1`
 - **Stale cache**: `--no-cache`
 - **Single case debugging**: `--case=<id>`
-- **Token costs**: ~$0.15-0.25 per full 40-case run at temperature 0
+- **Variance analysis**: `--samples=2` (or 3) — costs ~Nx, auto-disables cache
+- **Token costs**: ~$1.70 per full 42-case run, ~$3.40 with `--samples=2`

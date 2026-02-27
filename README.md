@@ -81,23 +81,26 @@ Works with Claude Code, Cursor, Codex, Goose, and any agent that supports the sk
 ### Generate skills
 
 ```bash
-# Generate (skips skills with matching source hash)
-bun run generate
+# Generate only what's changed (skips skills with matching source hash)
+pnpm generate
 
-# Force regenerate all
-bun run generate -- --force
+# Force regenerate all skills from scratch
+pnpm generate -- --force
 
 # Generate + AI refinement (requires ANTHROPIC_API_KEY)
-bun run generate -- --refine --force
+pnpm generate -- --refine
 
-# Refine a single skill (only writes that skill)
-bun run generate -- --refine-only=workos-sso --force
+# Force regenerate + refine all
+pnpm generate -- --refine --force
+
+# Refine a single skill (only writes that skill, safe for iteration)
+pnpm generate -- --refine-only=workos-sso --force
 ```
 
 ### Test
 
 ```bash
-bun test
+pnpm test
 ```
 
 ### How it works
@@ -157,6 +160,59 @@ Feedback is loaded by `scripts/lib/feedback.ts` and injected into refiner prompt
 - **Hand-crafted** (6 AuthKit skills) — never overwritten by the generator
 - **Generated** (33 skills) — produced by `scripts/generate.ts`, refined via Anthropic API, split into summary + guide pairs
 - **Excluded** (5 sections) — skipped during generation: FGA, magic-link, pipes, domain-verification, feature-flags
+
+### Eval framework
+
+The eval framework measures whether skills actually improve agent-generated code. Each eval case runs the same prompt with and without the skill, scores both outputs against expected signals (methods, params, imports, flow steps, hallucinations), and reports the delta.
+
+```bash
+# Quick check — verify cases load without API calls
+pnpm eval -- --dry-run
+
+# Full run (42 cases, ~$1.70)
+pnpm eval -- --no-cache
+
+# Filter by product, language, or single case
+pnpm eval -- --no-cache --product=sso
+pnpm eval -- --no-cache --lang=python
+pnpm eval -- --no-cache --case=sso-node-basic
+
+# Run with regression gates (fails on negative product deltas)
+pnpm eval -- --no-cache --fail-on-regression
+
+# Measure variance — run each case N times, report mean ± stddev (~$1.70 × N)
+pnpm eval -- --no-cache --samples=2
+pnpm eval -- --no-cache --samples=2 --save-all-samples  # persist all sample outputs
+```
+
+#### Eval tooling
+
+Review and label eval results without re-running:
+
+```bash
+# Side-by-side transcript diff with signal highlighting
+pnpm eval:diff -- --case=sso-node-basic
+
+# Add human judgment (ship/no-ship) for scorer calibration
+pnpm eval:label -- --case=sso-node-basic --ship=yes --who=nick --reason="correct SSO flow"
+
+# Compare scorer decisions against human labels
+pnpm eval:calibrate
+```
+
+#### Interpreting results
+
+| Delta                                           | Meaning                                 |
+| ----------------------------------------------- | --------------------------------------- |
+| Positive (≥ +8% generated, ≥ +15% hand-crafted) | Skill helps                             |
+| Zero                                            | Skill adds no value (LLM already knows) |
+| Negative                                        | Skill hurts — investigate skill content |
+
+The triage report (printed after each run) surfaces the top 10 riskiest cases automatically — negative deltas, high variance, hallucination regressions.
+
+#### Eval case files
+
+Cases live in `scripts/eval/cases/*.yaml`. Each defines a prompt, expected signals, and known hallucinations. See existing cases for the format.
 
 ## License
 
