@@ -186,9 +186,7 @@ function truncateOutput(output: string, maxLines: number): string {
 }
 
 /** Load the latest transcript file (or one matching a run prefix). */
-export async function loadTranscript(
-  runPrefix?: string,
-): Promise<{
+export async function loadTranscript(runPrefix?: string): Promise<{
   runId: string;
   transcripts: {
     caseId: string;
