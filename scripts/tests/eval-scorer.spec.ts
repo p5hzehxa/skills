@@ -5,6 +5,7 @@ import {
   methodRatioFound,
   scoreFlowOrder,
   countFound,
+  countHallucinations,
   weightedScore,
   scoreOutput,
   categorizeErrors,
@@ -181,6 +182,27 @@ Check that your integration works by testing the login flow.
     // Verification section, breaking the order.
     expect(score).toBeGreaterThanOrEqual(0.95);
   });
+
+  it('requires minimum keyword coverage for multi-keyword steps', () => {
+    const sparseOutput = 'In callback code we do state.toString() checks only.';
+    const score = scoreFlowOrder(['empty string state means idp initiated'], sparseOutput);
+    expect(score).toBe(0);
+  });
+
+  it('prefers first good-enough anchor over denser later checklist text', () => {
+    const mixedOutput = `
+Configure WorkOS client with API key and client ID.
+Then handle callback with code exchange.
+
+Health checklist:
+- verify workos api key client id client key wiring in diagnostics payload
+`;
+    const score = scoreFlowOrder(
+      ['configure WorkOS client with API key and client ID', 'handle callback with code exchange'],
+      mixedOutput,
+    );
+    expect(score).toBeGreaterThanOrEqual(0.95);
+  });
 });
 
 describe('countFound', () => {
@@ -196,6 +218,31 @@ describe('countFound', () => {
 
   it('returns 0 for empty list', () => {
     expect(countFound([], output)).toBe(0);
+  });
+});
+
+describe('countHallucinations', () => {
+  it('counts non-negated hallucinations', () => {
+    const output = 'Use workos.sso.authenticate() for login.';
+    expect(countHallucinations(['workos.sso.authenticate'], output)).toBe(1);
+  });
+
+  it('ignores negated hallucination mentions', () => {
+    const output = 'Do not use workos.sso.authenticate; it does not exist.';
+    expect(countHallucinations(['workos.sso.authenticate'], output)).toBe(0);
+  });
+
+  it('counts if any later occurrence is non-negated', () => {
+    const output = `
+Do not use workos.sso.authenticate in new code.
+Legacy code still calls workos.sso.authenticate().
+`;
+    expect(countHallucinations(['workos.sso.authenticate'], output)).toBe(1);
+  });
+
+  it('applies negation checks in normalized fallback path', () => {
+    const output = 'Avoid workos.sso.get_authorization_url; it is not a real method.';
+    expect(countHallucinations(['workos.sso.getAuthorizationUrl'], output)).toBe(0);
   });
 });
 
@@ -417,6 +464,19 @@ WORKOS_CLIENT_ID=client_xxx
     const output = 'const workos = new WorkOS("sk_live_abc123def456");';
     expect(negationAwareRatioFound(['sk_live'], output)).toBe(1);
   });
+
+  it('counts if a later occurrence is non-negated', () => {
+    const output = `
+Do not reject requests without state in docs examples.
+Production code may reject requests without state.
+`;
+    expect(negationAwareRatioFound(['reject requests without state'], output)).toBe(1);
+  });
+
+  it('applies negation checks in normalized fallback path', () => {
+    const output = 'Do not reject_requests_without_state when handling IdP-initiated logins.';
+    expect(negationAwareRatioFound(['rejectRequestsWithoutState'], output)).toBe(0);
+  });
 });
 
 describe('scoreOutput', () => {
@@ -498,6 +558,15 @@ workos.sso.login({ password: "123" });
     expect(scores.composite).toBeLessThan(30);
     expect(scores.hallucinationCount).toBeGreaterThan(0);
   });
+
+  it('does not count negated hallucination mentions', () => {
+    const output = `
+Do not use workos.sso.authenticate in this flow.
+Use workos.sso.getAuthorizationUrl and workos.sso.getProfileAndToken instead.
+`;
+    const scores = scoreOutput(output, expected);
+    expect(scores.hallucinationCount).toBe(0);
+  });
 });
 
 describe('categorizeErrors', () => {
@@ -515,6 +584,12 @@ describe('categorizeErrors', () => {
     const output = 'workos.sso.authenticate()';
     const errors = categorizeErrors(output, expected);
     expect(errors).toContain('hallucinated_method');
+  });
+
+  it('does not flag negated hallucination references', () => {
+    const output = 'Do not call workos.sso.authenticate in production.';
+    const errors = categorizeErrors(output, expected);
+    expect(errors).not.toContain('hallucinated_method');
   });
 
   it('detects missing expected methods as missing_method', () => {

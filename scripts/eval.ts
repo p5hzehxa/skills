@@ -3,6 +3,7 @@ import {
   printTable,
   printSummary,
   writeJsonReport,
+  writeTranscripts,
   printLanguageBreakdown,
   printErrorReductions,
   checkGates,
@@ -11,6 +12,12 @@ import type { EvalOptions } from './eval/types.ts';
 
 function parseArgs(): EvalOptions {
   const args = process.argv.slice(2);
+  const rawSamples = args.find((a) => a.startsWith('--samples='))?.split('=')[1];
+  const parsedSamples = rawSamples ? parseInt(rawSamples) : 1;
+  const samples = Math.max(1, parsedSamples || 1);
+  if (rawSamples && samples !== parsedSamples) {
+    console.warn(`⚠ Invalid --samples=${rawSamples}, using --samples=${samples}`);
+  }
   return {
     product: args.find((a) => a.startsWith('--product='))?.split('=')[1],
     caseId: args.find((a) => a.startsWith('--case='))?.split('=')[1],
@@ -22,6 +29,7 @@ function parseArgs(): EvalOptions {
     lang: args.find((a) => a.startsWith('--lang='))?.split('=')[1],
     reportFormat: args.find((a) => a.startsWith('--report='))?.split('=')[1] ?? 'both',
     failOnRegression: args.includes('--fail-on-regression'),
+    samples,
   };
 }
 
@@ -47,6 +55,7 @@ async function main() {
 
   if (report.results.length > 0 && (fmt === 'json' || fmt === 'both')) {
     await writeJsonReport(report);
+    await writeTranscripts(report);
   }
 
   if (options.failOnRegression && report.results.length > 0) {

@@ -64,14 +64,17 @@ export function printTable(report: EvalReport): void {
   console.log(`${'─'.repeat(90)}`);
 
   // Rows
+  const multiSample = report.summary.some((s) => s.avgDeltaStddev > 0);
   for (const s of report.summary) {
     const suffix = s.skillType === 'hand-crafted' ? ' *' : '';
+    const deltaDisplay =
+      multiSample && s.avgDeltaStddev > 0 ? `${colorDelta(s.avgDelta)}±${s.avgDeltaStddev}` : colorDelta(s.avgDelta);
     const row = [
       `${s.product}${suffix}`.padEnd(18),
       String(s.caseCount).padStart(5),
       `${s.avgWithSkill}%`.padStart(11),
       `${s.avgWithoutSkill}%`.padStart(8),
-      colorDelta(s.avgDelta).padStart(8 + 9), // ANSI codes add ~9 chars
+      deltaDisplay.padStart(8 + 9), // ANSI codes add ~9 chars
       s.topErrors.join(', ') || DIM + 'none' + RESET,
     ];
     console.log(row.join('  '));
@@ -103,8 +106,9 @@ export function printSummary(report: EvalReport): void {
   if (report.summary.length > 0) {
     console.log('\n  Distribution:');
     for (const s of report.summary) {
+      const stddevSuffix = s.avgDeltaStddev > 0 ? `  σ: ${s.avgDeltaStddev}` : '';
       console.log(
-        `    ${s.product.padEnd(18)} median: ${sign(s.medianDelta)}${s.medianDelta}%  p80: ${sign(s.p80Delta)}${s.p80Delta}%  range: [${s.minDelta}%, ${s.maxDelta}%]`,
+        `    ${s.product.padEnd(18)} median: ${sign(s.medianDelta)}${s.medianDelta}%  p80: ${sign(s.p80Delta)}${s.p80Delta}%  range: [${s.minDelta}%, ${s.maxDelta}%]${stddevSuffix}`,
       );
     }
   }
@@ -147,6 +151,43 @@ export async function writeJsonReport(report: EvalReport): Promise<string> {
 
   await writeFile(filepath, JSON.stringify(slimReport, null, 2));
   console.log(`\n${DIM}Report written to ${filepath}${RESET}`);
+  return filepath;
+}
+
+/** Write full model outputs for manual transcript review. */
+export async function writeTranscripts(report: EvalReport): Promise<string> {
+  await mkdir(OUTPUT_DIR, { recursive: true });
+
+  const filename = `eval-transcripts-${report.runId.replace(/[:.]/g, '-')}.json`;
+  const filepath = join(OUTPUT_DIR, filename);
+
+  const payload = {
+    runId: report.runId,
+    model: report.model,
+    totalCases: report.totalCases,
+    transcripts: report.results.map((r) => ({
+      caseId: r.caseId,
+      product: r.product,
+      language: r.language,
+      skillType: r.skillType,
+      delta: r.delta,
+      sampleCount: r.sampleCount,
+      withSkillStddev: r.withSkillStddev,
+      withoutSkillStddev: r.withoutSkillStddev,
+      deltaStddev: r.deltaStddev,
+      withSkill: {
+        output: r.withSkill.output,
+        scores: r.withSkill.scores,
+      },
+      withoutSkill: {
+        output: r.withoutSkill.output,
+        scores: r.withoutSkill.scores,
+      },
+    })),
+  };
+
+  await writeFile(filepath, JSON.stringify(payload, null, 2));
+  console.log(`${DIM}Transcripts written to ${filepath}${RESET}`);
   return filepath;
 }
 

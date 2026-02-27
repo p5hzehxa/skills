@@ -10,6 +10,20 @@ import { median, percentile } from './reporter.ts';
 import type { EvalCase, EvalOptions, EvalReport, EvalResult, ProductSummary, ErrorCategory } from './types.ts';
 
 const CASES_DIR = join(process.cwd(), 'scripts', 'eval', 'cases');
+
+/** Arithmetic mean. Returns 0 for empty input. */
+export function mean(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((s, v) => s + v, 0) / values.length;
+}
+
+/** Population standard deviation. Returns 0 for 0 or 1 values. */
+export function stddev(values: number[]): number {
+  if (values.length <= 1) return 0;
+  const m = mean(values);
+  const variance = values.reduce((s, v) => s + (v - m) ** 2, 0) / values.length;
+  return Math.sqrt(variance);
+}
 const PLUGIN_DIR = join(process.cwd(), 'plugins', 'workos', 'skills');
 const REFS_DIR = join(PLUGIN_DIR, 'workos', 'references');
 
@@ -122,6 +136,12 @@ export function aggregateResults(results: EvalResult[]): ProductSummary[] {
 
     const deltas = productResults.map((r) => r.delta);
 
+    // Mean of per-case delta stddevs (0 when single-sample)
+    const avgDeltaStddev =
+      productResults.length > 0
+        ? Math.round((productResults.reduce((s, r) => s + r.deltaStddev, 0) / productResults.length) * 10) / 10
+        : 0;
+
     summaries.push({
       product,
       caseCount: productResults.length,
@@ -134,13 +154,14 @@ export function aggregateResults(results: EvalResult[]): ProductSummary[] {
       maxDelta: Math.round(Math.max(...deltas)),
       topErrors,
       skillType: isHandCrafted ? 'hand-crafted' : 'generated',
+      avgDeltaStddev,
     });
   }
 
   return summaries.sort((a, b) => b.avgDelta - a.avgDelta);
 }
 
-/** Evaluate a single case (both arms) */
+/** Evaluate a single case (both arms), optionally running N samples. */
 async function evalCase(c: EvalCase, options: EvalOptions): Promise<EvalResult | null> {
   try {
     const skillContent = loadSkillContent(c.skill);
@@ -153,39 +174,118 @@ async function evalCase(c: EvalCase, options: EvalOptions): Promise<EvalResult |
     const systemWithout =
       'You are a software engineer implementing a WorkOS integration. Write working code. Include imports, environment variable setup, and error handling. Use the WorkOS SDK appropriate for the requested language.';
 
-    // Run both arms in parallel — they're independent API calls
-    const [withResult, withoutResult] = await Promise.all([
-      getOrGenerate(c.prompt, systemWith, options),
-      getOrGenerate(c.prompt, systemWithout, options),
-    ]);
+    const sampleCount = Math.max(1, options.samples ?? 1);
 
-    const withScores = scoreOutput(withResult.output, c.expected);
-    const withoutScores = scoreOutput(withoutResult.output, c.expected);
-    const withoutErrors = categorizeErrors(withoutResult.output, c.expected);
-    const withErrors = categorizeErrors(withResult.output, c.expected);
+    // For multi-sample: disable cache reads on ALL iterations to get fresh API responses
+    const sampleOptions = sampleCount > 1 ? { ...options, noCache: true } : options;
 
-    const result: EvalResult = {
+    const withComposites: number[] = [];
+    const withoutComposites: number[] = [];
+    const withHallucinations: number[] = [];
+    const withoutHallucinations: number[] = [];
+    const deltas: number[] = [];
+
+    // Keep first sample's full results for transcript/error reporting
+    let firstWith!: {
+      output: string;
+      scores: ReturnType<typeof scoreOutput>;
+      usage: { input: number; output: number };
+    };
+    let firstWithout!: {
+      output: string;
+      scores: ReturnType<typeof scoreOutput>;
+      usage: { input: number; output: number };
+    };
+    let firstWithErrors!: ErrorCategory[];
+    let firstWithoutErrors!: ErrorCategory[];
+
+    let withTokensInput = 0;
+    let withTokensOutput = 0;
+    let withoutTokensInput = 0;
+    let withoutTokensOutput = 0;
+    let completedSamples = 0;
+
+    for (let i = 0; i < sampleCount; i++) {
+      try {
+        const [withResult, withoutResult] = await Promise.all([
+          getOrGenerate(c.prompt, systemWith, sampleOptions),
+          getOrGenerate(c.prompt, systemWithout, sampleOptions),
+        ]);
+
+        const withScores = scoreOutput(withResult.output, c.expected);
+        const withoutScores = scoreOutput(withoutResult.output, c.expected);
+
+        withTokensInput += withResult.usage.input;
+        withTokensOutput += withResult.usage.output;
+        withoutTokensInput += withoutResult.usage.input;
+        withoutTokensOutput += withoutResult.usage.output;
+
+        withComposites.push(withScores.composite);
+        withoutComposites.push(withoutScores.composite);
+        withHallucinations.push(withScores.hallucinationCount);
+        withoutHallucinations.push(withoutScores.hallucinationCount);
+        deltas.push(withScores.composite - withoutScores.composite);
+
+        if (completedSamples === 0) {
+          firstWith = { output: withResult.output, scores: withScores, usage: withResult.usage };
+          firstWithout = { output: withoutResult.output, scores: withoutScores, usage: withoutResult.usage };
+          firstWithErrors = categorizeErrors(withResult.output, c.expected);
+          firstWithoutErrors = categorizeErrors(withoutResult.output, c.expected);
+        }
+        completedSamples++;
+      } catch (err) {
+        if (sampleCount === 1) throw err; // Single-sample: propagate as before
+        console.error(`  ⚠ ${c.id} sample ${i + 1}/${sampleCount} failed: ${(err as Error).message}`);
+      }
+    }
+
+    // All samples failed
+    if (completedSamples === 0) {
+      throw new Error(`${c.id}: all ${sampleCount} samples failed`);
+    }
+
+    if (sampleCount > 1 && completedSamples < 2) {
+      console.warn(`  ⚠ ${c.id}: only ${completedSamples}/${sampleCount} samples succeeded, variance data unreliable`);
+    }
+
+    // Use mean composites and hallucination counts for reporting
+    const avgWithComposite = Math.round(mean(withComposites));
+    const avgWithoutComposite = Math.round(mean(withoutComposites));
+    const avgWithHallucinations = Math.round(mean(withHallucinations));
+    const avgWithoutHallucinations = Math.round(mean(withoutHallucinations));
+
+    return {
       caseId: c.id,
       product: c.product,
       language: c.language,
       skillType: c.skillType,
       withSkill: {
-        output: withResult.output,
-        scores: withScores,
-        tokenUsage: withResult.usage,
+        output: firstWith.output,
+        scores: {
+          ...firstWith.scores,
+          composite: avgWithComposite,
+          hallucinationCount: avgWithHallucinations,
+        },
+        tokenUsage: { input: withTokensInput, output: withTokensOutput },
       },
       withoutSkill: {
-        output: withoutResult.output,
-        scores: withoutScores,
-        tokenUsage: withoutResult.usage,
+        output: firstWithout.output,
+        scores: {
+          ...firstWithout.scores,
+          composite: avgWithoutComposite,
+          hallucinationCount: avgWithoutHallucinations,
+        },
+        tokenUsage: { input: withoutTokensInput, output: withoutTokensOutput },
       },
-      delta: withScores.composite - withoutScores.composite,
-      topErrors: withoutErrors,
-      withSkillErrors: withErrors,
-      withoutSkillErrors: withoutErrors,
+      delta: Math.round(mean(deltas)),
+      topErrors: firstWithoutErrors,
+      withSkillErrors: firstWithErrors,
+      withoutSkillErrors: firstWithoutErrors,
+      sampleCount: completedSamples,
+      withSkillStddev: Math.round(stddev(withComposites) * 10) / 10,
+      withoutSkillStddev: Math.round(stddev(withoutComposites) * 10) / 10,
+      deltaStddev: Math.round(stddev(deltas) * 10) / 10,
     };
-
-    return result;
   } catch (err) {
     throw new Error(`${c.id}: ${(err as Error).message}`);
   }
@@ -258,7 +358,11 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
   }
 
   const concurrency = Math.max(1, options.concurrency);
-  console.log(concurrency > 1 ? `\nRunning ${cases.length} cases with concurrency ${concurrency}\n` : '');
+  const sampleCount = Math.max(1, options.samples ?? 1);
+  const sampleSuffix = sampleCount > 1 ? ` (${sampleCount} samples per case, cache reads disabled)` : '';
+  console.log(
+    concurrency > 1 ? `\nRunning ${cases.length} cases with concurrency ${concurrency}${sampleSuffix}\n` : '',
+  );
 
   const results: EvalResult[] = [];
 
@@ -275,9 +379,15 @@ export async function runEval(options: EvalOptions): Promise<EvalReport> {
       if (r.status === 'fulfilled' && r.value) {
         const v = r.value;
         const deltaStr = `${v.delta > 0 ? '+' : ''}${v.delta}%`;
-        console.log(
-          `[${caseNum}/${cases.length}] ${caseId.padEnd(30)} with: ${v.withSkill.scores.composite}% | without: ${v.withoutSkill.scores.composite}% | delta: ${deltaStr}`,
-        );
+        if (v.sampleCount > 1) {
+          console.log(
+            `[${caseNum}/${cases.length}] ${caseId.padEnd(30)} with: ${v.withSkill.scores.composite}±${v.withSkillStddev}% | without: ${v.withoutSkill.scores.composite}±${v.withoutSkillStddev}% | delta: ${deltaStr}±${v.deltaStddev}%`,
+          );
+        } else {
+          console.log(
+            `[${caseNum}/${cases.length}] ${caseId.padEnd(30)} with: ${v.withSkill.scores.composite}% | without: ${v.withoutSkill.scores.composite}% | delta: ${deltaStr}`,
+          );
+        }
         results.push(r.value);
       } else if (r.status === 'rejected') {
         console.error(`[${caseNum}/${cases.length}] ${caseId.padEnd(30)} ✗ ${r.reason}`);

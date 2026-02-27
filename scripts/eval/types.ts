@@ -61,6 +61,10 @@ export interface EvalResult {
   topErrors: ErrorCategory[];
   withSkillErrors: ErrorCategory[];
   withoutSkillErrors: ErrorCategory[];
+  sampleCount: number;
+  withSkillStddev: number;
+  withoutSkillStddev: number;
+  deltaStddev: number;
 }
 
 /** Per-product aggregated summary */
@@ -76,6 +80,7 @@ export interface ProductSummary {
   maxDelta: number;
   topErrors: ErrorCategory[];
   skillType?: 'generated' | 'hand-crafted';
+  avgDeltaStddev: number;
 }
 
 /** Full eval run report */
@@ -109,4 +114,5 @@ export interface EvalOptions {
   lang?: string;
   reportFormat?: string;
   failOnRegression?: boolean;
+  samples?: number;
 }

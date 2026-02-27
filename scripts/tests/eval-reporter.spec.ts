@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { median, percentile, checkGates } from '../eval/reporter.ts';
+import { aggregateResults } from '../eval/runner.ts';
 import type { EvalReport, EvalResult, ProductSummary, ScoreCard } from '../eval/types.ts';
 
 function makeScoreCard(overrides: Partial<ScoreCard> = {}): ScoreCard {
@@ -35,6 +36,10 @@ function makeResult(overrides: Partial<EvalResult> = {}): EvalResult {
     topErrors: [],
     withSkillErrors: [],
     withoutSkillErrors: [],
+    sampleCount: 1,
+    withSkillStddev: 0,
+    withoutSkillStddev: 0,
+    deltaStddev: 0,
     ...overrides,
   };
 }
@@ -51,6 +56,7 @@ function makeSummary(overrides: Partial<ProductSummary> = {}): ProductSummary {
     minDelta: 40,
     maxDelta: 40,
     topErrors: [],
+    avgDeltaStddev: 0,
     ...overrides,
   };
 }
@@ -262,5 +268,36 @@ describe('checkGates', () => {
     const result = checkGates(report);
     // 50% reduction exactly — gate requires < 0.5 to fail, so 0.5 passes
     expect(result.passed).toBe(true);
+  });
+});
+
+describe('aggregateResults with multi-sample data', () => {
+  it('computes avgDeltaStddev as mean of per-case deltaStddevs', () => {
+    const results = [
+      makeResult({ product: 'sso', deltaStddev: 2.0 }),
+      makeResult({ product: 'sso', caseId: 'sso-2', deltaStddev: 4.0 }),
+    ];
+    const summaries = aggregateResults(results);
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0].avgDeltaStddev).toBe(3.0);
+  });
+
+  it('returns avgDeltaStddev 0 for single-sample results', () => {
+    const results = [makeResult({ product: 'sso', deltaStddev: 0, sampleCount: 1 })];
+    const summaries = aggregateResults(results);
+    expect(summaries[0].avgDeltaStddev).toBe(0);
+  });
+
+  it('separates hand-crafted and generated avgDeltaStddev', () => {
+    const results = [
+      makeResult({ product: 'authkit', skillType: 'hand-crafted', deltaStddev: 5.0 }),
+      makeResult({ product: 'authkit', skillType: 'generated', caseId: 'authkit-gen', deltaStddev: 1.0 }),
+    ];
+    const summaries = aggregateResults(results);
+    expect(summaries).toHaveLength(2);
+    const hc = summaries.find((s) => s.skillType === 'hand-crafted')!;
+    const gen = summaries.find((s) => s.skillType === 'generated')!;
+    expect(hc.avgDeltaStddev).toBe(5.0);
+    expect(gen.avgDeltaStddev).toBe(1.0);
   });
 });

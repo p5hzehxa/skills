@@ -95,10 +95,10 @@ export function scoreFlowOrder(steps: string[], output: string): number {
   const lowerOutput = output.toLowerCase();
 
   // Find position of each step in the output (-1 if not found).
-  // Uses proximity-based matching: find the position where the most keywords
-  // co-occur within a ~200-char window. Prevents generic words like "check"
-  // from matching a distant Verification section when the actual step context
-  // (e.g., "check state parameter") lives elsewhere.
+  // Uses proximity-based matching with a minimum co-occurrence threshold.
+  // For multi-keyword steps, we anchor to the first "good enough" match
+  // (>= ceil(keywords/2)) rather than the densest match to avoid checklist/
+  // summary sections overshadowing earlier implementation steps.
   const positions = steps.map((step) => {
     const keywords = step.toLowerCase().split(/\s+/).filter(Boolean);
     if (keywords.length === 0) return -1;
@@ -108,41 +108,76 @@ export function scoreFlowOrder(steps: string[], output: string): number {
       return lowerOutput.indexOf(keywords[0]);
     }
 
-    // Multi-keyword: find the window with the best keyword co-occurrence
+    // Multi-keyword: prefer anchors for the leading keyword, then fall back
+    // to any keyword anchors. This reduces false positives where common
+    // secondary keywords ("state", "parameter") appear out of context.
     const WINDOW = 200;
+    const minCoverage = Math.ceil(keywords.length / 2);
     let bestPos = -1;
     let bestCount = 0;
 
-    for (const kw of keywords) {
+    const collectAnchors = (kw: string): number[] => {
+      const out: number[] = [];
       let searchFrom = 0;
       while (searchFrom < lowerOutput.length) {
         const anchor = lowerOutput.indexOf(kw, searchFrom);
         if (anchor === -1) break;
-
-        // Count how many other keywords appear within WINDOW of this anchor
-        const windowStart = Math.max(0, anchor - WINDOW);
-        const windowEnd = Math.min(lowerOutput.length, anchor + kw.length + WINDOW);
-        const window = lowerOutput.slice(windowStart, windowEnd);
-
-        let coCount = 0;
-        for (const other of keywords) {
-          if (window.includes(other)) coCount++;
-        }
-
-        if (coCount > bestCount) {
-          bestCount = coCount;
-          bestPos = anchor;
-        }
-
-        // If all keywords co-occur, no need to keep searching
-        if (bestCount === keywords.length) break;
-
+        out.push(anchor);
         searchFrom = anchor + 1;
       }
-      if (bestCount === keywords.length) break;
+      return out;
+    };
+
+    const coverageAt = (anchor: number): number => {
+      const windowStart = Math.max(0, anchor - WINDOW);
+      const windowEnd = Math.min(lowerOutput.length, anchor + WINDOW);
+      const window = lowerOutput.slice(windowStart, windowEnd);
+
+      let coCount = 0;
+      for (const other of keywords) {
+        if (window.includes(other)) coCount++;
+      }
+      return coCount;
+    };
+
+    const leadingAnchors = collectAnchors(keywords[0]);
+    const seen = new Set<number>();
+    for (const anchor of leadingAnchors) {
+      seen.add(anchor);
+      const coCount = coverageAt(anchor);
+      if (coCount > bestCount) {
+        bestCount = coCount;
+        bestPos = anchor;
+      }
+      if (coCount >= minCoverage) {
+        return anchor;
+      }
     }
 
-    return bestPos;
+    const allAnchors = new Set<number>();
+    for (const kw of keywords) {
+      for (const anchor of collectAnchors(kw)) {
+        allAnchors.add(anchor);
+      }
+    }
+
+    const sortedAnchors = [...allAnchors].sort((a, b) => a - b);
+    for (const anchor of sortedAnchors) {
+      if (seen.has(anchor)) continue;
+      const coCount = coverageAt(anchor);
+
+      if (coCount > bestCount) {
+        bestCount = coCount;
+        bestPos = anchor;
+      }
+
+      if (coCount >= minCoverage) {
+        return anchor;
+      }
+    }
+
+    // Only accept fallback anchor if it meets minimum coverage.
+    return bestCount >= minCoverage ? bestPos : -1;
   });
 
   const foundPositions = positions.filter((p) => p !== -1);
@@ -177,6 +212,49 @@ export function countFound(items: string[], output: string): number {
   for (const item of items) {
     if (normalizedOutput.includes(normalizeForMatch(item))) {
       count++;
+    }
+  }
+
+  return count;
+}
+
+/**
+ * Count hallucinated methods/APIs while ignoring negated references.
+ * Example ignored mention: "workos.sso.authenticate does not exist".
+ */
+export function countHallucinations(expected: string[], output: string): number {
+  if (expected.length === 0) return 0;
+
+  const lowerOutput = output.toLowerCase();
+  const normalizedOutput = normalizeForMatch(output);
+  let count = 0;
+
+  for (const item of expected) {
+    const lowerItem = item.toLowerCase();
+    let lowerIdx = lowerOutput.indexOf(lowerItem);
+    while (lowerIdx !== -1) {
+      if (!isNegated(lowerOutput, lowerIdx)) {
+        count++;
+        break;
+      }
+      lowerIdx = lowerOutput.indexOf(lowerItem, lowerIdx + Math.max(1, lowerItem.length));
+    }
+    if (lowerIdx !== -1) {
+      continue;
+    }
+
+    // Fallback for casing/convention mismatches
+    const normalizedItem = normalizeForMatch(item);
+    if (normalizedItem === lowerItem) {
+      continue;
+    }
+    let normIdx = normalizedOutput.indexOf(normalizedItem);
+    while (normIdx !== -1) {
+      if (!isNegated(normalizedOutput, normIdx)) {
+        count++;
+        break;
+      }
+      normIdx = normalizedOutput.indexOf(normalizedItem, normIdx + Math.max(1, normalizedItem.length));
     }
   }
 
@@ -253,19 +331,30 @@ export function negationAwareRatioFound(expected: string[], output: string): num
     // Try lowercase match first — index aligns with original text for
     // negation/env checks. Normalized match shifts indexes due to
     // camelCase→snake_case expansion.
-    const lowerIdx = lowerOutput.indexOf(lowerItem);
-    if (lowerIdx !== -1) {
+    let lowerIdx = lowerOutput.indexOf(lowerItem);
+    while (lowerIdx !== -1) {
       if (!isNegated(lowerOutput, lowerIdx) && !isInEnvBlock(output, lowerIdx)) {
         found++;
+        break;
       }
+      lowerIdx = lowerOutput.indexOf(lowerItem, lowerIdx + Math.max(1, lowerItem.length));
+    }
+    if (lowerIdx !== -1) {
       continue;
     }
+
     // Fallback: normalized match (handles camelCase/kebab variants)
     const normalizedItem = normalizeForMatch(item);
-    const normIdx = normalizedOutput.indexOf(normalizedItem);
-    if (normIdx !== -1) {
-      // Can't reliably map normIdx back to original text, so count as found
-      found++;
+    if (normalizedItem === lowerItem) {
+      continue;
+    }
+    let normIdx = normalizedOutput.indexOf(normalizedItem);
+    while (normIdx !== -1) {
+      if (!isNegated(normalizedOutput, normIdx)) {
+        found++;
+        break;
+      }
+      normIdx = normalizedOutput.indexOf(normalizedItem, normIdx + Math.max(1, normalizedItem.length));
     }
   }
 
@@ -302,7 +391,7 @@ export function scoreOutput(output: string, expected: ExpectedSignals): ScoreCar
   const importAccuracy = expected.imports.length > 0 ? ratioFound(expected.imports, output) : 1;
   const flowCorrectness = scoreFlowOrder(expected.flowSteps, output);
   const antiPatternAvoidance = 1 - negationAwareRatioFound(expected.antiPatterns, output);
-  const hallucinationCount = countFound(expected.hallucinations ?? [], output);
+  const hallucinationCount = countHallucinations(expected.hallucinations ?? [], output);
 
   const dimensions = {
     methodAccuracy,
@@ -326,7 +415,7 @@ export function scoreOutput(output: string, expected: ExpectedSignals): ScoreCar
 export function categorizeErrors(output: string, expected: ExpectedSignals): ErrorCategory[] {
   const errors: ErrorCategory[] = [];
 
-  if (countFound(expected.hallucinations ?? [], output) > 0) {
+  if (countHallucinations(expected.hallucinations ?? [], output) > 0) {
     errors.push('hallucinated_method');
   }
   if (expected.methods.length > 0 && methodRatioFound(expected.methods, output) < 1) {
