@@ -3,6 +3,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 scripts/output/
+scripts/eval/labels.jsonl
 
 # Keep ideation docs untracked
 /docs/ideation/

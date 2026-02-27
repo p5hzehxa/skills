@@ -184,6 +184,8 @@ async function evalCase(c: EvalCase, options: EvalOptions): Promise<EvalResult |
     const withHallucinations: number[] = [];
     const withoutHallucinations: number[] = [];
     const deltas: number[] = [];
+    const allWithOutputs: { output: string; composite: number }[] = [];
+    const allWithoutOutputs: { output: string; composite: number }[] = [];
 
     // Keep first sample's full results for transcript/error reporting
     let firstWith!: {
@@ -225,6 +227,11 @@ async function evalCase(c: EvalCase, options: EvalOptions): Promise<EvalResult |
         withHallucinations.push(withScores.hallucinationCount);
         withoutHallucinations.push(withoutScores.hallucinationCount);
         deltas.push(withScores.composite - withoutScores.composite);
+
+        if (options.saveAllSamples && sampleCount > 1) {
+          allWithOutputs.push({ output: withResult.output, composite: withScores.composite });
+          allWithoutOutputs.push({ output: withoutResult.output, composite: withoutScores.composite });
+        }
 
         if (completedSamples === 0) {
           firstWith = { output: withResult.output, scores: withScores, usage: withResult.usage };
@@ -285,6 +292,9 @@ async function evalCase(c: EvalCase, options: EvalOptions): Promise<EvalResult |
       withSkillStddev: Math.round(stddev(withComposites) * 10) / 10,
       withoutSkillStddev: Math.round(stddev(withoutComposites) * 10) / 10,
       deltaStddev: Math.round(stddev(deltas) * 10) / 10,
+      ...(allWithOutputs.length > 0 && {
+        allSampleOutputs: { withSkill: allWithOutputs, withoutSkill: allWithoutOutputs },
+      }),
     };
   } catch (err) {
     throw new Error(`${c.id}: ${(err as Error).message}`);

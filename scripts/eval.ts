@@ -8,6 +8,7 @@ import {
   printErrorReductions,
   checkGates,
 } from './eval/reporter.ts';
+import { rankByRisk, printTriage, writeTriageReport } from './eval/triage.ts';
 import type { EvalOptions } from './eval/types.ts';
 
 function parseArgs(): EvalOptions {
@@ -30,6 +31,7 @@ function parseArgs(): EvalOptions {
     reportFormat: args.find((a) => a.startsWith('--report='))?.split('=')[1] ?? 'both',
     failOnRegression: args.includes('--fail-on-regression'),
     samples,
+    saveAllSamples: args.includes('--save-all-samples'),
   };
 }
 
@@ -51,6 +53,17 @@ async function main() {
     printSummary(report);
     printLanguageBreakdown(report);
     printErrorReductions(report);
+  }
+
+  // Triage report
+  if (report.results.length > 0) {
+    const triageCases = rankByRisk(report.results);
+    if (fmt === 'table' || fmt === 'both') {
+      printTriage(triageCases);
+    }
+    if (fmt === 'json' || fmt === 'both') {
+      await writeTriageReport(triageCases, report.runId);
+    }
   }
 
   if (report.results.length > 0 && (fmt === 'json' || fmt === 'both')) {

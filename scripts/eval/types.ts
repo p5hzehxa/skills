@@ -65,6 +65,10 @@ export interface EvalResult {
   withSkillStddev: number;
   withoutSkillStddev: number;
   deltaStddev: number;
+  allSampleOutputs?: {
+    withSkill: { output: string; composite: number }[];
+    withoutSkill: { output: string; composite: number }[];
+  };
 }
 
 /** Per-product aggregated summary */
@@ -115,4 +119,5 @@ export interface EvalOptions {
   reportFormat?: string;
   failOnRegression?: boolean;
   samples?: number;
+  saveAllSamples?: boolean;
 }

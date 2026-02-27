@@ -183,6 +183,7 @@ export async function writeTranscripts(report: EvalReport): Promise<string> {
         output: r.withoutSkill.output,
         scores: r.withoutSkill.scores,
       },
+      ...(r.allSampleOutputs && { allSampleOutputs: r.allSampleOutputs }),
     })),
   };
 
