@@ -26,6 +26,7 @@ Keep React + TypeScript widget code predictable, type-safe, and easy to maintain
 - Keep event handlers explicit and colocated with relevant UI.
 - Avoid deep prop drilling when existing context/provider patterns already exist.
 - Use clear loading/error/empty branches instead of implicit fallthrough behavior.
+- Never embed a widget directly in a page. Always extract it into its own component file. The page imports and renders that component.
 
 ## Async and Mutation Rules
 
