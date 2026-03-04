@@ -42,11 +42,7 @@ Look for any existing AuthKit/WorkOS usage before implementing widgets.
 - Go: WorkOS Go module imports/config
 - Java: WorkOS Java dependency/imports/config
 
-If no AuthKit/WorkOS signal is found, prompt the user to run:
-
-`npx workos@latest install`
-
-After the install is complete, continue with widget implementation.
+If no AuthKit/WorkOS signal is found, see SKILL.md step 4.
 
 ## Detection Heuristics
 

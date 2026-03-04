@@ -10,18 +10,4 @@
 
 ## Server Token Pattern (JS/TS)
 
-Use this pattern when token generation is handled in Start server boundaries:
-
-```ts
-import { WorkOS } from '@workos-inc/node';
-
-const workos = new WorkOS(process.env.WORKOS_API_KEY as string, {
-  clientId: process.env.WORKOS_CLIENT_ID,
-});
-
-const { token } = await workos.widgets.getToken({
-  organizationId,
-  userId,
-  scopes: ['widgets:users-table:manage', 'widgets:sso:manage'],
-});
-```
+For the token code pattern, see [token-strategies.md](token-strategies.md) → JS/TS Authorization Tokens. Token generation belongs in a Start server function or server boundary.

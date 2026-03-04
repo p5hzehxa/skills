@@ -121,3 +121,4 @@ Before finishing, verify all relevant items:
 4. Confirm empty/error/loading states are explicit and user-visible.
 5. Confirm package installs (if any) used the detected package manager/tooling.
 6. Confirm implementation stays aligned with existing codebase conventions.
+7. Confirm no existing component has been passed `className` or `style` props to override its built-in styling. Use each component as-is or via its own props API (`variant`, `size`, etc.).

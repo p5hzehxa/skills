@@ -21,6 +21,10 @@ Use [widgets-open-api-spec.yaml](widgets-open-api-spec.yaml) as the source for:
 - Prefer one consistent data pattern per widget flow unless the project already mixes patterns.
 - Reuse existing error/loading conventions from the host project.
 
+## Base URL
+
+Use `process.env.WORKOS_BASE_API_URL` (or the equivalent env access for the stack) as the base URL for all widget API calls. Fall back to the base URL defined in `widgets-open-api-spec.yaml` when the env variable is not set.
+
 ## Authorization Layer
 
 - Add a small shared request layer that injects authorization consistently for all widget calls.
@@ -31,7 +35,7 @@ Use [widgets-open-api-spec.yaml](widgets-open-api-spec.yaml) as the source for:
 ## Elevated Access Endpoints
 
 - Some endpoints in the spec are marked as requiring elevated access (notably in sensitive User Profile flows).
-- Detect these requirements from endpoint descriptions and response behavior in `widgets-open-api-spec.yaml`.
+- Check the endpoint's description in `widgets-open-api-spec.yaml` **before calling it** — not on failure. If it mentions elevated access, acquire the elevated token first.
 - Use the `/verify` endpoint flow to obtain an elevated token when needed.
 - Pass elevated tokens in header `x-elevated-access-token`.
 - Treat elevated tokens as short-lived (10 minutes) and scope them to sensitive operations only that are documented in the open api spec.
