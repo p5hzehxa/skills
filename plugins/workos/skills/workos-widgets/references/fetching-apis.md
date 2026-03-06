@@ -2,7 +2,7 @@
 
 ## Objective
 
-Implement Widgets API calls directly from the bundled OpenAPI spec in a way that matches the host application's data layer.
+Implement Widgets API calls using the endpoint tables and query script below, matching the host application's data layer.
 
 ## Source of Truth
 
@@ -22,7 +22,7 @@ node references/scripts/query-spec.cjs --widget <widget-name>
 
 ## Base URL
 
-Use `process.env.WORKOS_BASE_API_URL` (or the equivalent env access for the stack) as the base URL for all widget API calls. Fall back to the base URL defined in `widgets-open-api-spec.yaml` when the env variable is not set.
+Use `process.env.WORKOS_BASE_API_URL` (or the equivalent env access for the stack) as the base URL for all widget API calls. Fall back to `https://api.workos.com` when the env variable is not set.
 
 ## Authorization Layer
 

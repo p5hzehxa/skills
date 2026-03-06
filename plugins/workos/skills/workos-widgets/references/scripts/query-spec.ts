@@ -1,13 +1,13 @@
-#!/usr/bin/env npx tsx
 /**
  * Query the WorkOS Widgets OpenAPI spec for specific widget endpoints.
  *
- * Usage:
- *   npx tsx references/scripts/query-spec.ts --widget UserProfile
- *   npx tsx references/scripts/query-spec.ts --widget UserManagement
- *   npx tsx references/scripts/query-spec.ts --widget admin-portal
- *   npx tsx references/scripts/query-spec.ts --path /_widgets/UserProfile/me
- *   npx tsx references/scripts/query-spec.ts --list
+ * Source file — build with: pnpm build:query-spec
+ * Runtime usage (via bundled .cjs):
+ *   node references/scripts/query-spec.cjs --widget UserProfile
+ *   node references/scripts/query-spec.cjs --widget UserManagement
+ *   node references/scripts/query-spec.cjs --widget admin-portal
+ *   node references/scripts/query-spec.cjs --path /_widgets/UserProfile/me
+ *   node references/scripts/query-spec.cjs --list
  *
  * Outputs matching endpoints with their request/response schemas (resolved $refs).
  */
@@ -21,6 +21,12 @@ const _dir = typeof __dirname !== 'undefined' ? __dirname : dirname(new URL(impo
 const SPEC_PATH = join(_dir, '../widgets-open-api-spec.yaml');
 
 export const WIDGET_PREFIXES: Record<string, string> = {
+  // Primary names (match SKILL.md widget slugs)
+  'user-management': '/_widgets/UserManagement',
+  'user-profile': '/_widgets/UserProfile',
+  'admin-portal-sso-connection': '/_widgets/admin-portal/sso-connections',
+  'admin-portal-domain-verification': '/_widgets/admin-portal/organization-domains',
+  // Alternate forms
   usermanagement: '/_widgets/UserManagement',
   userprofile: '/_widgets/UserProfile',
   'admin-portal': '/_widgets/admin-portal',

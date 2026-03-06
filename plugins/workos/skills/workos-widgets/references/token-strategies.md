@@ -54,9 +54,9 @@ New WorkOS accounts typically start with an Admin role that already has widget p
 
 ## Elevated Access Tokens
 
-Some operations require elevated access in addition to the normal widget token. Check the endpoint's description in `widgets-open-api-spec.yaml` **before calling it** — not on failure. If it mentions elevated access, acquire the elevated token first.
+Some operations require elevated access in addition to the normal widget token. Check the endpoint table in `fetching-apis.md` for the ⚠️ elevated marker **before calling it** — not on failure. If marked elevated, acquire the elevated token first.
 
-1. Use the `/verify` endpoint flow in the OpenAPI spec to obtain an elevated access token.
+1. Use the `POST /_widgets/UserProfile/verify` endpoint to obtain an elevated access token.
 2. Use the returned token (`elevatedAccessToken`) in request header `x-elevated-access-token`.
 3. Treat elevated tokens as short-lived credentials (10 minutes) and scope usage to sensitive action paths only.
 
