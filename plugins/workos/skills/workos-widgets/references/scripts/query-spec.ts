@@ -14,11 +14,11 @@
 
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const SPEC_PATH = join(__dirname, '../widgets-open-api-spec.yaml');
+// Support both ESM (import.meta.url) and CJS (__dirname) for bundled output
+const _dir = typeof __dirname !== 'undefined' ? __dirname : dirname(new URL(import.meta.url).pathname);
+const SPEC_PATH = join(_dir, '../widgets-open-api-spec.yaml');
 
 export const WIDGET_PREFIXES: Record<string, string> = {
   usermanagement: '/_widgets/UserManagement',

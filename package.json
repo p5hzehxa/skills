@@ -29,13 +29,15 @@
     "format": "oxfmt .",
     "format:check": "prettier --check .",
     "lint": "oxlint",
-    "lint:fix": "oxlint --fix"
+    "lint:fix": "oxlint --fix",
+    "build:query-spec": "esbuild plugins/workos/skills/workos-widgets/references/scripts/query-spec.ts --bundle --platform=node --format=cjs --outfile=plugins/workos/skills/workos-widgets/references/scripts/query-spec.cjs"
   },
   "dependencies": {
     "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "esbuild": "^0.27.3",
     "oxfmt": "^0.35.0",
     "oxlint": "^1.50.0",
     "tsx": "^4.19.0",
