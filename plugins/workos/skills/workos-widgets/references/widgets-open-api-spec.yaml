@@ -3,6 +3,9 @@ paths:
   /_widgets/ApiKeys/organization-api-keys:
     post:
       operationId: createOrganizationApiKey
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters: []
       requestBody:
         required: true
@@ -22,19 +25,34 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '422':
           description: Unprocessable Entity
           content:
@@ -61,6 +79,9 @@ paths:
                   - errors
     get:
       operationId: listOrganizationApiKeys
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters:
         - name: limit
           required: false
@@ -94,16 +115,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/ApiKeys/permissions:
     get:
       operationId: listOrganizationApiKeyPermissions
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters:
         - name: search
           required: false
@@ -137,16 +171,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/ApiKeys/{apiKeyId}:
     delete:
       operationId: deleteOrganizationApiKey
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters:
         - name: apiKeyId
           required: true
@@ -170,16 +217,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/DataIntegrations/installations/{installationId}:
     delete:
       operationId: deleteDataInstallation
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters:
         - name: installationId
           required: true
@@ -203,16 +263,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/DataIntegrations/mine:
     get:
       operationId: myDataIntegrations
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters: []
       responses:
         '200':
@@ -226,10 +299,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/DataIntegrations/{dataIntegrationId}/authorization-status/{state}:
     get:
       operationId: getDataInstallationAuthorizationStatus
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters:
         - name: dataIntegrationId
           required: true
@@ -253,22 +334,40 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/DataIntegrations/{slug}/authorize:
     get:
       operationId: getDataIntegrationAuthorizeUrl
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters:
         - name: slug
           required: true
@@ -292,23 +391,44 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserManagement/invite-user:
     post:
       operationId: inviteMember
-      description: Sends an invitation email to a user to join the organization. If the user does not have an account, they will be prompted to create one upon accepting.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Sends an invitation email to a user to join the organization. If the
+        user does not have an account, they will be prompted to create one upon
+        accepting.
       parameters: []
       requestBody:
         required: true
@@ -351,23 +471,43 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserManagement/invites/{userId}:
     delete:
       operationId: revokeInvite
-      description: Cancels a pending invitation for the specified user, preventing them from joining the organization via that invite link.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Cancels a pending invitation for the specified user, preventing them
+        from joining the organization via that invite link.
       parameters:
         - name: userId
           required: true
@@ -394,23 +534,43 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserManagement/invites/{userId}/resend:
     post:
       operationId: resendInvite
-      description: Resends the pending invitation email to the specified user. Returns an error if the invitation has already been accepted or has expired.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Resends the pending invitation email to the specified user. Returns an
+        error if the invitation has already been accepted or has expired.
       parameters:
         - name: userId
           required: true
@@ -438,29 +598,55 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '422':
           description: Unprocessable Entity
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserManagement/members:
     get:
       operationId: members
-      description: Returns a paginated list of members belonging to the organization. Supports filtering by search term and role, and cursor-based pagination via before/after parameters.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Returns a paginated list of members belonging to the organization.
+        Supports filtering by search term and role, and cursor-based pagination
+        via before/after parameters.
       parameters:
         - name: search
           required: false
@@ -509,17 +695,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserManagement/members/{userId}:
     delete:
       operationId: removeMember
-      description: Removes the specified user from the organization by revoking their membership. The user account itself is not deleted.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Removes the specified user from the organization by revoking their
+        membership. The user account itself is not deleted.
       parameters:
         - name: userId
           required: true
@@ -546,22 +747,42 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
     post:
       operationId: updateMember
-      description: Updates the specified member's organization membership, such as changing their assigned role.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Updates the specified member's organization membership, such as changing
+        their assigned role.
       parameters:
         - name: userId
           required: true
@@ -601,28 +822,51 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '422':
           description: Unprocessable Entity
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserManagement/organizations:
     get:
       operationId: organizations
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       description: Returns the list of organizations the authenticated user is a member of.
       parameters: []
       responses:
@@ -637,17 +881,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserManagement/roles:
     get:
       operationId: roles
-      description: Returns the list of roles available in the organization that can be assigned to members.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Returns the list of roles available in the organization that can be
+        assigned to members.
       parameters: []
       responses:
         '200':
@@ -663,17 +922,33 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserManagement/roles-and-config:
     get:
       operationId: rolesAndConfig
-      description: Returns the list of roles available in the organization along with the user management configuration, such as whether role assignment is enabled.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Returns the list of roles available in the organization along with the
+        user management configuration, such as whether role assignment is
+        enabled.
       parameters: []
       responses:
         '200':
@@ -687,17 +962,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/authentication-information:
     get:
       operationId: authenticationInformation
-      description: Returns the authentication methods and MFA factors configured for the authenticated user, including enrolled TOTP factors and passkeys.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Returns the authentication methods and MFA factors configured for the
+        authenticated user, including enrolled TOTP factors and passkeys.
       parameters: []
       responses:
         '200':
@@ -711,11 +1001,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/create-password:
     post:
       operationId: createPassword
-      description: Sets a password for the authenticated user. Only available when the user does not already have a password configured. Requires elevated access.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Sets a password for the authenticated user. Only available when the user
+        does not already have a password configured. Requires elevated access.
       parameters: []
       requestBody:
         required: true
@@ -740,17 +1040,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/create-totp-factor:
     post:
       operationId: createTotpFactor
-      description: Initiates TOTP (authenticator app) enrollment for the authenticated user by generating a new TOTP secret and QR code. Requires elevated access.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Initiates TOTP (authenticator app) enrollment for the authenticated user
+        by generating a new TOTP secret and QR code. Requires elevated access.
       parameters: []
       responses:
         '201':
@@ -764,17 +1079,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/me:
     get:
       operationId: me
-      description: Returns the profile information of the currently authenticated user, including their name, email, and linked authentication factors.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Returns the profile information of the currently authenticated user,
+        including their name, email, and linked authentication factors.
       parameters: []
       responses:
         '200':
@@ -788,10 +1118,20 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
     post:
       operationId: updateMe
-      description: Updates the profile information of the currently authenticated user, such as their first name, last name, or email address.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Updates the profile information of the currently authenticated user,
+        such as their first name, last name, or email address.
       parameters: []
       requestBody:
         required: true
@@ -818,17 +1158,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/passkeys:
     post:
       operationId: registerPasskey
-      description: Initiates passkey (WebAuthn) registration for the authenticated user by returning the credential creation options. Requires elevated access.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Initiates passkey (WebAuthn) registration for the authenticated user by
+        returning the credential creation options. Requires elevated access.
       parameters: []
       responses:
         '201':
@@ -842,17 +1197,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/passkeys/verify:
     post:
       operationId: verifyPasskey
-      description: Completes passkey (WebAuthn) registration by verifying the credential created by the authenticator. Requires elevated access.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Completes passkey (WebAuthn) registration by verifying the credential
+        created by the authenticator. Requires elevated access.
       parameters: []
       requestBody:
         required: true
@@ -877,17 +1247,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/passkeys/{passkeyId}:
     delete:
       operationId: deletePasskey
-      description: Removes the specified passkey from the authenticated user's account. Requires elevated access.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Removes the specified passkey from the authenticated user's account.
+        Requires elevated access.
       parameters:
         - name: passkeyId
           required: true
@@ -911,17 +1296,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/send-verification:
     post:
       operationId: sendVerification
-      description: Sends a verification email to the authenticated user to confirm their email address.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Sends a verification email to the authenticated user to confirm their
+        email address.
       parameters: []
       responses:
         '200':
@@ -935,17 +1335,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/sessions:
     get:
       operationId: sessions
-      description: Returns all currently active sessions for the authenticated user, including device and location information where available.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Returns all currently active sessions for the authenticated user,
+        including device and location information where available.
       parameters: []
       responses:
         '200':
@@ -959,11 +1374,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/sessions/revoke-all:
     delete:
       operationId: revokeAllSessions
-      description: Revokes all active sessions for the authenticated user except optionally the current one, signing them out of all other devices.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Revokes all active sessions for the authenticated user except optionally
+        the current one, signing them out of all other devices.
       parameters: []
       requestBody:
         required: true
@@ -988,17 +1413,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/sessions/revoke/{sessionId}:
     delete:
       operationId: revokeSession
-      description: Revokes a specific active session by ID, signing the user out of that particular device or browser.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Revokes a specific active session by ID, signing the user out of that
+        particular device or browser.
       parameters:
         - name: sessionId
           required: true
@@ -1022,17 +1462,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/totp-factors:
     delete:
       operationId: deleteTotpFactors
-      description: Removes all TOTP factors enrolled for the authenticated user, disabling authenticator app as a second factor. Requires elevated access.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Removes all TOTP factors enrolled for the authenticated user, disabling
+        authenticator app as a second factor. Requires elevated access.
       parameters: []
       responses:
         '200':
@@ -1051,17 +1506,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/update-password:
     post:
       operationId: updatePassword
-      description: Changes the password for the authenticated user. Requires the current password to be supplied alongside the new password.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Changes the password for the authenticated user. Requires the current
+        password to be supplied alongside the new password.
       parameters: []
       requestBody:
         required: true
@@ -1086,17 +1556,34 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/verify:
     post:
       operationId: verify
-      description: Verifies the email address of the authenticated user using the code sent via the send-verification endpoint. On success, returns an elevated access token that grants access to sensitive operations such as MFA enrollment and passkey management.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Verifies the email address of the authenticated user using the code sent
+        via the send-verification endpoint. On success, returns an elevated
+        access token that grants access to sensitive operations such as MFA
+        enrollment and passkey management.
       parameters: []
       requestBody:
         required: true
@@ -1116,17 +1603,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/UserProfile/verify-totp-factor:
     post:
       operationId: verifyTotpFactor
-      description: Completes TOTP enrollment by verifying the one-time code generated by the authenticator app. Requires elevated access.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Completes TOTP enrollment by verifying the one-time code generated by
+        the authenticator app. Requires elevated access.
       parameters: []
       requestBody:
         required: true
@@ -1151,16 +1653,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/admin-portal/generate-link:
     post:
       operationId: generateAdminPortalLink
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters:
         - name: intent
           required: true
@@ -1187,13 +1702,23 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '500':
           description: ''
           content:
@@ -1208,6 +1733,9 @@ paths:
   /_widgets/admin-portal/organization-domains:
     get:
       operationId: listOrganizationDomains
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters: []
       responses:
         '200':
@@ -1228,16 +1756,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/admin-portal/organization-domains/{domainId}:
     delete:
       operationId: deleteOrganizationDomain
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters:
         - name: domainId
           required: true
@@ -1256,16 +1797,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/admin-portal/organization-domains/{domainId}/reverify:
     post:
       operationId: reverifyOrganizationDomain
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters:
         - name: domainId
           required: true
@@ -1284,16 +1838,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/admin-portal/sso-connections:
     get:
       operationId: listSsoConnections
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters: []
       responses:
         '200':
@@ -1307,6 +1874,9 @@ paths:
   /_widgets/directory-sync/directories:
     get:
       operationId: listDirectories
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters: []
       responses:
         '200':
@@ -1320,16 +1890,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/directory-sync/directories/{directoryId}:
     get:
       operationId: getDirectory
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
       parameters:
         - name: directoryId
           required: true
@@ -1348,17 +1931,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
         '404':
           description: Not Found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
   /_widgets/settings:
     get:
       operationId: settings
-      description: Returns the widget settings for the current environment, including enabled authentication methods and branding configuration.
+      x-internal: false
+      x-api-client: widgets
+      summary: ''
+      description: >-
+        Returns the widget settings for the current environment, including
+        enabled authentication methods and branding configuration.
       parameters: []
       responses:
         '200':
@@ -1372,7 +1970,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
 info:
   title: WorkOS Widgets
   description: WorkOS Widgets API
@@ -1433,7 +2036,7 @@ components:
           format: date-time
           type: string
           description: An ISO 8601 timestamp.
-          example: 2026-01-15T12:00:00.000Z
+          example: '2026-01-15T12:00:00.000Z'
         lastActivityAt:
           type:
             - string
@@ -1480,13 +2083,17 @@ components:
           type:
             - string
             - 'null'
-          description: An object ID that defines your place in the list. When the ID is not present, you are at the start of the list.
+          description: >-
+            An object ID that defines your place in the list. When the ID is not
+            present, you are at the start of the list.
           example: xxx_01HXYZ123456789ABCDEFGHIJ
         after:
           type:
             - string
             - 'null'
-          description: An object ID that defines your place in the list. When the ID is not present, you are at the end of the list.
+          description: >-
+            An object ID that defines your place in the list. When the ID is not
+            present, you are at the end of the list.
           example: xxx_01HXYZ987654321KJIHGFEDCBA
       required:
         - before
@@ -2765,10 +3372,3 @@ components:
       required:
         - data
         - link
-    ErrorResponse:
-      type: object
-      properties:
-        message:
-          type: string
-      required:
-        - message
