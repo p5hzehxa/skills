@@ -84,6 +84,7 @@ describe('path resolution', () => {
       'workos-authkit-react-router',
       'workos-authkit-tanstack-start',
       'workos-authkit-vanilla-js',
+      'workos-widgets',
     ]);
     // Skills referenced in Related Skills but not generated (skipped sections)
     const KNOWN_MISSING = new Set([

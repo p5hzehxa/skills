@@ -18,11 +18,11 @@ Provide `accessToken` to widget surfaces using the app's existing auth architect
 
 Use the scope that matches the widget being implemented:
 
-| Widget | Required Scope |
-|---|---|
-| `user-management` | `widgets:users-table:manage` |
-| `user-profile` | _(no permission scope required)_ |
-| `admin-portal-sso-connection` | `widgets:sso:manage` |
+| Widget                             | Required Scope                       |
+| ---------------------------------- | ------------------------------------ |
+| `user-management`                  | `widgets:users-table:manage`         |
+| `user-profile`                     | _(no permission scope required)_     |
+| `admin-portal-sso-connection`      | `widgets:sso:manage`                 |
 | `admin-portal-domain-verification` | `widgets:domain-verification:manage` |
 
 ## JS/TS Authorization Tokens

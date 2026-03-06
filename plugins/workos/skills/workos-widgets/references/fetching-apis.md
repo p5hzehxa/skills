@@ -32,6 +32,16 @@ Use `process.env.WORKOS_BASE_API_URL` (or the equivalent env access for the stac
 - Keep authorization wiring close to existing auth/session utilities instead of duplicating token logic across components.
 - Handle `401`/`403` responses explicitly and surface clear recovery actions.
 
+## Error Responses
+
+All error responses (`400`, `403`, `404`, `422`) return a JSON object with a single `message` string field:
+
+```json
+{ "message": "Description of the error" }
+```
+
+For full request/response schemas, read the relevant endpoints from `widgets-open-api-spec.yaml`.
+
 ## Elevated Access Endpoints
 
 - Check the endpoint's description in `widgets-open-api-spec.yaml` **before calling it** — not on failure. If it mentions elevated access, acquire the elevated token first.
@@ -44,70 +54,70 @@ All available endpoints, grouped by widget. Use `widgets-open-api-spec.yaml` for
 
 ### User Management
 
-| Method | Path |
-|---|---|
-| `GET` | `/_widgets/UserManagement/members` |
-| `POST` | `/_widgets/UserManagement/members/{userId}` |
-| `DELETE` | `/_widgets/UserManagement/members/{userId}` |
-| `GET` | `/_widgets/UserManagement/roles` |
-| `GET` | `/_widgets/UserManagement/roles-and-config` |
-| `GET` | `/_widgets/UserManagement/organizations` |
-| `POST` | `/_widgets/UserManagement/invite-user` |
-| `POST` | `/_widgets/UserManagement/invites/{userId}/resend` |
-| `DELETE` | `/_widgets/UserManagement/invites/{userId}` |
+| Method   | Path                                               |
+| -------- | -------------------------------------------------- |
+| `GET`    | `/_widgets/UserManagement/members`                 |
+| `POST`   | `/_widgets/UserManagement/members/{userId}`        |
+| `DELETE` | `/_widgets/UserManagement/members/{userId}`        |
+| `GET`    | `/_widgets/UserManagement/roles`                   |
+| `GET`    | `/_widgets/UserManagement/roles-and-config`        |
+| `GET`    | `/_widgets/UserManagement/organizations`           |
+| `POST`   | `/_widgets/UserManagement/invite-user`             |
+| `POST`   | `/_widgets/UserManagement/invites/{userId}/resend` |
+| `DELETE` | `/_widgets/UserManagement/invites/{userId}`        |
 
 ### User Profile
 
-| Method | Path |
-|---|---|
-| `GET` | `/_widgets/UserProfile/me` |
-| `POST` | `/_widgets/UserProfile/me` |
-| `GET` | `/_widgets/UserProfile/authentication-information` |
-| `POST` | `/_widgets/UserProfile/send-verification` |
-| `POST` | `/_widgets/UserProfile/verify` |
-| `POST` | `/_widgets/UserProfile/update-password` |
-| `POST` | `/_widgets/UserProfile/create-password` ⚠️ elevated |
-| `POST` | `/_widgets/UserProfile/create-totp-factor` ⚠️ elevated |
-| `POST` | `/_widgets/UserProfile/verify-totp-factor` ⚠️ elevated |
-| `DELETE` | `/_widgets/UserProfile/totp-factors` ⚠️ elevated |
-| `POST` | `/_widgets/UserProfile/passkeys` ⚠️ elevated |
-| `POST` | `/_widgets/UserProfile/passkeys/verify` ⚠️ elevated |
+| Method   | Path                                                     |
+| -------- | -------------------------------------------------------- |
+| `GET`    | `/_widgets/UserProfile/me`                               |
+| `POST`   | `/_widgets/UserProfile/me`                               |
+| `GET`    | `/_widgets/UserProfile/authentication-information`       |
+| `POST`   | `/_widgets/UserProfile/send-verification`                |
+| `POST`   | `/_widgets/UserProfile/verify`                           |
+| `POST`   | `/_widgets/UserProfile/update-password`                  |
+| `POST`   | `/_widgets/UserProfile/create-password` ⚠️ elevated      |
+| `POST`   | `/_widgets/UserProfile/create-totp-factor` ⚠️ elevated   |
+| `POST`   | `/_widgets/UserProfile/verify-totp-factor` ⚠️ elevated   |
+| `DELETE` | `/_widgets/UserProfile/totp-factors` ⚠️ elevated         |
+| `POST`   | `/_widgets/UserProfile/passkeys` ⚠️ elevated             |
+| `POST`   | `/_widgets/UserProfile/passkeys/verify` ⚠️ elevated      |
 | `DELETE` | `/_widgets/UserProfile/passkeys/{passkeyId}` ⚠️ elevated |
-| `GET` | `/_widgets/UserProfile/sessions` |
-| `DELETE` | `/_widgets/UserProfile/sessions/revoke/{sessionId}` |
-| `DELETE` | `/_widgets/UserProfile/sessions/revoke-all` |
+| `GET`    | `/_widgets/UserProfile/sessions`                         |
+| `DELETE` | `/_widgets/UserProfile/sessions/revoke/{sessionId}`      |
+| `DELETE` | `/_widgets/UserProfile/sessions/revoke-all`              |
 
 ### Admin Portal — SSO Connection
 
-| Method | Path |
-|---|---|
-| `GET` | `/_widgets/admin-portal/sso-connections` |
-| `POST` | `/_widgets/admin-portal/generate-link` |
+| Method | Path                                     |
+| ------ | ---------------------------------------- |
+| `GET`  | `/_widgets/admin-portal/sso-connections` |
+| `POST` | `/_widgets/admin-portal/generate-link`   |
 
 ### Admin Portal — Domain Verification
 
-| Method | Path |
-|---|---|
-| `GET` | `/_widgets/admin-portal/organization-domains` |
-| `DELETE` | `/_widgets/admin-portal/organization-domains/{domainId}` |
-| `POST` | `/_widgets/admin-portal/organization-domains/{domainId}/reverify` |
-| `POST` | `/_widgets/admin-portal/generate-link` |
+| Method   | Path                                                              |
+| -------- | ----------------------------------------------------------------- |
+| `GET`    | `/_widgets/admin-portal/organization-domains`                     |
+| `DELETE` | `/_widgets/admin-portal/organization-domains/{domainId}`          |
+| `POST`   | `/_widgets/admin-portal/organization-domains/{domainId}/reverify` |
+| `POST`   | `/_widgets/admin-portal/generate-link`                            |
 
 ### Other
 
-| Method | Path |
-|---|---|
-| `GET` | `/_widgets/settings` |
-| `POST` | `/_widgets/ApiKeys/organization-api-keys` |
-| `GET` | `/_widgets/ApiKeys/organization-api-keys` |
-| `GET` | `/_widgets/ApiKeys/permissions` |
-| `DELETE` | `/_widgets/ApiKeys/{apiKeyId}` |
-| `GET` | `/_widgets/DataIntegrations/mine` |
-| `GET` | `/_widgets/DataIntegrations/{slug}/authorize` |
-| `GET` | `/_widgets/DataIntegrations/{dataIntegrationId}/authorization-status/{state}` |
-| `DELETE` | `/_widgets/DataIntegrations/installations/{installationId}` |
-| `GET` | `/_widgets/directory-sync/directories` |
-| `GET` | `/_widgets/directory-sync/directories/{directoryId}` |
+| Method   | Path                                                                          |
+| -------- | ----------------------------------------------------------------------------- |
+| `GET`    | `/_widgets/settings`                                                          |
+| `POST`   | `/_widgets/ApiKeys/organization-api-keys`                                     |
+| `GET`    | `/_widgets/ApiKeys/organization-api-keys`                                     |
+| `GET`    | `/_widgets/ApiKeys/permissions`                                               |
+| `DELETE` | `/_widgets/ApiKeys/{apiKeyId}`                                                |
+| `GET`    | `/_widgets/DataIntegrations/mine`                                             |
+| `GET`    | `/_widgets/DataIntegrations/{slug}/authorize`                                 |
+| `GET`    | `/_widgets/DataIntegrations/{dataIntegrationId}/authorization-status/{state}` |
+| `DELETE` | `/_widgets/DataIntegrations/installations/{installationId}`                   |
+| `GET`    | `/_widgets/directory-sync/directories`                                        |
+| `GET`    | `/_widgets/directory-sync/directories/{directoryId}`                          |
 
 ## Pagination
 

@@ -29,13 +29,13 @@ When a user needs help with WorkOS, consult the tables below to route to the rig
 | Install AuthKit with TanStack Start | workos-authkit-tanstack-start |
 | Install AuthKit in vanilla JS       | workos-authkit-vanilla-js     |
 | AuthKit architecture reference      | workos-authkit-base           |
+| Add WorkOS Widgets                  | workos-widgets                |
 
 ### Features (Read `references/{name}.md`)
 
 | User wants to...                | Read file                             |
 | ------------------------------- | ------------------------------------- |
 | Configure email delivery        | `references/workos-email.md`          |
-| Add WorkOS Widgets              | `references/workos-widgets.md`        |
 | Encrypt data with Vault         | `references/workos-vault.md`          |
 | Configure Single Sign-On        | `references/workos-sso.md`            |
 | Implement RBAC / roles          | `references/workos-rbac.md`           |
@@ -60,7 +60,6 @@ When a user needs help with WorkOS, consult the tables below to route to the rig
 | Roles API Reference          | `references/workos-api-roles.md`          |
 | Sso API Reference            | `references/workos-api-sso.md`            |
 | Vault API Reference          | `references/workos-api-vault.md`          |
-| Widgets API Reference        | `references/workos-api-widgets.md`        |
 
 ### Migrations (Read `references/{name}.md`)
 
@@ -95,7 +94,7 @@ Apply these rules in order. First match wins.
 
 **Triggers**: User explicitly asks about "API endpoints", "request format", "response schema", "API reference", or mentions inspecting HTTP details.
 
-**Action**: Read `references/workos-api-[feature].md` where `[feature]` matches the domain (admin-portal, audit-logs, authkit, directory-sync, events, organization, roles, sso, vault, widgets).
+**Action**: Read `references/workos-api-[feature].md` where `[feature]` matches the domain (admin-portal, audit-logs, authkit, directory-sync, events, organization, roles, sso, vault).
 
 **Why this wins**: API references are low-level; feature guides are high-level. If user signals low-level intent, skip the feature guide.
 
@@ -103,9 +102,11 @@ Apply these rules in order. First match wins.
 
 ### 3. Feature-Specific Request
 
-**Triggers**: User mentions a specific WorkOS feature by name (SSO, MFA, Directory Sync, Audit Logs, Vault, RBAC, Admin Portal, Custom Domains, Widgets, Events, Integrations, Email).
+**Triggers**: User mentions a specific WorkOS feature by name (SSO, MFA, Directory Sync, Audit Logs, Vault, RBAC, Admin Portal, Custom Domains, Events, Integrations, Email).
 
-**Action**: Read `references/workos-[feature].md` where `[feature]` is the lowercase slug (sso, mfa, directory-sync, audit-logs, vault, rbac, admin-portal, custom-domains, widgets, events, integrations, email).
+**Action**: Read `references/workos-[feature].md` where `[feature]` is the lowercase slug (sso, mfa, directory-sync, audit-logs, vault, rbac, admin-portal, custom-domains, events, integrations, email).
+
+**Exception**: Widget requests route to the `workos-widgets` skill via the Skill tool (see table above), not to a `references/` file.
 
 **Disambiguation**: If user mentions BOTH a feature and "API", route to API reference (#2). If they mention MULTIPLE features, route to the MOST SPECIFIC one first (e.g., "SSO with MFA" → route to SSO; user can request MFA separately).
 

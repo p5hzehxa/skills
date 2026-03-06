@@ -174,9 +174,9 @@ describe('splitSections', () => {
   });
 
   it('attaches doc URLs from llms.txt', () => {
-    const sections = [makeSection('widgets')];
+    const sections = [makeSection('vault')];
     const urls = new Map([
-      ['widgets', ['https://workos.com/docs/widgets/quick-start', 'https://workos.com/docs/widgets/user-profile']],
+      ['vault', ['https://workos.com/docs/vault/quick-start', 'https://workos.com/docs/vault/encrypt']],
     ]);
     const specs = splitSections(sections, urls);
     expect(specs[0].docUrls).toHaveLength(2);

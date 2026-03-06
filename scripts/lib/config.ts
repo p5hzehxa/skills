@@ -36,6 +36,7 @@ export const HAND_CRAFTED_SKILLS = [
   'workos-authkit-react-router',
   'workos-authkit-tanstack-start',
   'workos-authkit-vanilla-js',
+  'workos-widgets',
 ] as const;
 
 /** Hand-crafted guide files that must never be overwritten by generation */
@@ -47,7 +48,7 @@ export const SECTION_CONFIG: Record<string, SectionConfig> = {
   'on-prem-deployment': { split: { strategy: 'single' }, skip: true },
   glossary: { split: { strategy: 'single' }, skip: true },
   email: { split: { strategy: 'single' } },
-  widgets: { split: { strategy: 'single' } },
+  widgets: { split: { strategy: 'single' }, skip: true },
   vault: { split: { strategy: 'single' } },
   sso: { split: { strategy: 'single' } },
   sdks: { split: { strategy: 'single' }, skip: true },

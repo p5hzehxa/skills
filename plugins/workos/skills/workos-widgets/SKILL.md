@@ -52,7 +52,6 @@ Always load these core references:
 - [references/token-strategies.md](references/token-strategies.md)
 - [references/fetching-apis.md](references/fetching-apis.md)
 - [references/styling-and-components.md](references/styling-and-components.md)
-- [references/widgets-open-api-spec.yaml](references/widgets-open-api-spec.yaml)
 
 For React/TypeScript stacks (Next.js, React Router, TanStack Router, TanStack Start, Vite), also load:
 
@@ -82,7 +81,7 @@ Then load exactly one widget reference:
 
 ## Global Widget Guidance
 
-- Implement widget operations using endpoint paths/methods from [references/widgets-open-api-spec.yaml](references/widgets-open-api-spec.yaml).
+- Implement widget operations using endpoint paths/methods from [references/fetching-apis.md](references/fetching-apis.md). When building request bodies or parsing responses, read the relevant endpoint schemas from [references/widgets-open-api-spec.yaml](references/widgets-open-api-spec.yaml).
 - Keep loading, empty, and error states explicit and user-visible.
 - Keep mutation outcomes visible and refresh/reload affected data after successful changes.
 - Align table/list/action UI with existing project conventions.
@@ -91,7 +90,7 @@ Then load exactly one widget reference:
 ## Core Guidelines
 
 - Reuse existing domain types from the host project and OpenAPI schemas; avoid duplicating model definitions.
-- Build widget requests directly from [references/widgets-open-api-spec.yaml](references/widgets-open-api-spec.yaml).
+- Build widget requests using [references/fetching-apis.md](references/fetching-apis.md) for paths/methods and [references/widgets-open-api-spec.yaml](references/widgets-open-api-spec.yaml) for request/response schemas.
 - Use direct `fetch`/HTTP calls (or equivalent server HTTP client) for endpoint calls.
 - Implement a consistent authorization layer for widget requests, including elevated-token handling for sensitive endpoints when required.
 - If the app already uses React Query or SWR, use them as orchestration/cache layers around those direct calls.
