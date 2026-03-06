@@ -20,7 +20,7 @@ import { parse } from 'yaml';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SPEC_PATH = join(__dirname, '../widgets-open-api-spec.yaml');
 
-const WIDGET_PREFIXES: Record<string, string> = {
+export const WIDGET_PREFIXES: Record<string, string> = {
   usermanagement: '/_widgets/UserManagement',
   userprofile: '/_widgets/UserProfile',
   'admin-portal': '/_widgets/admin-portal',
@@ -33,11 +33,11 @@ const WIDGET_PREFIXES: Record<string, string> = {
   settings: '/_widgets/settings',
 };
 
-function loadSpec() {
-  return parse(readFileSync(SPEC_PATH, 'utf-8'));
+export function loadSpec(path?: string) {
+  return parse(readFileSync(path ?? SPEC_PATH, 'utf-8'));
 }
 
-function resolveRef(spec: Record<string, unknown>, ref: string): unknown {
+export function resolveRef(spec: Record<string, unknown>, ref: string): unknown {
   const parts = ref.replace('#/', '').split('/');
   let current: unknown = spec;
   for (const part of parts) {
@@ -50,15 +50,18 @@ function resolveRef(spec: Record<string, unknown>, ref: string): unknown {
   return current;
 }
 
-function resolveSchema(spec: Record<string, unknown>, schema: unknown): unknown {
+export function resolveSchema(spec: Record<string, unknown>, schema: unknown): unknown {
   if (!schema || typeof schema !== 'object') return schema;
+  if (Array.isArray(schema)) {
+    return schema.map((item) => resolveSchema(spec, item));
+  }
   const s = schema as Record<string, unknown>;
   if (s.$ref && typeof s.$ref === 'string') {
     return resolveSchema(spec, resolveRef(spec, s.$ref));
   }
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(s)) {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (value && typeof value === 'object') {
       result[key] = resolveSchema(spec, value);
     } else {
       result[key] = value;
@@ -67,7 +70,7 @@ function resolveSchema(spec: Record<string, unknown>, schema: unknown): unknown 
   return result;
 }
 
-interface EndpointInfo {
+export interface EndpointInfo {
   path: string;
   method: string;
   description?: string;
@@ -76,7 +79,7 @@ interface EndpointInfo {
   responses: Record<string, unknown>;
 }
 
-function extractEndpoints(spec: Record<string, unknown>, pathFilter: (path: string) => boolean): EndpointInfo[] {
+export function extractEndpoints(spec: Record<string, unknown>, pathFilter: (path: string) => boolean): EndpointInfo[] {
   const paths = spec.paths as Record<string, Record<string, unknown>> | undefined;
   if (!paths) return [];
 
@@ -128,7 +131,7 @@ function extractEndpoints(spec: Record<string, unknown>, pathFilter: (path: stri
   return endpoints;
 }
 
-function formatEndpoint(ep: EndpointInfo): string {
+export function formatEndpoint(ep: EndpointInfo): string {
   const lines: string[] = [];
   lines.push(`## ${ep.method} ${ep.path}`);
   if (ep.description) lines.push(`\n${ep.description}`);
@@ -161,13 +164,7 @@ function formatEndpoint(ep: EndpointInfo): string {
   return lines.join('\n');
 }
 
-// --- CLI ---
-
-const args = process.argv.slice(2);
-
-if (args.includes('--list')) {
-  const spec = loadSpec();
-  const paths = Object.keys(spec.paths ?? {});
+export function groupPathsByWidget(paths: string[]): Record<string, string[]> {
   const grouped: Record<string, string[]> = {};
   for (const p of paths) {
     const parts = p.split('/').filter(Boolean);
@@ -175,48 +172,62 @@ if (args.includes('--list')) {
     if (!grouped[group]) grouped[group] = [];
     grouped[group].push(p);
   }
-  for (const [group, groupPaths] of Object.entries(grouped)) {
-    console.log(`\n${group}:`);
-    for (const p of groupPaths) console.log(`  ${p}`);
+  return grouped;
+}
+
+// --- CLI (only runs when executed directly) ---
+
+const isDirectExecution = process.argv[1]?.includes('query-spec');
+
+if (isDirectExecution) {
+  const args = process.argv.slice(2);
+
+  if (args.includes('--list')) {
+    const spec = loadSpec();
+    const grouped = groupPathsByWidget(Object.keys(spec.paths ?? {}));
+    for (const [group, groupPaths] of Object.entries(grouped)) {
+      console.log(`\n${group}:`);
+      for (const p of groupPaths) console.log(`  ${p}`);
+    }
+    process.exit(0);
   }
-  process.exit(0);
-}
 
-const widgetIdx = args.indexOf('--widget');
-const pathIdx = args.indexOf('--path');
+  const widgetIdx = args.indexOf('--widget');
+  const pathIdx = args.indexOf('--path');
 
-if (widgetIdx === -1 && pathIdx === -1) {
-  console.error('Usage: query-spec.ts --widget <name> | --path <path> | --list');
-  console.error('Widgets:', Object.keys(WIDGET_PREFIXES).join(', '));
-  process.exit(1);
-}
-
-const spec = loadSpec();
-let filter: (path: string) => boolean;
-
-if (widgetIdx !== -1) {
-  const widgetName = (args[widgetIdx + 1] || '').toLowerCase();
-  const prefix = WIDGET_PREFIXES[widgetName];
-  if (!prefix) {
-    console.error(`Unknown widget: ${args[widgetIdx + 1]}`);
-    console.error('Known widgets:', Object.keys(WIDGET_PREFIXES).join(', '));
+  if (widgetIdx === -1 && pathIdx === -1) {
+    console.error('Usage: query-spec.ts --widget <name> | --path <path> | --list');
+    console.error('Widgets:', Object.keys(WIDGET_PREFIXES).join(', '));
     process.exit(1);
   }
-  filter = (path) => path.startsWith(prefix);
-} else {
-  const pathPattern = args[pathIdx + 1] || '';
-  filter = (path) => path.includes(pathPattern);
-}
 
-const endpoints = extractEndpoints(spec, filter);
+  const spec = loadSpec();
+  let filter: (path: string) => boolean;
 
-if (endpoints.length === 0) {
-  console.error('No matching endpoints found.');
-  process.exit(1);
-}
+  if (widgetIdx !== -1) {
+    const widgetName = (args[widgetIdx + 1] || '').toLowerCase();
+    const prefix = WIDGET_PREFIXES[widgetName];
+    if (!prefix) {
+      console.error(`Unknown widget: ${args[widgetIdx + 1]}`);
+      console.error('Known widgets:', Object.keys(WIDGET_PREFIXES).join(', '));
+      process.exit(1);
+    }
+    filter = (path) => path.startsWith(prefix);
+  } else {
+    const pathPattern = args[pathIdx + 1] || '';
+    filter = (path) => path.includes(pathPattern);
+  }
 
-console.log(`# Matched ${endpoints.length} endpoint(s)\n`);
-for (const ep of endpoints) {
-  console.log(formatEndpoint(ep));
-  console.log('\n---\n');
+  const endpoints = extractEndpoints(spec, filter);
+
+  if (endpoints.length === 0) {
+    console.error('No matching endpoints found.');
+    process.exit(1);
+  }
+
+  console.log(`# Matched ${endpoints.length} endpoint(s)\n`);
+  for (const ep of endpoints) {
+    console.log(formatEndpoint(ep));
+    console.log('\n---\n');
+  }
 }
