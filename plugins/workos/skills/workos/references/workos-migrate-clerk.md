@@ -1,29 +1,13 @@
-<!-- refined:sha256:2336f8fb2339 -->
-
 # WorkOS Migration: Clerk
 
-## When to Use
+## Docs
+- https://workos.com/docs/migrate/clerk
+If this file conflicts with fetched docs, follow the docs.
 
-Use this skill when migrating an existing Clerk-based authentication system to WorkOS AuthKit. This covers moving user accounts, organization structures, and SSO connections while maintaining user access during the transition.
-
-## Key Vocabulary
-
-- **User `user_`** — WorkOS user entity mapped from Clerk user data
-- **Organization `org_`** — WorkOS organization entity mapped from Clerk organizations
-- **Organization Membership `om_`** — user-to-organization association
-- **Connection `conn_`** — SSO connection configuration migrated from Clerk
-- **Directory `directory_`** — directory sync configuration for SCIM provisioning
-
-## Implementation Guide
-
-For step-by-step implementation, verification commands, and error recovery:
-
-→ Read `references/workos-migrate-clerk.guide.md`
-
-## Related Skills
-
-- **workos-authkit-nextjs** — integrate AuthKit after migration
-- **workos-authkit-react** — integrate AuthKit in React apps
-- **workos-api-organization** — manage migrated organizations
-- **workos-sso** — configure SSO connections
-- **workos-directory-sync** — set up directory sync
+## Gotchas
+- Clerk exports multiple emails pipe-separated (e.g., `john@example.com|john.doe@example.com`) and does NOT indicate which is the primary email. If you can't call the Clerk API per user to resolve `primary_email_address_id`, you must pick the first email and document the choice.
+- Clerk does NOT provide plaintext passwords. Password hashes are only available via the Clerk Backend API export, not the standard dashboard export.
+- WorkOS users have a single primary email. You must pick ONE from Clerk's pipe-separated list.
+- Clerk export may include deleted/suspended users. Filter these before import or you'll get count mismatches.
+- Duplicate emails in the Clerk export will cause WorkOS rejections — deduplicate before importing.
+- WorkOS has an official migration tool at https://github.com/workos/migrate-clerk-users that handles rate limits and retries.

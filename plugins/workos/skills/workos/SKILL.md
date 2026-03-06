@@ -3,8 +3,6 @@ name: workos
 description: Identify which WorkOS skill to load based on the user's task — covers AuthKit, SSO, RBAC, migrations, and all API references.
 ---
 
-<!-- refined:sha256:aad444a2aecb -->
-
 # WorkOS Skill Router
 
 ## How to Use
@@ -15,7 +13,7 @@ When a user needs help with WorkOS, consult the tables below to route to the rig
 
 **AuthKit skills** are registered plugins — load them directly via the Skill tool.
 
-**All other skills** are bundled in the `references/` directory. To load one, Read `references/{name}.md` and follow its instructions.
+**All other skills** are topic files in the `references/` directory. Read the file and follow its instructions (fetch docs first, then use gotchas to avoid common traps).
 
 ## Topic → Skill Map
 
@@ -35,46 +33,41 @@ When a user needs help with WorkOS, consult the tables below to route to the rig
 
 | User wants to...                | Read file                             |
 | ------------------------------- | ------------------------------------- |
-| Configure email delivery        | `references/workos-email.md`          |
-| Encrypt data with Vault         | `references/workos-vault.md`          |
 | Configure Single Sign-On        | `references/workos-sso.md`            |
-| Implement RBAC / roles          | `references/workos-rbac.md`           |
-| Add Multi-Factor Auth           | `references/workos-mfa.md`            |
-| Set up IdP integration          | `references/workos-integrations.md`   |
-| Handle WorkOS Events / webhooks | `references/workos-events.md`         |
 | Set up Directory Sync           | `references/workos-directory-sync.md` |
-| Set up Custom Domains           | `references/workos-custom-domains.md` |
+| Implement RBAC / roles          | `references/workos-rbac.md`           |
+| Encrypt data with Vault         | `references/workos-vault.md`          |
+| Handle WorkOS Events / webhooks | `references/workos-events.md`         |
 | Set up Audit Logs               | `references/workos-audit-logs.md`     |
 | Enable Admin Portal             | `references/workos-admin-portal.md`   |
+| Add Multi-Factor Auth           | `references/workos-mfa.md`            |
+| Configure email delivery        | `references/workos-email.md`          |
+| Set up Custom Domains           | `references/workos-custom-domains.md` |
+| Set up IdP integration          | `references/workos-integrations.md`   |
 
 ### API References (Read `references/{name}.md`)
 
-| User wants to...             | Read file                                 |
-| ---------------------------- | ----------------------------------------- |
-| Admin portal API Reference   | `references/workos-api-admin-portal.md`   |
-| Audit logs API Reference     | `references/workos-api-audit-logs.md`     |
-| Authkit API Reference        | `references/workos-api-authkit.md`        |
-| Directory sync API Reference | `references/workos-api-directory-sync.md` |
-| Events API Reference         | `references/workos-api-events.md`         |
-| Organization API Reference   | `references/workos-api-organization.md`   |
-| Roles API Reference          | `references/workos-api-roles.md`          |
-| Sso API Reference            | `references/workos-api-sso.md`            |
-| Vault API Reference          | `references/workos-api-vault.md`          |
+Feature topic files above include endpoint tables for their respective APIs. Use these API-only references when no feature topic exists:
+
+| User wants to...           | Read file                               |
+| -------------------------- | --------------------------------------- |
+| AuthKit API Reference      | `references/workos-api-authkit.md`      |
+| Organization API Reference | `references/workos-api-organization.md` |
 
 ### Migrations (Read `references/{name}.md`)
 
 | User wants to...                    | Read file                                             |
 | ----------------------------------- | ----------------------------------------------------- |
-| Migrate from Supabase Auth          | `references/workos-migrate-supabase-auth.md`          |
+| Migrate from Auth0                  | `references/workos-migrate-auth0.md`                  |
+| Migrate from AWS Cognito            | `references/workos-migrate-aws-cognito.md`            |
+| Migrate from Better Auth            | `references/workos-migrate-better-auth.md`            |
+| Migrate from Clerk                  | `references/workos-migrate-clerk.md`                  |
+| Migrate from Descope                | `references/workos-migrate-descope.md`                |
+| Migrate from Firebase               | `references/workos-migrate-firebase.md`               |
 | Migrate from Stytch                 | `references/workos-migrate-stytch.md`                 |
+| Migrate from Supabase Auth          | `references/workos-migrate-supabase-auth.md`          |
 | Migrate from the standalone SSO API | `references/workos-migrate-the-standalone-sso-api.md` |
 | Migrate from other services         | `references/workos-migrate-other-services.md`         |
-| Migrate from Firebase               | `references/workos-migrate-firebase.md`               |
-| Migrate from Descope                | `references/workos-migrate-descope.md`                |
-| Migrate from Clerk                  | `references/workos-migrate-clerk.md`                  |
-| Migrate from Better Auth            | `references/workos-migrate-better-auth.md`            |
-| Migrate from AWS Cognito            | `references/workos-migrate-aws-cognito.md`            |
-| Migrate from Auth0                  | `references/workos-migrate-auth0.md`                  |
 
 ## Routing Decision Tree
 
@@ -94,9 +87,9 @@ Apply these rules in order. First match wins.
 
 **Triggers**: User explicitly asks about "API endpoints", "request format", "response schema", "API reference", or mentions inspecting HTTP details.
 
-**Action**: Read `references/workos-api-[feature].md` where `[feature]` matches the domain (admin-portal, audit-logs, authkit, directory-sync, events, organization, roles, sso, vault).
+**Action**: For features with topic files (SSO, Directory Sync, RBAC, Vault, Events, Audit Logs, Admin Portal), read the feature topic file — it includes an endpoint table. For AuthKit or Organization APIs, read `references/workos-api-[domain].md`.
 
-**Why this wins**: API references are low-level; feature guides are high-level. If user signals low-level intent, skip the feature guide.
+**Why this wins**: API references are low-level; feature topics are high-level but include endpoint tables for quick reference.
 
 ---
 
@@ -108,7 +101,7 @@ Apply these rules in order. First match wins.
 
 **Exception**: Widget requests route to the `workos-widgets` skill via the Skill tool (see table above), not to a `references/` file.
 
-**Disambiguation**: If user mentions BOTH a feature and "API", route to API reference (#2). If they mention MULTIPLE features, route to the MOST SPECIFIC one first (e.g., "SSO with MFA" → route to SSO; user can request MFA separately).
+**Disambiguation**: If user mentions BOTH a feature and "API", route to the feature topic file (it includes endpoints). If they mention MULTIPLE features, route to the MOST SPECIFIC one first (e.g., "SSO with MFA" → route to SSO; user can request MFA separately).
 
 ---
 
@@ -199,7 +192,7 @@ Route to the MOST SPECIFIC skill first. Example: "SSO with MFA and directory syn
 
 ### User mentions a feature + API reference
 
-Route to the API reference (#2). Example: "SSO API endpoints" → `workos-api-sso.md`, not `workos-sso.md`.
+Route to the feature topic file — it includes an endpoint table. Example: "SSO API endpoints" → `workos-sso.md`.
 
 ### User wants to ADD a feature to an existing AuthKit setup
 

@@ -1,25 +1,34 @@
-<!-- refined:sha256:a3a31bdb28d7 -->
-
 # WorkOS Directory Sync
 
-## When to Use
+## Docs
+- https://workos.com/docs/directory-sync/quick-start
+- https://workos.com/docs/directory-sync/understanding-events
+- https://workos.com/docs/directory-sync/handle-inactive-users
+- https://workos.com/docs/directory-sync/attributes
+If this file conflicts with fetched docs, follow the docs.
 
-Use this skill when you need to sync user and group data from external identity providers (Okta, Microsoft Entra ID, Google Workspace, etc.) into your application. Directory Sync solves the problem of keeping user rosters, organizational structures, and group memberships automatically synchronized without manual CSV imports or API polling.
+## Gotchas
+- dsync.deleted sends ONE event for the whole directory — it does NOT send individual dsync.user.deleted or dsync.group.deleted events. You must cascade-delete all users and groups by directory_id yourself.
+- Use email as stable user identity, NOT the WorkOS directory_user_* ID — the ID changes if a user is recreated in the IdP. Upsert by email.
+- Return 200 from webhook handler IMMEDIATELY (WorkOS times out at 10s) — process events asynchronously after acknowledging
+- Webhooks are NOT mandatory — the Events API (workos.events.listEvents) is a fully supported pull-based alternative for batch processing
+- Webhook signature verification must use the RAW request body, not parsed JSON — parsing first breaks the signature
+- Use dsync.* wildcard for Events API filter, not just "dsync" — bare string returns nothing
+- Events API after param must be within 30-day retention window
+- User state "inactive" is far more common than "deleted" — most IdPs deactivate users rather than deleting them. Handle dsync.user.updated with state=inactive as a deprovisioning event.
 
-## Key Vocabulary
+## Endpoints
 
-- **Directory** `directory_` — represents a configured sync connection to an identity provider
-- **Directory User** `directory_user_` — a synced user entity from the identity provider
-- **Directory Group** `directory_group_` — a synced group/team entity from the identity provider
-- **dsync.\*** events — webhook event types for user/group lifecycle (`dsync.user.created`, `dsync.group.updated`, `dsync.deleted`)
-
-## Implementation Guide
-
-For step-by-step implementation, verification commands, and error recovery:
-
-→ Read `references/workos-directory-sync.guide.md`
-
-## Related Skills
-
-- **workos-sso**: Single Sign-On configuration
-- **workos-integrations**: Provider-specific directory setup
+| Endpoint | Description |
+|----------|-------------|
+| `/directory-sync` | Directory Sync overview |
+| `/directory` | Directory management |
+| `/directory-group` | Directory group operations |
+| `/directory-group/get` | Get a directory group |
+| `/directory-group/list` | List directory groups |
+| `/directory-user` | Directory user operations |
+| `/directory-user/get` | Get a directory user |
+| `/directory-user/list` | List directory users |
+| `/directory/delete` | Delete a directory |
+| `/directory/get` | Get a directory |
+| `/directory/list` | List directories |

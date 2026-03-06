@@ -20,7 +20,6 @@
   ],
   "type": "module",
   "scripts": {
-    "generate": "npx tsx scripts/generate.ts",
     "eval": "npx tsx scripts/eval.ts",
     "eval:label": "npx tsx scripts/eval-label.ts",
     "eval:diff": "npx tsx scripts/eval-diff.ts",

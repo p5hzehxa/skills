@@ -1,25 +1,13 @@
-<!-- refined:sha256:d6de555bda48 -->
-
 # WorkOS Migration: Supabase Auth
 
-## When to Use
+## Docs
+- https://workos.com/docs/migrate/supabase
+If this file conflicts with fetched docs, follow the docs.
 
-Migrate existing users from Supabase Auth to WorkOS while preserving their ability to sign in with existing passwords. Use this when you need to transition an application from Supabase's authentication system to WorkOS without forcing users to reset passwords or re-authenticate.
-
-## Key Vocabulary
-
-- **User Migration `user_migration_`** — the WorkOS resource that imports user records with password hashes
-- **bcrypt hash format** — Supabase uses bcrypt for password storage; WorkOS accepts bcrypt hashes during migration
-- **User Management** — the WorkOS feature that stores migrated user identities after import
-
-## Implementation Guide
-
-For step-by-step implementation, verification commands, and error recovery:
-
-→ Read `references/workos-migrate-supabase-auth.guide.md`
-
-## Related Skills
-
-- **workos-user-management** — target system for migrated users
-- **workos-authkit-react** — post-migration authentication UI
-- **workos-authkit-nextjs** — post-migration authentication for Next.js apps
+## Gotchas
+- Supabase uses bcrypt. Verify exported hashes start with `$2a$`, `$2b$`, or `$2y$`. If verification fails, re-export — corrupted hashes cannot be recovered.
+- Do NOT use Supabase UUIDs as WorkOS user IDs. WorkOS generates its own IDs (`user_*`). Store the mapping (`supabase_user_id` -> `workos_user_id`) in your database.
+- You CANNOT migrate active sessions from Supabase to WorkOS. Sessions are provider-specific. Users with valid Supabase sessions must be forced to re-authenticate with WorkOS.
+- Supabase `phone` field cannot be migrated — WorkOS AuthKit uses email-based auth.
+- If password hash export is corrupted, use explicit SQL cast: `CAST(encrypted_password AS TEXT)` during re-export.
+- For >10,000 users, contact WorkOS support for bulk import assistance rather than scripting it yourself.
