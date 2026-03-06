@@ -6,12 +6,11 @@ Implement Widgets API calls directly from the bundled OpenAPI spec in a way that
 
 ## Source of Truth
 
-Use [widgets-open-api-spec.yaml](widgets-open-api-spec.yaml) as the source for:
+Use the endpoint tables below for paths and methods. For request/response schemas, run:
 
-- endpoint paths
-- HTTP methods
-- request body/query parameters
-- response shapes
+```bash
+node references/scripts/query-spec.cjs --widget <widget-name>
+```
 
 ## Guidance
 
@@ -40,17 +39,17 @@ All error responses (`400`, `403`, `404`, `422`) return a JSON object with a sin
 { "message": "Description of the error" }
 ```
 
-For full request/response schemas, read the relevant endpoints from `widgets-open-api-spec.yaml`.
+For full request/response schemas, run `node references/scripts/query-spec.cjs --widget <widget-name>`.
 
 ## Elevated Access Endpoints
 
-- Check the endpoint's description in `widgets-open-api-spec.yaml` **before calling it** — not on failure. If it mentions elevated access, acquire the elevated token first.
+- Check the endpoint's description (via `node references/scripts/query-spec.cjs --widget <widget-name>`) **before calling it** — not on failure. If it mentions elevated access, acquire the elevated token first.
 - Use `POST /_widgets/UserProfile/verify` to obtain an elevated token, then pass it in header `x-elevated-access-token`.
 - Treat elevated tokens as short-lived (10 minutes) and scope them to sensitive operations only.
 
 ## Endpoint Reference
 
-All available endpoints, grouped by widget. Use `widgets-open-api-spec.yaml` for request/response schemas.
+All available endpoints, grouped by widget. For request/response schemas, run `node references/scripts/query-spec.cjs --widget <widget-name>`.
 
 ### User Management
 

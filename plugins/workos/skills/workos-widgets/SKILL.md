@@ -94,7 +94,7 @@ Then load exactly one widget reference:
 ## Core Guidelines
 
 - Reuse existing domain types from the host project and OpenAPI schemas; avoid duplicating model definitions.
-- Build widget requests using [references/fetching-apis.md](references/fetching-apis.md) for paths/methods and `node references/scripts/query-spec.cjs --widget <name>` for request/response schemas.
+- Build widget requests using [references/fetching-apis.md](references/fetching-apis.md) for paths, methods, and schema queries.
 - Use direct `fetch`/HTTP calls (or equivalent server HTTP client) for endpoint calls.
 - Implement a consistent authorization layer for widget requests, including elevated-token handling for sensitive endpoints when required.
 - If the app already uses React Query or SWR, use them as orchestration/cache layers around those direct calls.
