@@ -16,6 +16,9 @@ If this file conflicts with fetched docs, follow the docs.
 - Use dsync.* wildcard for Events API filter, not just "dsync" — bare string returns nothing
 - Events API after param must be within 30-day retention window
 - User state "inactive" is far more common than "deleted" — most IdPs deactivate users rather than deleting them. Handle dsync.user.updated with state=inactive as a deprovisioning event.
+- Webhook handler pattern: call workos.webhooks.verifyEvent() with raw body + workos-signature header + secret, THEN return 200, THEN process event in async handler. Order matters.
+- Ruby webhook trap: use request.raw_post for signature verification, NOT request.body — Rails parses body into params which breaks the signature. Disable JSON parsing for the webhook endpoint (use ActionController::API or skip_before_action).
+- Use upsert pattern (ON CONFLICT / upsert) for all webhook handlers — events can be delivered more than once. dsync.user.created should upsert, not insert.
 
 ## Endpoints
 
