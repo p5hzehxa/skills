@@ -2,7 +2,14 @@ import { join } from 'path';
 import { createHash } from 'crypto';
 import { readdirSync, readFileSync } from 'fs';
 import { parse } from 'yaml';
-import { HAND_CRAFTED_SKILLS } from '../lib/config.ts';
+const HAND_CRAFTED_SKILLS = [
+  'workos-authkit-base',
+  'workos-authkit-nextjs',
+  'workos-authkit-react',
+  'workos-authkit-react-router',
+  'workos-authkit-tanstack-start',
+  'workos-authkit-vanilla-js',
+] as const;
 import { generateCode } from './api.ts';
 import { getCacheKey, readCache, writeCache } from './cache.ts';
 import { scoreOutput, categorizeErrors } from './scorer.ts';

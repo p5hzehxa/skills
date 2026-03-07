@@ -1,25 +1,27 @@
-<!-- refined:sha256:479288befe44 -->
-
 # WorkOS Admin Portal
 
-## When to Use
+## Docs
+- https://workos.com/docs/admin-portal/index
+- https://workos.com/docs/admin-portal/example-apps
+- https://workos.com/docs/admin-portal/custom-branding
+- https://workos.com/docs/reference/admin-portal
+- https://workos.com/docs/reference/admin-portal/portal-link
+- https://workos.com/docs/reference/admin-portal/portal-link/generate
+- https://workos.com/docs/reference/admin-portal/provider-icons
+If this file conflicts with fetched docs, follow the docs.
 
-Use this skill when you need to provide self-service configuration UIs for SSO connections, Directory Sync, or Domain Verification without building custom admin interfaces. The Admin Portal generates short-lived, scoped links that give customers secure access to configure their organization's settings.
+## Gotchas
+- Portal links are single-use and time-limited. Visiting an expired or already-used link returns 404. Must generate a new link each time.
+- Do NOT email portal links directly from your backend. Links are exposed in email logs. Instead, store the link and have your app's settings page redirect to it.
+- The `intent` parameter determines which configuration screens appear. It cannot be changed after link generation — must generate a new link for a different intent.
+- Only one active portal link exists per organization at a time. Revoke the old one before generating a new one.
+- Domain verification may be required before SSO activation. Some configurations need DNS TXT records or email verification first.
+- API key must start with `sk_` (secret key). Using `pk_` (publishable key) returns "Unauthorized."
 
-## Key Vocabulary
-
-- **Organization** `org_` — tenant container for connections and directories
-- **Portal Link** `portal_link_` — time-limited URL for customer access
-- **Intent** — scope of portal access (`sso`, `dsync`, `audit_logs`, `log_streams`, `domain_verification`)
-
-## Implementation Guide
-
-For step-by-step implementation, verification commands, and error recovery:
-
-→ Read `references/workos-admin-portal.guide.md`
-
-## Related Skills
-
-- **workos-sso**: SSO configuration via portal
-- **workos-directory-sync**: Directory setup via portal
-- **workos-widgets**: Embeddable UI components
+## Endpoints
+| Endpoint                | Description                           |
+| ----------------------- | ------------------------------------- |
+| `/admin-portal`         | admin-portal                          |
+| `/portal-link`          | admin-portal - portal-link            |
+| `/portal-link/generate` | admin-portal - portal-link - generate |
+| `/provider-icons`       | admin-portal - provider-icons         |

@@ -5,12 +5,6 @@ Claude Code plugin providing WorkOS integration skills (AuthKit, SSO, Directory 
 ## Commands
 
 ```bash
-# Generation
-pnpm generate                 # fetch docs, parse, split, generate (skips unchanged)
-pnpm generate -- --refine    # + AI refinement pass (requires ANTHROPIC_API_KEY)
-pnpm generate -- --refine --force  # force regenerate + refine all
-pnpm generate -- --refine-only=workos-sso --force  # refine single skill
-
 # Testing & formatting
 pnpm test                     # run tests (vitest)
 pnpm format                   # oxfmt
@@ -37,26 +31,19 @@ pnpm eval:calibrate                            # compare scorer vs human labels
 - `plugins/workos/` — installable plugin (only this gets cached)
   - `.claude-plugin/plugin.json` — plugin manifest
   - `skills/` — skill directories, each with `SKILL.md`
-    - **Hand-crafted** (never overwrite): `workos-authkit-base`, `workos-authkit-nextjs`, `workos-authkit-react`, `workos-authkit-react-router`, `workos-authkit-tanstack-start`, `workos-authkit-vanilla-js`
-    - **Generated** — everything in `workos/references/`; produced by `scripts/generate.ts`
-      - **Summary** (`workos-sso.md`) — routing doc, <1KB
-      - **Guide** (`workos-sso.guide.md`) — implementation, 7-11KB, no frontmatter
-      - **API ref stub** (`workos-api-sso.guide.md`) — deterministic endpoint table, ~1KB
-      - **Feedback** (`workos-sso.feedback.md`) — domain expert corrections for refiner
-- `scripts/` — generation pipeline (not cached with plugin)
-  - `generate.ts` — orchestrator: fetch → parse → split → generate → refine → quality gate → write
-  - `lib/` — pipeline modules: `fetcher`, `parser`, `validator`, `splitter`, `api-ref-splitter`, `generator`, `skill-template`, `refiner`, `quality-gate`, `feedback`, `hasher`, `config`, `types`
+    - **Hand-crafted AuthKit skills**: `workos-authkit-base`, `workos-authkit-nextjs`, `workos-authkit-react`, `workos-authkit-react-router`, `workos-authkit-tanstack-start`, `workos-authkit-vanilla-js`, `workos-widgets`
+    - **Router**: `workos/SKILL.md` — routes user requests to the right topic file or AuthKit skill
+    - **Topic files**: `workos/references/*.md` — lean files with doc URLs + gotchas + optional endpoint tables
+- `scripts/` — eval framework (not cached with plugin)
   - `tests/` — `*.spec.ts` files using vitest
 
 ## Key Conventions
 
-- **Never overwrite hand-crafted skills.** Listed in `scripts/lib/config.ts` (`HAND_CRAFTED_SKILLS`). The generator skips them.
-- Generated skills use progressive disclosure: summary (routing) + guide (implementation). Agent loads summary first, reads guide only when implementing.
-- Summaries have YAML frontmatter (`name`, `description`). Guides and stubs do not.
-- API ref guides (`workos-api-*`) are deterministic stubs — no LLM refinement.
-- Feedback files (`*.feedback.md`) with `## Corrections` and `## Emphasis` are injected into refiner prompts.
-- Section split strategies: `scripts/lib/config.ts` (`SECTION_CONFIG`).
-- Size constraints: summaries 200B–2KB, guides 500B–50KB.
+- **Hand-crafted AuthKit skills are separate plugins** with their own `SKILL.md`. Do not modify them when working on topic files.
+- **Topic files are human-maintained.** Each contains doc URLs (source of truth), gotchas (non-obvious traps), and optional endpoint tables. No generation pipeline — edit directly.
+- **"Fetch docs first" is the core pattern.** Every topic file starts with doc URLs and the line "If this file conflicts with fetched docs, follow the docs."
+- **Gotchas encode what Claude gets wrong.** Add a bullet when you discover the LLM produces incorrect output for a topic. Sources: eval failures, support patterns, breaking changes.
+- **The router (`workos/SKILL.md`) handles discovery.** Topic files have no frontmatter — the router table maps user intent to file paths.
 
 ## Runtime
 
@@ -95,7 +82,7 @@ pnpm eval:calibrate                            # scorer vs human agreement repor
 ### Interpreting Results
 
 - **Delta** = with-skill composite minus without-skill composite
-- **Positive delta** = skill helps. Target: ≥ +8 for generated, ≥ +15 for hand-crafted
+- **Positive delta** = skill helps. Target: ≥ +8
 - **Zero delta** = skill adds no value for this scenario (LLM already knows)
 - **Negative delta** = skill hurts — investigate for wrong information in skill
 - GREEN (≥ +20%): strong skill value

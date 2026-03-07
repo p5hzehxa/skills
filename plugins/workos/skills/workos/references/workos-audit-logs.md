@@ -1,25 +1,40 @@
-<!-- refined:sha256:ac9f8f303b5d -->
-
 # WorkOS Audit Logs
 
-## When to Use
+## Docs
+- https://workos.com/docs/audit-logs/metadata-schema
+- https://workos.com/docs/audit-logs/log-streams
+- https://workos.com/docs/audit-logs/index
+- https://workos.com/docs/audit-logs/exporting-events
+- https://workos.com/docs/audit-logs/editing-events
+- https://workos.com/docs/audit-logs/admin-portal
+- https://workos.com/docs/reference/audit-logs
+- https://workos.com/docs/reference/audit-logs/configuration
+- https://workos.com/docs/reference/audit-logs/event
+- https://workos.com/docs/reference/audit-logs/event/create
+- https://workos.com/docs/reference/audit-logs/export
+If this file conflicts with fetched docs, follow the docs.
 
-Use this skill when you need to export structured event logs for compliance, security monitoring, or user activity tracking. Audit Logs provide tamper-proof records of actions taken in your application, with filtering, pagination, and CSV export capabilities.
+## Gotchas
+- Event type naming MUST follow `{group}.{object}.{action}` convention (e.g., `user.account.created`). Flat names like `shareCreated` are rejected.
+- Metadata limits: 50 keys max per metadata object, 40 chars per key name, 500 chars per value. Exceeding silently truncates or fails.
+- Log Streams to customer SIEMs via HTTP POST require IP allowlisting. WorkOS US egress IPs: `3.217.146.166`, `23.21.184.92`, `34.204.154.149`, `44.213.245.178`, `44.215.236.82`, `50.16.203.9`. EU region uses different IPs — check docs.
+- If metadata schema validation is enabled in the Dashboard, events that don't match the JSON Schema are rejected. Disable temporarily if blocking deployment.
+- Log Stream must show "Active" status in Dashboard to deliver events. Credential or network issues silently stop delivery without failing the event creation call.
 
-## Key Vocabulary
-
-- **Event** `event_` — a single audit log entry with actor, target, action, and metadata
-- **Actor** — the entity that performed the action (user, API key, system)
-- **Target** — the resource affected by the action
-- **Action** — the operation performed (e.g., `user.created`, `document.deleted`)
-- **Organization** `org_` — the workspace or tenant scope for audit log events
-
-## Implementation Guide
-
-For step-by-step implementation, verification commands, and error recovery:
-
-→ Read `references/workos-audit-logs.guide.md`
-
-## Related Skills
-
-- **workos-events**: Webhook event handling
+## Endpoints
+| Endpoint               | Description                        |
+| ---------------------- | ---------------------------------- |
+| `/audit-logs`          | audit-logs                         |
+| `/configuration`       | audit-logs - configuration         |
+| `/event`               | audit-logs - event                 |
+| `/event/create`        | audit-logs - event - create        |
+| `/export`              | audit-logs - export                |
+| `/export/create`       | audit-logs - export - create       |
+| `/export/get`          | audit-logs - export - get          |
+| `/retention`           | audit-logs - retention             |
+| `/retention/get`       | audit-logs - retention - get       |
+| `/retention/set`       | audit-logs - retention - set       |
+| `/schema`              | audit-logs - schema                |
+| `/schema/create`       | audit-logs - schema - create       |
+| `/schema/list`         | audit-logs - schema - list         |
+| `/schema/list-actions` | audit-logs - schema - list-actions |
