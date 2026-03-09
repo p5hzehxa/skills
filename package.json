@@ -17,13 +17,19 @@
     "url": "https://github.com/workos/skills"
   },
   "exports": {
-    ".": "./plugins/workos/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "files": [
+    "dist",
     "plugins"
   ],
   "type": "module",
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm build",
     "eval": "npx tsx scripts/eval.ts",
     "eval:label": "npx tsx scripts/eval-label.ts",
     "eval:diff": "npx tsx scripts/eval-diff.ts",
