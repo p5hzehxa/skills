@@ -1,5 +1,7 @@
 # @workos/skills
 
+![](./workos-logo.svg)
+
 WorkOS skills for AI coding agents. Two skills and 40 reference files covering AuthKit, SSO, Directory Sync, RBAC, Vault, Migrations, backend SDKs, and more.
 
 ## Install as Claude Code Plugin
