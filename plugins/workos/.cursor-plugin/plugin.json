@@ -5,5 +5,8 @@
   "author": {
     "name": "WorkOS",
     "email": "support@workos.com"
-  }
+  },
+  "homepage": "https://workos.com",
+  "repository": "https://github.com/workos/skills",
+  "license": "MIT"
 }
