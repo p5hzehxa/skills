@@ -1,6 +1,6 @@
 ---
 name: workos
-description: Use when the user asks for a WorkOS docs URL, term, or dashboard field (Sign-in endpoint, initiate_login_uri, Redirect URI, `WORKOS_*` env vars), or is implementing, debugging, or migrating WorkOS — AuthKit, SSO/SAML, Directory Sync, RBAC, FGA, MFA, Vault, Audit Logs, Admin Portal, Pipes (Connected Apps), Feature Flags, Radar (bot/fraud detection), webhooks, Custom Domains, or migrating from Auth0, Clerk, Cognito, Firebase, Supabase, Stytch, Descope, or Better Auth. Also triggers on @workos-inc/* imports.
+description: Use when the user asks for a WorkOS docs URL, term, or dashboard field (Sign-in endpoint, initiate_login_uri, Redirect URI, `WORKOS_*` env vars), or is implementing, debugging, or migrating WorkOS — AuthKit, SSO/SAML, Directory Sync, RBAC, FGA, MFA, Vault, Audit Logs, Admin Portal, Pipes (Connected Apps), Feature Flags, Radar (bot/fraud detection), webhooks, Custom Domains, running the `workos` CLI in agent or sandbox sessions (`WORKOS_MODE`, `workos doctor`), or migrating from Auth0, Clerk, Cognito, Firebase, Supabase, Stytch, Descope, or Better Auth. Also triggers on @workos-inc/* imports.
 ---
 
 # WorkOS Skill Router
@@ -19,10 +19,39 @@ description: Use when the user asks for a WorkOS docs URL, term, or dashboard fi
 
 These apply regardless of which routing rule fires. They exist because the most common failure mode of past WorkOS agent interactions has been plausibly-shaped fabrication of CLI commands and Dashboard paths.
 
-- **Never invent `workos` CLI commands.** If the user asks about CLI support or you're about to suggest a command, verify the command tree first. The authoritative source is `workos --help --json` — it emits the complete registered command tree. Do not assume a `create` subcommand exists because `list`/`get`/`delete` do. See `references/workos-management.md`.
+- **Never invent `workos` CLI commands.** If the user asks about CLI support or you're about to suggest a command, verify the command tree first. The authoritative source is `WORKOS_MODE=agent workos --help --json` — it emits the complete registered command tree. Do not assume a `create` subcommand exists because `list`/`get`/`delete` do. See `references/workos-management.md`.
+- **Prefer `WORKOS_MODE=agent` when invoking the `workos` CLI from a coding-agent session.** The CLI auto-detects most agent environments (`CLAUDECODE`, `CLAUDE_CODE`, `CURSOR_AGENT`, `CODEX_SANDBOX`, non-TTY), but the explicit env var is more reliable across sandbox configurations. See the **WorkOS CLI in Coding-Agent Sessions** section below.
 - **Never invent Dashboard click-paths.** Phrases like "Dashboard > Organizations > X > Roles > Map Groups" or `dashboard.workos.com/some/specific/path` should not appear unless you have verified them against a docs page you just fetched. The Dashboard UI reorganizes; docs pages are stable. Cite the docs URL and describe the destination conceptually ("the Authorization page", "the directory's settings") instead of committing to a click-path.
 - **When the user wants to do something not supported by the CLI, say so plainly.** Users are better served by "this isn't in the CLI; here's the docs URL for how to do it" than by a fabricated command that fails. See the "Not in the CLI" section of `references/workos-management.md`.
 - **Prefer docs URLs over prose when writing recipes.** If a reference file tells you to cite a specific docs URL, cite it literally; don't paraphrase the URL's slug.
+
+## WorkOS CLI in Coding-Agent Sessions
+
+The CLI resolves two independent axes: **interaction mode** (`human`/`agent`/`ci`) and **output mode** (`human`/`json`). The CLI auto-detects agent environments via known env vars (`CLAUDECODE`, `CLAUDE_CODE`, `CURSOR_AGENT`, `CODEX_SANDBOX`, `CURSOR_TRACE_ID`) and non-TTY detection, but explicit settings are more reliable across sandbox configurations.
+
+**Recommended preflight for any setup or debugging task:**
+
+```bash
+WORKOS_MODE=agent workos doctor --json --skip-ai
+```
+
+`--skip-ai` disables the doctor's AI-powered diagnosis pass, which requires an API key and network round-trip — neither is guaranteed in a sandbox. If `--skip-ai` errors as an unknown flag, the CLI is outdated — see `references/workos-cli-upgrade.md`. The structured JSON output is sufficient for programmatic triage.
+
+This returns a structured JSON report with `interactionMode` (`{ mode, source }`) and `hostExecution` (`{ ok, failures[] }`) fields. Read the JSON before suggesting fixes.
+
+**Rules:**
+
+- Use `--json` when parsing command output. It controls **formatting only** — it does not change CLI behavior.
+- Use `WORKOS_MODE=agent` even when relaying human-readable messages. It controls **prompts, browser launch, and host trust**.
+- Treat the doctor `HOST_EXECUTION_UNTRUSTED` issue as a hard trust boundary. If the doctor report contains this issue (or `hostExecution.ok` is `false`), **the current shell may be sandboxed**. Auth, config, keychain, and API failures from this shell are not authoritative. Ask the user to re-run host-sensitive commands (`workos auth login`, `workos doctor`, `workos env add`) on their host shell before drawing conclusions.
+- Do not assume browser-based auth (`workos auth login`) works in a sandbox. If auth is required, surface the manual URL/code fallback that the CLI prints, or ask the user to run `workos auth login` on their host shell.
+- For destructive CLI commands in agent mode, pass the explicit confirmation flag. Agent mode never prompts, so omitting the flag causes a `confirmation_required` error. Known flags: `--yes` for `workos api` (mutating methods), `--force` for `workos connection delete`, `workos directory delete`, and `workos debug reset`. If unsure which flag a command expects, run `workos <cmd> --help --json` to check.
+- Structured CLI errors (JSON on stderr) include an optional `error.recovery.hints` array, where each hint has `description`, optional `command`, and optional `hostShellRequired`. Prefer those hints over guessing the next step.
+
+**Legacy compatibility you may encounter:**
+
+- `WORKOS_NO_PROMPT=1` is a legacy alias that sets both agent interaction behavior AND JSON output. To migrate, set `WORKOS_MODE=agent` and pass `--json` to the command to preserve both behaviors. Using `WORKOS_MODE=agent` alone drops the implicit JSON formatting.
+- `WORKOS_FORCE_TTY=1` only affects output formatting; it does not change interaction mode.
 
 ## Topic → Reference Map
 
@@ -57,23 +86,23 @@ These apply regardless of which routing rule fires. They exist because the most 
 
 ### Features (Read `references/{name}.md`)
 
-| User wants to...                | Read file                             |
-| ------------------------------- | ------------------------------------- |
-| Configure Single Sign-On        | `references/workos-sso.md`            |
-| Set up Directory Sync           | `references/workos-directory-sync.md` |
-| Implement RBAC / roles          | `references/workos-rbac.md`           |
-| Encrypt data with Vault         | `references/workos-vault.md`          |
-| Handle WorkOS Events / webhooks | `references/workos-events.md`         |
-| Set up Audit Logs               | `references/workos-audit-logs.md`     |
-| Enable Admin Portal             | `references/workos-admin-portal.md`   |
-| Add Multi-Factor Auth           | `references/workos-mfa.md`            |
-| Configure email delivery        | `references/workos-email.md`          |
-| Set up Custom Domains           | `references/workos-custom-domains.md` |
-| Set up IdP integration          | `references/workos-integrations.md`   |
-| Implement FGA / fine-grained authz | `references/workos-fga.md`         |
-| Set up Pipes / Connected Apps   | `references/workos-pipes.md`          |
-| Configure Feature Flags         | `references/workos-feature-flags.md`  |
-| Set up Radar / fraud detection  | `references/workos-radar.md`          |
+| User wants to...                   | Read file                             |
+| ---------------------------------- | ------------------------------------- |
+| Configure Single Sign-On           | `references/workos-sso.md`            |
+| Set up Directory Sync              | `references/workos-directory-sync.md` |
+| Implement RBAC / roles             | `references/workos-rbac.md`           |
+| Encrypt data with Vault            | `references/workos-vault.md`          |
+| Handle WorkOS Events / webhooks    | `references/workos-events.md`         |
+| Set up Audit Logs                  | `references/workos-audit-logs.md`     |
+| Enable Admin Portal                | `references/workos-admin-portal.md`   |
+| Add Multi-Factor Auth              | `references/workos-mfa.md`            |
+| Configure email delivery           | `references/workos-email.md`          |
+| Set up Custom Domains              | `references/workos-custom-domains.md` |
+| Set up IdP integration             | `references/workos-integrations.md`   |
+| Implement FGA / fine-grained authz | `references/workos-fga.md`            |
+| Set up Pipes / Connected Apps      | `references/workos-pipes.md`          |
+| Configure Feature Flags            | `references/workos-feature-flags.md`  |
+| Set up Radar / fraud detection     | `references/workos-radar.md`          |
 
 ### API References (Read `references/{name}.md`)
 
@@ -101,9 +130,9 @@ Feature topic files above include endpoint tables for their respective APIs. Use
 
 ### Management & CLI Lifecycle (Read `references/{name}.md`)
 
-| User wants to...                         | Read file                          |
-| ---------------------------------------- | ---------------------------------- |
-| Manage WorkOS resources via CLI commands | `references/workos-management.md`  |
+| User wants to...                            | Read file                          |
+| ------------------------------------------- | ---------------------------------- |
+| Manage WorkOS resources via CLI commands    | `references/workos-management.md`  |
 | Upgrade the `workos` CLI to a newer version | `references/workos-cli-upgrade.md` |
 
 ## Routing Decision Tree
