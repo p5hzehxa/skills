@@ -27,6 +27,11 @@
           "type": "json",
           "path": ".cursor-plugin/marketplace.json",
           "jsonpath": "$.metadata.version"
+        },
+        {
+          "type": "json",
+          "path": "plugins/workos/.codex-plugin/plugin.json",
+          "jsonpath": "$.version"
         }
       ]
     }

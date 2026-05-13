@@ -1,6 +1,6 @@
 # @workos/skills
 
-Claude Code plugin providing WorkOS integration skills (AuthKit, SSO, Directory Sync, RBAC, FGA, etc.).
+Codex plugin providing WorkOS integration skills (AuthKit, SSO, Directory Sync, RBAC, FGA, etc.).
 
 ## Commands
 
@@ -27,11 +27,9 @@ pnpm eval:calibrate                            # compare scorer vs human labels
 
 ## Project Structure
 
-- `.claude-plugin/marketplace.json` — Claude Code marketplace catalog (source: `./plugins/workos`)
 - `.agents/plugins/marketplace.json` — Codex marketplace catalog (source: `./plugins/workos`)
 - `.cursor-plugin/marketplace.json` — Cursor marketplace catalog (mirrors Claude catalog)
 - `plugins/workos/` — installable plugin (only this gets cached)
-  - `.claude-plugin/plugin.json` — Claude Code plugin manifest
   - `.codex-plugin/plugin.json` — Codex plugin manifest
   - `.cursor-plugin/plugin.json` — Cursor plugin manifest (mirrors Claude manifest; versions synced by release-please)
   - `skills/` — skill directories, each with `SKILL.md`
@@ -46,7 +44,7 @@ pnpm eval:calibrate                            # compare scorer vs human labels
 - **Hand-crafted AuthKit skills are separate plugins** with their own `SKILL.md`. Do not modify them when working on topic files.
 - **Topic files are human-maintained.** Each contains doc URLs (source of truth), gotchas (non-obvious traps), and optional endpoint tables. No generation pipeline — edit directly.
 - **"Fetch docs first" is the core pattern.** Every topic file starts with doc URLs and the line "If this file conflicts with fetched docs, follow the docs."
-- **Gotchas encode what Claude gets wrong.** Add a bullet when you discover the LLM produces incorrect output for a topic. Sources: eval failures, support patterns, breaking changes.
+- **Gotchas encode what Codex gets wrong.** Add a bullet when you discover the LLM produces incorrect output for a topic. Sources: eval failures, support patterns, breaking changes.
 - **The router (`workos/SKILL.md`) handles discovery.** Topic files have no frontmatter — the router table maps user intent to file paths.
 
 ## Runtime
